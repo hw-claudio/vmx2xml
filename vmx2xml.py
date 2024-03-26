@@ -11,6 +11,8 @@ from typing import List, Tuple
 from os.path import join
 from collections import defaultdict
 
+debug: bool = True
+
 def usage() -> None:
     print("usage: vmx2xml.py FILENAME.vmx [PATH_STORAGE]\n"
           "\n"
@@ -65,7 +67,6 @@ def parse_genid(genid: int, genidx: int) -> str:
     # insert the - chars in the proper position
     assert(len(s) == 32)
     result: str = s[0:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:32]
-    print(f"[GENID] {result}")
     return result
 
 
@@ -200,13 +201,22 @@ def main(argc: int, argv: List[str]) -> int:
     vmx_file.close()
 
     name: str = d["displayname"]
+    if (debug and name):
+        print(f"[NAME] {name}")
     memory: int = d["memsize"]
+    if (debug and memory):
+        print(f"[MEMORY] {memory}")
+
     genid: str = parse_genid(int(d["vm.genid"] or 0), int(d["vm.genidx"] or 0))
+    if (debug and genid):
+        print(f"[GENID] {genid}")
 
     # SMBIOS.reflectHost = "TRUE"
     # SMBIOS.noOEMStrings = "TRUE"
     # smbios.addHostVendor = "TRUE"
     sysinfo: str = "host" if (parse_boolean(d["smbios.reflectHost"])) else ""
+    if (debug and sysinfo):
+        print(f"[SYSINFO] {sysinfo}")
 
     vcpus: int = int(d["numvcpus"] or 0)
     if (vcpus < 1):
@@ -220,6 +230,10 @@ def main(argc: int, argv: List[str]) -> int:
     threads: int = 1
     if (sockets < 1):
         sockets = 1
+    assert(vcpus == sockets * cores)
+    if (debug):
+        print(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}")
+
     cpu: str = "host" # most performant while still opening the door to migration
     iothreads: int = vcpus # XXX forgot the rule of thumb to set this
 
@@ -230,14 +244,23 @@ def main(argc: int, argv: List[str]) -> int:
         else:
             uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
+    if (debug and uefi):
+        print(f"[UEFI] {uefi}")
+
     # ignore for now
     # guestos: str = parse_guestos(d["guestos"])
 
     svga: bool = parse_boolean(d["svga.present"])
     svga_memory: int = int(d["svgaram.vramSize"] or 0) // 1024
     vga: bool = parse_boolean(d["svga.vgaonly"])
+    if (debug and vga):
+        print(f"[VGA]")
+    elif (debug and svga):
+        print(f"[SVGA] {svga_memory}")
 
     sound: str = find_sound(d)
+    if (debug and sound):
+        print(f"[SOUND] {sound}")
 
     nvram: str = parse_filename(d["nvram"], search_paths)
 
@@ -255,8 +278,11 @@ def main(argc: int, argv: List[str]) -> int:
     floppy0: str = parse_filename(d["floppy0.filename"], search_paths)
     floppy1: str = parse_filename(d["floppy1.filename"], search_paths)
 
+    if (debug):
+        print(disk_ctrls)
+        print(disks)
+        print(floppy0)
     # eths: list = find_eths(d, "ethernet")
-    # print(eths)
     # virt_install(domainname, memory)
     return 0
 
