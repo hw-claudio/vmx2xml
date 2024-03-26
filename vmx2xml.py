@@ -7,6 +7,7 @@
 import configparser
 import sys
 import os
+from typing import List, Tuple
 from os.path import join
 from collections import defaultdict
 
@@ -72,8 +73,8 @@ def parse_vmx(f, d: defaultdict):
 
 
 
-def find_disks(d: defaultdict, search_paths: tuple, interface: str):
-    pathnames: list = []
+def find_disks(d: defaultdict, search_paths: List[str], interface: str):
+    pathnames: List[str] = []
     for x in range(10):
         for y in range(10):
             if not (parse_boolean(d[f"{interface}{x}:{y}.present"])):
@@ -94,11 +95,11 @@ def find_disks(d: defaultdict, search_paths: tuple, interface: str):
     return pathnames
 
 
-def main(argc: int, argv: list) -> int:
+def main(argc: int, argv: List[str]) -> int:
     if (argc < 2 or argc > 3):
         usage()
     vmx_name: str = argv[1]
-    search_paths: list = [ os.path.dirname(vmx_name), "." ]
+    search_paths: List[str] = [ os.path.dirname(vmx_name), "." ]
     if (argc > 2):
         search_paths.append(argv[2])
 
@@ -119,10 +120,10 @@ def main(argc: int, argv: list) -> int:
     nvram = d["nvram"]
     hpet = d["hpet0"]
 
-    scsi: list = find_disks(d, search_paths, "scsi")
-    nvme: list = find_disks(d, search_paths, "nvme")
-    sata: list = find_disks(d, search_paths, "sata")
-    ide: list = find_disks(d, search_paths, "ide")
+    scsi: List[str] = find_disks(d, search_paths, "scsi")
+    nvme: List[str] = find_disks(d, search_paths, "nvme")
+    sata: List[str] = find_disks(d, search_paths, "sata")
+    ide: List[str] = find_disks(d, search_paths, "ide")
 
     return 0
 
