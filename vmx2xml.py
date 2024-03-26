@@ -43,7 +43,7 @@ def parse_filename(s: str, search_paths: List[str]) -> str:
         return s
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
-    print(f"disk {basename} => ", end="")
+    print(f"[DISK] {basename} => ", end="")
 
     pathname: str = find_file_ref(basename, search_paths[0], False)
     if (pathname == ""):
@@ -61,11 +61,11 @@ def parse_genid(genid: int, genidx: int) -> str:
     # e9392370-2917-565e-692b-d057f46512d6
     if (genid == 0 and genidx == 0):
         return ""
-    s: str = f"{genidx:16x}{genid:16x}"
+    s: str = f"{genidx:016x}{genid:016x}"
     # insert the - chars in the proper position
-    assert(len(s) == 33)
+    assert(len(s) == 32)
     result: str = s[0:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:32]
-    print(f"genid={result}")
+    print(f"[GENID] {result}")
     return result
 
 
@@ -201,15 +201,19 @@ def main(argc: int, argv: List[str]) -> int:
 
     name: str = d["displayname"]
     memory: int = d["memsize"]
-    genid: str = parse_genid(d["vm.genid"], d["vm.genidx"])
+    genid: str = parse_genid(int(d["vm.genid"] or 0), int(d["vm.genidx"] or 0))
 
     # SMBIOS.reflectHost = "TRUE"
     # SMBIOS.noOEMStrings = "TRUE"
     # smbios.addHostVendor = "TRUE"
     sysinfo: str = "host" if (parse_boolean(d["smbios.reflectHost"])) else ""
 
-    vcpus: int = d["numvcpus"] if (d["numvcpus"] > 0) else 1
-    corespersocket: int = d["cpuid.corespersocket"] if (d["cpuid.corespersocket"] > 0) else 1
+    vcpus: int = int(d["numvcpus"] or 0)
+    if (vcpus < 1):
+        vcpus = 1
+    corespersocket: int = int(d["cpuid.corespersocket"] or 0)
+    if (corespersocket < 1):
+        corespersocket = 1
 
     sockets: int = vcpus // corespersocket
     cores: int = corespersocket
@@ -230,7 +234,7 @@ def main(argc: int, argv: List[str]) -> int:
     # guestos: str = parse_guestos(d["guestos"])
 
     svga: bool = parse_boolean(d["svga.present"])
-    svga_memory: int = d["svgaram.vramSize"] / 1024
+    svga_memory: int = int(d["svgaram.vramSize"] or 0) // 1024
     vga: bool = parse_boolean(d["svga.vgaonly"])
 
     sound: str = find_sound(d)
