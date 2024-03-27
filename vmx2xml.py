@@ -3,6 +3,7 @@
 # Copyright (c) 2024 SUSE LLC
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
+# Currently requires virt-install 4.1.0
 
 import configparser
 import sys
@@ -19,7 +20,9 @@ def usage() -> None:
     print("usage: vmx2xml.py FILENAME.vmx [PATH_STORAGE]\n"
           "\n"
           "Convert a VMX Virtual Machine definition into a libvirt XML domain file,\n"
-          "replacing all references to .vmdk to .qcow2, converting them with qemu-img\n"
+          "replacing all references to .vmdk to .qcow2\n"
+          "\n"
+          "XXX Possibly in the future converting VMDK to QCOW2, or it could be a separate script XXX\n"
           "\n"
           "PATH_STORAGE, if provided, is an additional path to search for referenced files.\n"
           "\n"
@@ -27,7 +30,6 @@ def usage() -> None:
           "by default this command scans for referenced files in the same directory as\n"
           "FILENAME.vmx, then tries the current directory, then tries PATH_STORAGE and\n"
           "its subdirectories recursively if provided.\n\n"
-          "This command requires qemu-img to be installed as well as virt-install\n\n"
     )
     sys.exit(1)
 
@@ -203,18 +205,18 @@ def virt_install(xml_name: str, vmx_name: str,
                  disks: list,
                  floppys: dict) -> None:
     args: list = []
-    # virt-install outputs the xml on stdout when called with print-xml
+    ### GENERAL SECTION - General Options for selecting the main functionality ###
     args.append("virt-install")
     args.append("--print-xml")
     args.append("--dry-run")
     args.append("--noautoconsole")
     args.extend(["--virt-type", "kvm"])
 
-    # XXX some options we currently disable but might be revisited in the future
+    ### DISABLED SECTION - Currently disabled, might be enabled in the future ###
     args.extend(["--osinfo", "detect=on,require=off"])
     args.extend(["--controller", "type=usb,model=none"])
-    args.extend(["--disk", "none"])
 
+    ### MAIN VM INFO SECTION - Fundamental VM Options are set here ###
     if (name):
         args.extend(["--name", name])
     assert(memory > 0)
@@ -226,18 +228,17 @@ def virt_install(xml_name: str, vmx_name: str,
     assert(iothreads > 0)
     args.extend(["--iothreads", f"{iothreads}"])
 
-    # firmware stuff
+    ### FIRMWARE and BOOT SECTION - BIOS, UEFI, etc ###
     if (uefi):
         args.extend(["--boot", f"{uefi}"])
     if (nvram):
         args.extend(["--boot", f"nvram={nvram}"])
-
     if (genid):
         args.extend(["--metadata", f"genid={genid}"])
     if (sysinfo):
         args.extend(["--sysinfo", sysinfo])
 
-    # I see too many security issues in spice.
+    ### MULTIMEDIA SECTION - display, graphics, sound ###
     args.extend(["--graphics", "vnc"])
 
     # we fully trusted the parsing we could consider video "none", instead we default to cirrus
@@ -256,6 +257,22 @@ def virt_install(xml_name: str, vmx_name: str,
     if (sound):
         args.extend(["--sound", f"model={sound}"])
 
+    ### DISKS AND CONTROLLERS SECTION ###
+    ### XXX currently dies with interface "nvme", what to do about nvme0, nvme1...? ###
+
+    for interface in disk_ctrls:
+        #dict = { "scsi": { ... }, "sata": { ... }, "nvme": { ... }, "ide": { ...} }
+        ctrls: dict = disk_ctrls[interface]
+        for ctrl in ctrls:
+            index: int = int(ctrl["x"])
+            s: str = f"type={interface},index={index}"
+            model: str = ctrl["model"]
+            if (model):
+                s += f",model={model},queues={vcpus}"
+            args.extend(["--controller", s])
+
+
+    ### WRITE THE RESULTING DOMAIN XML ###
     xml_file = open(xml_name, 'w', encoding="utf-8")
     try:
         subprocess.run(args, stdout=xml_file, check=True, encoding='utf-8')
@@ -316,8 +333,8 @@ def main(argc: int, argv: List[str]) -> int:
     cpu_model: str = "host" # most performant while still opening the door to migration
     iothreads: int = vcpus # XXX forgot the rule of thumb to set this
 
+    uefi: str = ""
     if (d["firmware"] == "efi"):
-        uefi: str = "uefi"
         if (parse_boolean(d["uefi.secureBoot.enabled"])):
             uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes"
         else:
@@ -363,9 +380,9 @@ def main(argc: int, argv: List[str]) -> int:
         print(disks)
         print(floppys)
 
-    # eths: list = find_eths(d, "ethernet")
+    eths: list = find_eths(d, "ethernet")
 
-    # XXX missing: qemu-img conversion?
+    # XXX missing: qemu-img conversion, should we do it here?
 
     # run virt-install to generate the xml
     (xml_name, n) = re.subn("\.vmx$", ".xml", vmx_name, count=1, flags=re.IGNORECASE)
