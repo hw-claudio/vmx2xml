@@ -211,7 +211,9 @@ def virt_install(xml_name: str, vmx_name: str,
     args.extend(["--virt-type", "kvm"])
 
     # XXX some options we currently disable but might be revisited in the future
+    args.extend(["--osinfo", "detect=on,require=off"])
     args.extend(["--controller", "type=usb,model=none"])
+    args.extend(["--disk", "none"])
 
     if (name):
         args.extend(["--name", name])
@@ -254,7 +256,7 @@ def virt_install(xml_name: str, vmx_name: str,
     if (sound):
         args.extend(["--sound", f"model={sound}"])
 
-    xml_file = open(vmx_name, 'r', encoding="utf-8")
+    xml_file = open(xml_name, 'w', encoding="utf-8")
     try:
         subprocess.run(args, stdout=xml_file, check=True, encoding='utf-8')
     except:
