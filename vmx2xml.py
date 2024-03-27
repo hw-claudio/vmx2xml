@@ -8,6 +8,7 @@ import configparser
 import sys
 import os
 import re
+import subprocess
 from typing import List, Tuple
 from os.path import join
 from collections import defaultdict
@@ -201,7 +202,66 @@ def virt_install(xml_name: str, vmx_name: str,
                  disk_ctrls: dict,
                  disks: list,
                  floppys: dict) -> None:
-    return
+    args: list = []
+    # virt-install outputs the xml on stdout when called with print-xml
+    args.append("virt-install")
+    args.append("--print-xml")
+    args.append("--dry-run")
+    args.append("--noautoconsole")
+    args.extend(["--virt-type", "kvm"])
+
+    # XXX some options we currently disable but might be revisited in the future
+    args.extend(["--controller", "type=usb,model=none"])
+
+    if (name):
+        args.extend(["--name", name])
+    assert(memory > 0)
+    args.extend(["--memory", f"{memory}"])
+    assert(cpu_model)
+    args.extend(["--cpu", cpu_model])
+    assert(vcpus > 0 and sockets > 0 and cores > 0 and threads > 0)
+    args.extend(["--vcpus", f"{vcpus},sockets={sockets},cores={cores},threads={threads}"])
+    assert(iothreads > 0)
+    args.extend(["--iothreads", f"{iothreads}"])
+
+    # firmware stuff
+    if (uefi):
+        args.extend(["--boot", f"{uefi}"])
+    if (nvram):
+        args.extend(["--boot", f"nvram={nvram}"])
+
+    if (genid):
+        args.extend(["--metadata", f"genid={genid}"])
+    if (sysinfo):
+        args.extend(["--sysinfo", sysinfo])
+
+    # I see too many security issues in spice.
+    args.extend(["--graphics", "vnc"])
+
+    # we fully trusted the parsing we could consider video "none", instead we default to cirrus
+    args.append("--video")
+
+    if (vga):
+        args.append("model.type=vga")
+    elif (svga):
+        video: str = "model.type=vmvga"
+        if (svga_memory > 0):
+            video += f",model.vram={svga_memory}"
+        args.append(video)
+    else:
+        args.append("model.type=cirrus")
+
+    if (sound):
+        args.extend(["--sound", f"model={sound}"])
+
+    xml_file = open(vmx_name, 'r', encoding="utf-8")
+    try:
+        subprocess.run(args, stdout=xml_file, check=True, encoding='utf-8')
+    except:
+        print(" ".join(args))
+        sys.exit(1)
+
+    xml_file.close()
 
 
 def main(argc: int, argv: List[str]) -> int:
@@ -220,7 +280,7 @@ def main(argc: int, argv: List[str]) -> int:
     name: str = d["displayname"]
     if (debug and name):
         print(f"[NAME] {name}")
-    memory: int = int(d["memsize"] or 0)
+    memory: int = int(d["memsize"] or 1024)
     if (debug and memory):
         print(f"[MEMORY] {memory}")
 
