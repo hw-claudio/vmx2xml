@@ -7,6 +7,7 @@
 import configparser
 import sys
 import os
+import re
 from typing import List, Tuple
 from os.path import join
 from collections import defaultdict
@@ -125,7 +126,7 @@ def find_scsi_controller_model(d: defaultdict, x: int, interface: str) -> str:
 
 def find_disk_controllers(d: defaultdict, interface: str) -> dict:
     controllers: defaultdict = defaultdict(str)
-    for x in range(4): # max is from "How Storage Controller Technology Works" VSphere7 docs
+    for x in range(4):               # from "How Storage Controller Technology Works" VSphere7 docs
         if not (parse_boolean(d[f"{interface}{x}.present"])):
             continue
         model: str = ""
@@ -187,6 +188,22 @@ def find_eths(d: defaultdict, interface: str) -> list:
     return eths
 
 
+def virt_install(xml_name: str, vmx_name: str,
+                 name: str, memory: int,
+                 cpu_model: str,
+                 vcpus: int, sockets: int, cores: int, threads: int,
+                 iothreads: int,
+                 genid: str, sysinfo: str,
+                 uefi: str,
+                 svga: bool, svga_memory: int, vga: bool,
+                 sound: str,
+                 nvram: str,
+                 disk_ctrls: dict,
+                 disks: list,
+                 floppys: dict) -> None:
+    return
+
+
 def main(argc: int, argv: List[str]) -> int:
     if (argc < 2 or argc > 3):
         usage()
@@ -203,7 +220,7 @@ def main(argc: int, argv: List[str]) -> int:
     name: str = d["displayname"]
     if (debug and name):
         print(f"[NAME] {name}")
-    memory: int = d["memsize"]
+    memory: int = int(d["memsize"] or 0)
     if (debug and memory):
         print(f"[MEMORY] {memory}")
 
@@ -234,7 +251,7 @@ def main(argc: int, argv: List[str]) -> int:
     if (debug):
         print(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}")
 
-    cpu: str = "host" # most performant while still opening the door to migration
+    cpu_model: str = "host" # most performant while still opening the door to migration
     iothreads: int = vcpus # XXX forgot the rule of thumb to set this
 
     if (d["firmware"] == "efi"):
@@ -275,15 +292,37 @@ def main(argc: int, argv: List[str]) -> int:
 
     # XXX how do I assign disks to a specific controller in virt-install?
 
-    floppy0: str = parse_filename(d["floppy0.filename"], search_paths)
-    floppy1: str = parse_filename(d["floppy1.filename"], search_paths)
+    floppys: dict = { 0: "", 1: "" }
+    for i in range(2):
+        floppys[i] = parse_filename(d[f"floppy{i}.filename"], search_paths)
 
     if (debug):
         print(disk_ctrls)
         print(disks)
-        print(floppy0)
+        print(floppys)
+
     # eths: list = find_eths(d, "ethernet")
-    # virt_install(domainname, memory)
+
+    # XXX missing: qemu-img conversion?
+
+    # run virt-install to generate the xml
+    (xml_name, n) = re.subn("\.vmx$", ".xml", vmx_name, count=1, flags=re.IGNORECASE)
+    if (n == 0):
+        xml_name = vmx_name + ".xml"
+
+    virt_install(xml_name, vmx_name,
+                 name, memory,
+                 cpu_model,
+                 vcpus, sockets, cores, threads,
+                 iothreads,
+                 genid, sysinfo,
+                 uefi,
+                 svga, svga_memory, vga,
+                 sound,
+                 nvram,
+                 disk_ctrls,
+                 disks,
+                 floppys)
     return 0
 
 
