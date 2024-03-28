@@ -152,11 +152,13 @@ def find_disk_controllers(d: defaultdict, interface: str) -> dict:
 def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: dict) -> list:
     disks: list = []
     for x in range(4):
-        if (x not in controllers):
+        if (x not in controllers) and (interface != "ide"):  # IDE does not show explicit controllers entries
             continue
         for y in range(30):           # max is from SATA ("How Storage Controller Technology Works" VSphere7)
             if not (parse_boolean(d[f"{interface}{x}:{y}.present"])):
                 continue
+            if (interface == "ide"):  # insert IDE Controller
+                controllers[x] = { "x": x, "model": "" }
             disk: defaultdict = defaultdict(str, {
                 "bus": interface, "x": x, "y": y,
                 "device": "disk",
