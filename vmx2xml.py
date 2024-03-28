@@ -3,18 +3,17 @@
 # Copyright (c) 2024 SUSE LLC
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
-# Currently requires virt-install 4.1.0
+# Currently requires virt-install 2.2 and recommends 4.0
 
 import configparser
 import sys
 import os
 import re
 import subprocess
-from typing import List, Tuple
 from os.path import join
 from collections import defaultdict
 
-debug: bool = True
+debug: bool = False
 
 def usage() -> None:
     print("usage: vmx2xml.py FILENAME.vmx [PATH_STORAGE]\n"
@@ -42,7 +41,7 @@ def parse_boolean(s: str) -> bool:
         return False
 
 
-def parse_filename(s: str, search_paths: List[str]) -> str:
+def parse_filename(s: str, search_paths: list) -> str:
     if (s == ""):
         return s
     if (s.startswith("/dev/")):
@@ -135,11 +134,11 @@ def find_disk_controllers(d: defaultdict, interface: str) -> dict:
         model: str = ""
         if (interface == "scsi"):    # Only SCSI seems to have virtualdev
             model = find_scsi_controller_model(d, x, interface)
-        controllers[x] = { "model": model }
+        controllers[x] = { "x": x, "model": model }
     return controllers
 
 
-def find_disks(d: defaultdict, search_paths: List[str], interface: str, controllers: dict) -> List[str]:
+def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: dict) -> list:
     disks: list = []
     for x in range(4):
         if (x not in controllers):
@@ -149,6 +148,7 @@ def find_disks(d: defaultdict, search_paths: List[str], interface: str, controll
                 continue
             disk: defaultdict = defaultdict(str, {
                 "bus": interface, "x": x, "y": y,
+                "device": "disk",
                 "cache": "none", "path" : ""
             })
             # XXX we never use the actual libvirt/qemu default, writeback?
@@ -156,6 +156,9 @@ def find_disks(d: defaultdict, search_paths: List[str], interface: str, controll
                 disk["cache"] = "writethrough"
 
             disk["path"] = parse_filename(d[f"{interface}{x}:{y}.filename"], search_paths)
+            t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
+            if ("cdrom" in t):
+                disk["device"] = "cdrom"
             disks.append(disk)
     return disks
 
@@ -191,7 +194,7 @@ def find_eths(d: defaultdict, interface: str) -> list:
     return eths
 
 
-def virt_install(xml_name: str, vmx_name: str,
+def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu_model: str,
                  vcpus: int, sockets: int, cores: int, threads: int,
@@ -212,9 +215,19 @@ def virt_install(xml_name: str, vmx_name: str,
     args.append("--noautoconsole")
     args.extend(["--virt-type", "kvm"])
 
+    # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
+    # and especially unfriendly with our import use case.
+    # To avoid this there is an environment variable to set, VIRTINSTALL_OSINFO_DISABLE_REQUIRE=1
+    # but it emits a warning. Disable the check explicitly via cmdline option instead.
+    # sub_env = os.environ.copy()
+    # sub_env["VIRTINSTALL_OSINFO_DISABLE_REQUIRE"] = "1"
+    if (vinst_version >= 4.0):
+        args.extend(["--osinfo", "detect=on,require=off"])
+
     ### DISABLED SECTION - Currently disabled, might be enabled in the future ###
-    args.extend(["--osinfo", "detect=on,require=off"])
     args.extend(["--controller", "type=usb,model=none"])
+    # ignore HPET for now
+    # hpet: str = d["hpet0"]
 
     ### MAIN VM INFO SECTION - Fundamental VM Options are set here ###
     if (name):
@@ -261,15 +274,38 @@ def virt_install(xml_name: str, vmx_name: str,
     ### XXX currently dies with interface "nvme", what to do about nvme0, nvme1...? ###
 
     for interface in disk_ctrls:
-        #dict = { "scsi": { ... }, "sata": { ... }, "nvme": { ... }, "ide": { ...} }
         ctrls: dict = disk_ctrls[interface]
-        for ctrl in ctrls:
-            index: int = int(ctrl["x"])
+        for index in ctrls:
+            ctrl = ctrls[index]
             s: str = f"type={interface},index={index}"
             model: str = ctrl["model"]
             if (model):
-                s += f",model={model},queues={vcpus}"
+                s += f",model={model}"
+                if (vinst_version >= 4.0):
+                    s += f",queues={vcpus}"
             args.extend(["--controller", s])
+
+    if not disks:
+        args.extend(["--disk", "none"])
+
+    for disk in disks:
+        #disk: defaultdict = defaultdict(str, {
+        #    "bus": interface, "x": x, "y": y,
+        #    "cache": "none", "path" : ""
+        #})
+        x: int = disk["x"]
+        y: int = disk["y"]
+        device: str = disk["device"]
+        path: str = disk["path"]
+        bus: str = disk["bus"]
+        cache: str = disk["cache"]
+        # XXX for /dev/ we might have to use the source.dev attribute instead of source.file XXX #
+
+        s: str = f"type=file,device={device},source_file={path},target.bus={bus},driver.cache={cache}"
+
+        # based on googling around, vmx scsix:y should have x->controller=bus y->target, no unit
+        s += f",address.type=drive,address.controller={x},address.bus={x},address.target={y}"
+        args.extend(["--disk", s])
 
 
     ### WRITE THE RESULTING DOMAIN XML ###
@@ -283,11 +319,31 @@ def virt_install(xml_name: str, vmx_name: str,
     xml_file.close()
 
 
-def main(argc: int, argv: List[str]) -> int:
+# detect virt-install version only considering major.minor
+def detect_vinst_version() -> float:
+    s: str = ""
+    args: list = [ "virt-install", "--version" ]
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    (s, _) = p.communicate()
+    m = re.match(r"^(\d+\.\d+)", s)
+    if not (m):
+        print(f"failed to detect virt-install version: {s}")
+        sys.exit(1)
+    v: float = float(m.group(1)) or 0
+    if (v < 2.2):
+        print("virt-install version >= 2.2.0 is required for this command to work")
+    if (v < 4.0):
+        print("virt-install version >= 4.0.0 is recommended for best results")
+    print(f"virt-install: detected version {v}")
+    return v
+
+
+def main(argc: int, argv: list) -> int:
+    vinst_version : float = detect_vinst_version()
     if (argc < 2 or argc > 3):
         usage()
     vmx_name: str = argv[1]
-    search_paths: List[str] = [ os.path.dirname(vmx_name), "." ]
+    search_paths: list = [ os.path.dirname(vmx_name), "." ]
     if (argc > 2):
         search_paths.append(argv[2])
 
@@ -335,10 +391,12 @@ def main(argc: int, argv: List[str]) -> int:
 
     uefi: str = ""
     if (d["firmware"] == "efi"):
-        if (parse_boolean(d["uefi.secureBoot.enabled"])):
-            uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes"
-        else:
-            uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
+        uefi = "uefi"
+        if (vinst_version >= 4.0):
+            if (parse_boolean(d["uefi.secureBoot.enabled"])):
+                uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes"
+            else:
+                uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
     if (debug and uefi):
         print(f"[UEFI] {uefi}")
@@ -360,16 +418,11 @@ def main(argc: int, argv: List[str]) -> int:
 
     nvram: str = parse_filename(d["nvram"], search_paths)
 
-    # ignore for now
-    # hpet: str = d["hpet0"]
-
     disk_ctrls: dict = { "scsi": {}, "sata": {}, "nvme": {}, "ide": {} }
     disks: list = []
     for interface in disk_ctrls:
         disk_ctrls[interface] = find_disk_controllers(d, interface)
-        disks += find_disks(d, search_paths, interface, disk_ctrls[interface])
-
-    # XXX how do I assign disks to a specific controller in virt-install?
+        disks.extend(find_disks(d, search_paths, interface, disk_ctrls[interface]))
 
     floppys: dict = { 0: "", 1: "" }
     for i in range(2):
@@ -382,14 +435,13 @@ def main(argc: int, argv: List[str]) -> int:
 
     eths: list = find_eths(d, "ethernet")
 
-    # XXX missing: qemu-img conversion, should we do it here?
-
     # run virt-install to generate the xml
     (xml_name, n) = re.subn("\.vmx$", ".xml", vmx_name, count=1, flags=re.IGNORECASE)
     if (n == 0):
         xml_name = vmx_name + ".xml"
 
-    virt_install(xml_name, vmx_name,
+    print(f"disk_ctrls={disk_ctrls}")
+    virt_install(vinst_version, xml_name, vmx_name,
                  name, memory,
                  cpu_model,
                  vcpus, sockets, cores, threads,
