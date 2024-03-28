@@ -299,9 +299,18 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         path: str = disk["path"]
         bus: str = disk["bus"]
         cache: str = disk["cache"]
-        # XXX for /dev/ we might have to use the source.dev attribute instead of source.file XXX #
+        driver: str = "file"
 
-        s: str = f"type=file,device={device},source_file={path},target.bus={bus},driver.cache={cache}"
+        if (path.startswith("/dev/")):
+            driver = "block"
+            try:
+                open(path, 'w').close()
+            except:
+                print(f"VM references path={path}, which does not exist, and requires permissions to create.")
+                print(f"Consider creating a bogus ${path} on the local filesystem as workaround.")
+                exit(1)
+
+        s: str = f"driver.type={driver},device={device},path={path},target.bus={bus},driver.cache={cache}"
 
         # based on googling around, vmx scsix:y should have x->controller=bus y->target, no unit
         s += f",address.type=drive,address.controller={x},address.bus={x},address.target={y}"
