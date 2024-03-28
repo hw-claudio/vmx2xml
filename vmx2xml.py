@@ -313,9 +313,12 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
-        s: str = f"driver.type={driver},device={device},path={path},target.bus={bus},driver.cache={cache}"
 
-        # based on googling around, vmx scsix:y should have x->controller=bus y->target, no unit
+        s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
+        if (vinst_version >= 3.0):
+            s += f",type={driver}"
+
+        # currently we map vmx scsix:y as such: x->controller=bus y->target, no unit (0)
         s += f",address.type=drive,address.controller={x},address.bus={x},address.target={y}"
         args.extend(["--disk", s])
 
