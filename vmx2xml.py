@@ -45,7 +45,18 @@ def parse_filename(s: str, search_paths: list) -> str:
     if (s == ""):
         return s
     if (s.startswith("/dev/")):
+        print(f"[DISK] {s}")
+        if not (os.path.exists(s)):
+            try:
+                open(s, 'w').close()
+            except:
+                print(f"VM references a block device which does not exist on this host")
+                print(f"and requires privileges to create.")
+                print(f"Consider manually creating a bogus file as a workaround.")
+                print(f"At runtime the VM will require a host with a valid device to run!")
+                exit(1)
         return s
+
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
     print(f"[DISK] {basename} => ", end="")
@@ -156,6 +167,8 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
                 disk["cache"] = "writethrough"
 
             disk["path"] = parse_filename(d[f"{interface}{x}:{y}.filename"], search_paths)
+            disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
+
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             if ("cdrom" in t):
                 disk["device"] = "cdrom"
@@ -299,17 +312,7 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         path: str = disk["path"]
         bus: str = disk["bus"]
         cache: str = disk["cache"]
-        driver: str = "file"
-
-        if (path.startswith("/dev/")):
-            driver = "block"
-            try:
-                open(path, 'w').close()
-            except:
-                print(f"VM references path={path}, which does not exist, and requires permissions to create.")
-                print(f"Consider creating a bogus ${path} on the local filesystem as workaround.")
-                exit(1)
-
+        driver: str = disk["driver"]
         s: str = f"driver.type={driver},device={device},path={path},target.bus={bus},driver.cache={cache}"
 
         # based on googling around, vmx scsix:y should have x->controller=bus y->target, no unit
