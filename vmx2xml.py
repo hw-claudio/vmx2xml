@@ -379,7 +379,7 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         cache: str = disk["cache"]
         driver: str = disk["driver"]
 
-        if (disk["os"].name == "linux"):
+        if (disk["os"]["name"] == "linux"):
             bus = "virtio"
 
         s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
