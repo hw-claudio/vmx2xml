@@ -303,8 +303,10 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
     ### FIRMWARE and BOOT SECTION - BIOS, UEFI, etc ###
     if (uefi):
         args.extend(["--boot", f"{uefi}"])
-    if (nvram):
-        args.extend(["--boot", f"nvram={nvram}"])
+
+    ### XXX not safe, removed to avoid destroying nvram XXX
+    #if (nvram):
+    #    args.extend(["--boot", f"nvram={nvram}"])
     if (genid):
         args.extend(["--metadata", f"genid={genid}"])
     if (sysinfo):
@@ -479,7 +481,7 @@ def main(argc: int, argv: list) -> int:
     if (d["firmware"] == "efi"):
         uefi = "uefi"
         if (vinst_version >= 4.0):
-            if (parse_boolean(d["uefi.secureBoot.enabled"])):
+            if (parse_boolean(d["uefi.secureboot.enabled"])):
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes"
             else:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
@@ -527,7 +529,9 @@ def main(argc: int, argv: list) -> int:
     if (n == 0):
         xml_name = vmx_name + ".xml"
 
-    print(f"disk_ctrls={disk_ctrls}")
+    if (debug):
+        print(args)
+
     virt_install(vinst_version, xml_name, vmx_name,
                  name, memory,
                  cpu_model,
