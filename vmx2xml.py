@@ -4,6 +4,7 @@
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
 # Currently requires virt-install 2.2 and recommends 4.0
+# also requires virt-inspector (libguestfs), including libguestfs-winsupport
 
 import configparser
 import sys
@@ -14,6 +15,23 @@ from os.path import join
 from collections import defaultdict
 
 debug: bool = False
+
+def virt_inspector(path: str) -> str:
+    args: list = []
+    args.append("virt-inspector")
+    args.extend(["--no-icon", "--no-applications", "--echo-keys"])
+    args.append(path)
+
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    (s, _) = p.communicate()
+    print(s)
+    #m = re.match(r"^(\d+\.\d+)", s)
+    #if not (m):
+    #    print(f"failed to detect virt-install version: {s}")
+    #    sys.exit(1)
+    #v: float = float(m.group(1)) or 0
+    sys.exit(0)
+
 
 # translate string using a passed dictionary
 def translate(dictionary: defaultdict, s: str) -> str:
@@ -165,7 +183,8 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
             disk: defaultdict = defaultdict(str, {
                 "bus": interface, "x": x, "y": y,
                 "device": "disk",
-                "cache": "none", "path" : ""
+                "cache": "none", "path" : "",
+                "osinfo": "",
             })
             # XXX we never use the actual libvirt/qemu default, writeback?
             if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])):
@@ -173,6 +192,8 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
 
             disk["path"] = parse_filename(d[f"{interface}{x}:{y}.filename"], search_paths)
             disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
+            if (disk["path"]):
+                disk["osinfo"] = virt_inspector(disk)
 
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             if ("cdrom" in t):
@@ -281,7 +302,7 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
     # sub_env = os.environ.copy()
     # sub_env["VIRTINSTALL_OSINFO_DISABLE_REQUIRE"] = "1"
     if (vinst_version >= 4.0):
-        args.extend(["--osinfo", "detect=on,require=off"])
+        args.extend(["--os-variant", "detect=on,require=off"])
 
     ### DISABLED SECTION - Currently disabled, might be enabled in the future ###
     args.extend(["--controller", "type=usb,model=none"])
@@ -532,18 +553,18 @@ def main(argc: int, argv: list) -> int:
     if (debug):
         print(args)
 
-    virt_install(vinst_version, xml_name, vmx_name,
-                 name, memory,
-                 cpu_model,
-                 vcpus, sockets, cores, threads,
-                 iothreads,
-                 genid, sysinfo,
-                 uefi,
-                 svga, svga_memory, vga,
-                 sound,
-                 nvram,
-                 disk_ctrls, disks, floppys,
-                 eths)
+    # virt_install(vinst_version, xml_name, vmx_name,
+    #              name, memory,
+    #              cpu_model,
+    #              vcpus, sockets, cores, threads,
+    #              iothreads,
+    #              genid, sysinfo,
+    #              uefi,
+    #              svga, svga_memory, vga,
+    #              sound,
+    #              nvram,
+    #              disk_ctrls, disks, floppys,
+    #              eths)
     return 0
 
 
