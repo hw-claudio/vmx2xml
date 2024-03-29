@@ -15,6 +15,13 @@ from collections import defaultdict
 
 debug: bool = False
 
+# translate string using a passed dictionary
+def translate(dictionary: defaultdict, s: str) -> str:
+    if (s not in dictionary):
+        return ""
+    return dictionary[s]
+
+
 def usage() -> None:
     print("usage: vmx2xml.py FILENAME.vmx [PATH_STORAGE]\n"
           "\n"
@@ -122,19 +129,15 @@ def parse_vmx(f, d: defaultdict) -> None:
         d[name] = value
 
 
-def find_scsi_controller_model(d: defaultdict, x: int, interface: str) -> str:
-    model: str = d[f"{interface}{x}.virtualdev"]
-    if (model != ""):
-        translator: defaultdict = defaultdict(str, {
-            "auto":       "auto",
-            "lsilogic":   "lsilogic",
-            "lsisas1068": "lsisas1068",
-            "pvscsi":     "vmpvscsi"
-        })
-        model = translator[model]
-        if (model != ""):
-            return model
-    return "buslogic"
+def translate_scsi_controller_model(model: str) -> str:
+    translator: defaultdict = defaultdict(str, {
+        "":           "buslogic",
+        "auto":       "auto",
+        "lsilogic":   "lsilogic",
+        "lsisas1068": "lsisas1068",
+        "pvscsi":     "vmpvscsi"
+    })
+    return translate(translator, model)
 
 
 def find_disk_controllers(d: defaultdict, interface: str) -> dict:
@@ -144,7 +147,7 @@ def find_disk_controllers(d: defaultdict, interface: str) -> dict:
             continue
         model: str = ""
         if (interface == "scsi"):    # Only SCSI seems to have virtualdev
-            model = find_scsi_controller_model(d, x, interface)
+            model = translate_scsi_controller_model(d[f"{interface}{x}.virtualdev"])
         controllers[x] = { "x": x, "model": model }
     return controllers
 
@@ -180,6 +183,7 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
 
 def find_sound(d: defaultdict) -> str:
     translator: defaultdict = defaultdict(str, {
+        "": "default",
         "es1371":  "es1370",
         "hdaudio": "hda",
         "sb16":    "sb16",
@@ -188,7 +192,43 @@ def find_sound(d: defaultdict) -> str:
         return ""
     if (parse_boolean(d["sound.autodetect"])):
         return "default"
-    return translator[d["sound.virtualdev"]]
+    return translate(translator, d["sound.virtualdev"])
+
+
+def translate_eth_model(model: str) -> str:
+    translator: defaultdict = defaultdict(str, {
+        "": "",            # default empty?
+        "vlance": "pcnet", # for old 32bit OSes (win98)
+        "e1000": "e1000",  # winxp, linux-2.4.19
+        "e1000e": "e1000e",  # windows 8, server 2012
+        "vmxnet": "vmxnet3", # XXX needs vmware tools? XXX
+        "vmxnet2": "vmxnet3",
+        "vmxnet3": "vmxnet3"
+    })
+    return translate(translator, model)
+
+
+def translate_eth_type(eth_type: str) -> str:
+    translator: defaultdict = defaultdict(str, {
+        "": "",
+        "bridged": "bridge=br0",
+        "vmnet0": "bridge=br0",
+        "hostonly": "user",
+        "vmnet1": "user",
+        "nat": "network=default",
+        "vmnet8": "network=default",
+    })
+    return translate(translator, eth_type)
+
+
+def translate_eth_address_type(addr_type: str) -> str:
+    translator: defaultdict = defaultdict(str, {
+        "": "",
+        "vpx": ".generatedaddress",
+        "generated": ".generatedaddress",
+        "static": ".address"
+    })
+    return translate(translator, addr_type)
 
 
 def find_eths(d: defaultdict, interface: str) -> list:
@@ -197,14 +237,19 @@ def find_eths(d: defaultdict, interface: str) -> list:
         if not (parse_boolean(d[f"{interface}{x}.present"])):
             continue
         eth: defaultdict = defaultdict(str)
-        eth["name"] = d[f"{interface}{x}.networkname"]
-        eth["addrtype"] = d[f"{interface}{x}.addresstype"]
-        eth["conntype"] = d[f"{interface}{x}.connectiontype"] # bridged, "nat", ""
-        eth["model"] = d[f"{interface}{x}.virtualdev"]
-        if (eth["addrtype"] == "generated"):
-            eth["addr"] = d[f"{interface}{x}.generatedaddress"]
-        if (eth["addrtype"] == "static"):
-            eth["addr"] = d[f"{interface}{x}.address"]
+        s: str = f"{interface}{x}"
+        eth["x"] = str(x) # XXX unused XXX
+        eth["type"] = translate_eth_type(d[s + ".connectiontype"])
+        eth["model"] = translate_eth_model(d[s + ".virtualdev"])
+        eth["name"] = d[s + ".networkname"] # XXX unused XXX
+        addr_type: str = translate_eth_address_type(d[s + ".addresstype"])
+        if (addr_type):
+            eth["mac"] = d[s + addr_type]
+        else:
+            eth["mac"] = d[s + ".address"]
+            if not (eth["mac"]):
+                eth["mac"] = d[s + ".generatedaddress"]
+        eth["addr_type"] = addr_type
         eths.append(eth)
     return eths
 
@@ -219,9 +264,8 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
                  svga: bool, svga_memory: int, vga: bool,
                  sound: str,
                  nvram: str,
-                 disk_ctrls: dict,
-                 disks: list,
-                 floppys: dict) -> None:
+                 disk_ctrls: dict, disks: list, floppys: list,
+                 eths: list) -> None:
     args: list = []
     ### GENERAL SECTION - General Options for selecting the main functionality ###
     args.append("virt-install")
@@ -286,7 +330,7 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         args.extend(["--sound", f"model={sound}"])
 
     ### DISKS AND CONTROLLERS SECTION ###
-    ### XXX currently dies with interface "nvme", what to do about nvme0, nvme1...? ###
+    ### XXX currently likely dies with interface "nvme", what to do about nvme0, nvme1...? ###
 
     for interface in disk_ctrls:
         ctrls: dict = disk_ctrls[interface]
@@ -299,9 +343,6 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
                 if (vinst_version >= 4.0):
                     s += f",queues={vcpus}"
             args.extend(["--controller", s])
-
-    if not disks:
-        args.extend(["--disk", "none"])
 
     for disk in disks:
         #disk: defaultdict = defaultdict(str, {
@@ -324,6 +365,32 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         s += f",address.type=drive,address.controller={x},address.bus={x},address.target={y}"
         args.extend(["--disk", s])
 
+    for disk in floppys:
+        if not disk:
+            continue
+        device: str = "floppy"
+        path: str = disk
+        driver: str = "file"
+
+        s: str = f"device={device},path={path}"
+        if (vinst_version >= 3.0):
+            s += f",type={driver}"
+        args.extend(["--disk", s])
+
+    if not disks and not floppys:
+        args.extend(["--disk", "none"])
+
+    ### NETWORKS ###
+
+    for eth in eths:
+        s: str = eth["type"]
+        model: str = eth["model"]
+        mac: str = eth["mac"]
+        if (model):
+            s += f",model={model}"
+        if (mac and eth["addr_type"] == ".address"):
+            s += f",mac={mac}"
+        args.extend(["--network", s])
 
     ### WRITE THE RESULTING DOMAIN XML ###
     xml_file = open(xml_name, 'w', encoding="utf-8")
@@ -441,16 +508,17 @@ def main(argc: int, argv: list) -> int:
         disk_ctrls[interface] = find_disk_controllers(d, interface)
         disks.extend(find_disks(d, search_paths, interface, disk_ctrls[interface]))
 
-    floppys: dict = { 0: "", 1: "" }
+    floppys: list = [ "", "" ]
     for i in range(2):
         floppys[i] = parse_filename(d[f"floppy{i}.filename"], search_paths)
+
+    eths: list = find_eths(d, "ethernet")
 
     if (debug):
         print(disk_ctrls)
         print(disks)
         print(floppys)
-
-    eths: list = find_eths(d, "ethernet")
+        print(eths)
 
     # run virt-install to generate the xml
     (xml_name, n) = re.subn("\.vmx$", ".xml", vmx_name, count=1, flags=re.IGNORECASE)
@@ -468,9 +536,8 @@ def main(argc: int, argv: list) -> int:
                  svga, svga_memory, vga,
                  sound,
                  nvram,
-                 disk_ctrls,
-                 disks,
-                 floppys)
+                 disk_ctrls, disks, floppys,
+                 eths)
     return 0
 
 
