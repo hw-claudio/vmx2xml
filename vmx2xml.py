@@ -379,7 +379,7 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
             s += f",type={driver}"
         args.extend(["--disk", s])
 
-    if not disks and not floppys:
+    if not disks and not floppys[0] and not floppys[1]:
         args.extend(["--disk", "none"])
 
     ### NETWORKS ###
