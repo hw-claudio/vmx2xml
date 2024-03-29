@@ -333,6 +333,8 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
     ### XXX currently likely dies with interface "nvme", what to do about nvme0, nvme1...? ###
 
     for interface in disk_ctrls:
+        if (interface == "ide"): # XXX only 1 IDE controller is supported by virt-install/libvirt
+            continue
         ctrls: dict = disk_ctrls[interface]
         for index in ctrls:
             ctrl = ctrls[index]
@@ -361,8 +363,8 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         if (vinst_version >= 3.0):
             s += f",type={driver}"
 
-        # currently we map vmx scsix:y as such: x->controller=bus y->target, no unit (0)
-        s += f",address.type=drive,address.controller={x},address.bus={x},address.target={y}"
+        # currently we map vmx scsix:y as such: x->controller bus:0 y->target, no unit (0)
+        s += f",address.type=drive,address.controller={x},address.bus={0},address.target={y}"
         args.extend(["--disk", s])
 
     for disk in floppys:
