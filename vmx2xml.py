@@ -324,8 +324,8 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         args.extend(["--boot", f"{uefi}"])
 
     ### XXX not safe, removed to avoid destroying nvram XXX
-    #if (nvram):
-    #    args.extend(["--boot", f"nvram={nvram}"])
+    if (nvram):
+        args.extend(["--boot", f"nvram={nvram}"])
     if (genid):
         args.extend(["--metadata", f"genid={genid}"])
     if (sysinfo):
@@ -504,7 +504,7 @@ def main(argc: int, argv: list) -> int:
         uefi = "uefi"
         if (vinst_version >= 4.0):
             if (parse_boolean(d["uefi.secureboot.enabled"])):
-                uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes"
+                uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes,firmware.feature1.name=enrolled-keys,firmware.feature1.enabled=yes"
             else:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
