@@ -352,19 +352,19 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
     ### DISKS AND CONTROLLERS SECTION ###
     ### XXX currently likely dies with interface "nvme", what to do about nvme0, nvme1...? ###
 
-    for interface in disk_ctrls:
-        if (interface == "ide"): # XXX only 1 IDE controller is supported by virt-install/libvirt
-            continue
-        ctrls: dict = disk_ctrls[interface]
-        for index in ctrls:
-            ctrl = ctrls[index]
-            s: str = f"type={interface},index={index}"
-            model: str = ctrl["model"]
-            if (model):
-                s += f",model={model}"
-                #if (vinst_version >= 4.0):
-                #    s += f",queues={vcpus}"
-            args.extend(["--controller", s])
+    #for interface in disk_ctrls:
+    #    if (interface == "ide"): # XXX only 1 IDE controller is supported by virt-install/libvirt
+    #        continue
+    #    ctrls: dict = disk_ctrls[interface]
+    #    for index in ctrls:
+    #        ctrl = ctrls[index]
+    #        s: str = f"type={interface},index={index}"
+    #        model: str = ctrl["model"]
+    #        if (model):
+    #            s += f",model={model}"
+    #            #if (vinst_version >= 4.0):
+    #            #    s += f",queues={vcpus}"
+    #        args.extend(["--controller", s])
 
     for disk in disks:
         #disk: defaultdict = defaultdict(str, {
@@ -379,12 +379,15 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         cache: str = disk["cache"]
         driver: str = disk["driver"]
 
+        if (disk["os"].name == "linux"):
+            bus = "virtio"
+
         s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
-
         # currently we map vmx scsix:y as such: x->controller bus:0 y->target, no unit (0)
-        s += f",address.type=drive,address.controller={x},address.bus={0},address.target={y}"
+        # XXX no manual address
+        # s += f",address.type=drive,address.controller={x},address.bus={0},address.target={y}"
         args.extend(["--disk", s])
 
     for disk in floppys:
@@ -527,6 +530,7 @@ def main(argc: int, argv: list) -> int:
     disk_ctrls: dict = { "scsi": {}, "sata": {}, "nvme": {}, "ide": {} }
     disks: list = []
     for interface in disk_ctrls:
+        # XXX we will ignore the controllers XXX
         disk_ctrls[interface] = find_disk_controllers(d, interface)
         disks.extend(find_disks(d, search_paths, interface, disk_ctrls[interface]))
 
