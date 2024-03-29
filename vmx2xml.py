@@ -291,6 +291,7 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
     args.append("--dry-run")
     args.append("--noautoconsole")
     args.extend(["--virt-type", "kvm"])
+    args.extend(["--machine", "q35"])
 
     # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
     # and especially unfriendly with our import use case.
