@@ -340,8 +340,8 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
             model: str = ctrl["model"]
             if (model):
                 s += f",model={model}"
-                if (vinst_version >= 4.0):
-                    s += f",queues={vcpus}"
+                #if (vinst_version >= 4.0):
+                #    s += f",queues={vcpus}"
             args.extend(["--controller", s])
 
     for disk in disks:
