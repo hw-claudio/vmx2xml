@@ -551,18 +551,18 @@ def main(argc: int, argv: list) -> int:
     if (n == 0):
         xml_name = vmx_name + ".xml"
 
-    # virt_install(vinst_version, xml_name, vmx_name,
-    #              name, memory,
-    #              cpu_model,
-    #              vcpus, sockets, cores, threads,
-    #              iothreads,
-    #              genid, sysinfo,
-    #              uefi,
-    #              svga, svga_memory, vga,
-    #              sound,
-    #              nvram,
-    #              disk_ctrls, disks, floppys,
-    #              eths)
+    virt_install(vinst_version, xml_name, vmx_name,
+                 name, memory,
+                 cpu_model,
+                 vcpus, sockets, cores, threads,
+                 iothreads,
+                 genid, sysinfo,
+                 uefi,
+                 svga, svga_memory, vga,
+                 sound,
+                 nvram,
+                 disk_ctrls, disks, floppys,
+                 eths)
     return 0
 
 
