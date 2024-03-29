@@ -14,24 +14,25 @@ import subprocess
 from os.path import join
 from collections import defaultdict
 
-debug: bool = False
+debug: bool = True
 
-def virt_inspector(path: str) -> str:
+def virt_inspector(path: str) -> dict:
     args: list = []
+    os: dict = { "name": '', "osinfo": '' }
+
     args.append("virt-inspector")
     args.extend(["--no-icon", "--no-applications", "--echo-keys"])
     args.append(path)
 
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
-    print(s)
-    #m = re.match(r"^(\d+\.\d+)", s)
-    #if not (m):
-    #    print(f"failed to detect virt-install version: {s}")
-    #    sys.exit(1)
-    #v: float = float(m.group(1)) or 0
-    sys.exit(0)
-
+    name_m = re.search(r"^\s*<name>(.+)</name>\s*$", s, flags=re.MULTILINE)
+    osinfo_m = re.search(r"\s*<osinfo>(.+)</osinfo>\s*$", s, flags=re.MULTILINE)
+    if (name_m):
+        os["name"] = name_m.group(1)
+    if (osinfo_m):
+        os["osinfo"] = osinfo_m.group(1)
+    return os
 
 # translate string using a passed dictionary
 def translate(dictionary: defaultdict, s: str) -> str:
@@ -180,24 +181,20 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
                 continue
             if (interface == "ide"):  # insert IDE Controller
                 controllers[x] = { "x": x, "model": "" }
-            disk: defaultdict = defaultdict(str, {
+            disk: dict = {
                 "bus": interface, "x": x, "y": y,
-                "device": "disk",
-                "cache": "none", "path" : "",
-                "osinfo": "",
-            })
-            # XXX we never use the actual libvirt/qemu default, writeback?
-            if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])):
-                disk["cache"] = "writethrough"
-
+                "device": '', "driver": '',
+                "cache": '', "path" : '',
+                "os": { "name": '', "osinfo": '' }
+            }
+            t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
+            disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
             disk["path"] = parse_filename(d[f"{interface}{x}:{y}.filename"], search_paths)
             disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
+            # XXX we never use the actual libvirt/qemu default, writeback?
+            disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
             if (disk["path"]):
-                disk["osinfo"] = virt_inspector(disk)
-
-            t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
-            if ("cdrom" in t):
-                disk["device"] = "cdrom"
+                disk["os"] = virt_inspector(disk["path"])
             disks.append(disk)
     return disks
 
@@ -549,9 +546,6 @@ def main(argc: int, argv: list) -> int:
     (xml_name, n) = re.subn("\.vmx$", ".xml", vmx_name, count=1, flags=re.IGNORECASE)
     if (n == 0):
         xml_name = vmx_name + ".xml"
-
-    if (debug):
-        print(args)
 
     # virt_install(vinst_version, xml_name, vmx_name,
     #              name, memory,
