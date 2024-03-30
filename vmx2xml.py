@@ -297,9 +297,9 @@ def find_eths(d: defaultdict, interface: str) -> list:
     return eths
 
 
-def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
+def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
                  name: str, memory: int,
-                 cpu_model: str,
+                 cpu: dict,
                  vcpus: int, sockets: int, cores: int, threads: int,
                  iothreads: int,
                  genid: str, sysinfo: str,
@@ -337,8 +337,13 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         args.extend(["--name", name])
     assert(memory > 0)
     args.extend(["--memory", f"{memory}"])
-    assert(cpu_model)
-    args.extend(["--cpu", cpu_model])
+    assert(cpu["model"])
+
+    cpu_str: str = cpu["model"]
+    if (vinst_version >= 4.0 and cpu["model"] == "host-passthrough"):
+        cpu_str += ",check=none,migratable=on"
+    args.extend(["--cpu", cpu_str])
+
     assert(vcpus > 0 and sockets > 0 and cores > 0 and threads > 0)
     args.extend(["--vcpus", f"{vcpus},sockets={sockets},cores={cores},threads={threads}"])
     assert(iothreads > 0)
@@ -407,11 +412,12 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         driver: str = disk["driver"]
 
         if (disk["os"]["name"] == "linux"):
+            bus = "virtio"
             # XXX googling virtio-blk vs virtio-scsi perf benchmarks and stability XXX
-            if (disk["os"]["date"] > "2022-01-01"):
-                bus = "virtio-scsi"
-            else:
-                bus = "virtio"
+            # we still recommend for important use cases virtio blk though.
+            #
+            #if (disk["os"]["date"] > "2022-01-01"):
+            #    bus = "virtio-scsi"
 
         s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
         if (vinst_version >= 3.0):
@@ -532,7 +538,12 @@ def main(argc: int, argv: list) -> int:
     if (debug):
         print(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}")
 
-    cpu_model: str = "host" # most performant while still opening the door to migration
+    # Jim suggests using host-passthrough migratable=on rather than host-model
+    cpu_model: str = "host-passthrough"
+    cpu_check: str = "none"
+    cpu_migratable: str = "on"
+    cpu: dict = { "model": cpu_model, "check": cpu_check, "migratable": cpu_migratable }
+
     iothreads: int = vcpus # XXX forgot the rule of thumb to set this
 
     uefi: str = ""
@@ -590,7 +601,7 @@ def main(argc: int, argv: list) -> int:
 
     virt_install(vinst_version, xml_name, vmx_name,
                  name, memory,
-                 cpu_model,
+                 cpu,
                  vcpus, sockets, cores, threads,
                  iothreads,
                  genid, sysinfo,
