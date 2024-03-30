@@ -375,6 +375,7 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
     ### DISKS AND CONTROLLERS SECTION ###
     ### XXX currently likely dies with interface "nvme", what to do about nvme0, nvme1...? ###
 
+    ### Disabled setting controllers manually, we rely on libvirt
     #for interface in disk_ctrls:
     #    if (interface == "ide"): # XXX only 1 IDE controller is supported by virt-install/libvirt
     #        continue
