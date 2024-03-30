@@ -45,12 +45,15 @@ def virt_inspector(path: str) -> dict:
         p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
         (s, _) = p.communicate()
         #  win7                 | 2009-10-22
-        date_m = re.search(fr"^\s*{short_id}\s*|\s*(\d+-\d+-\d+)\s*$")
+        date_m = re.search(fr"^\s*{short_id}\s*|\s*(\d+-\d+-\d+)\s*$", s, flags=re.MULTILINE)
         if (date_m):
             os["date"] = date_m.group(1)
 
     if (debug):
-        print(f"os['name'] os['osinfo'] os['date']")
+        name: str = os["name"]
+        osinfo: str = os["osinfo"]
+        date: str = os["date"]
+        print(f"{name} {osinfo} {date}")
 
     return os
 
