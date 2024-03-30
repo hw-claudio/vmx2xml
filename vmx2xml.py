@@ -16,13 +16,17 @@ from collections import defaultdict
 
 debug: bool = True
 
+
 def virt_inspector(path: str) -> dict:
     args: list = []
-    os: dict = { "name": '', "osinfo": '' }
+    os: dict = { "name": '', "osinfo": '', "date": '' }
 
     args.append("virt-inspector")
     args.extend(["--no-icon", "--no-applications", "--echo-keys"])
     args.append(path)
+
+    if (debug):
+        print(args)
 
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
@@ -32,6 +36,22 @@ def virt_inspector(path: str) -> dict:
         os["name"] = name_m.group(1)
     if (osinfo_m):
         os["osinfo"] = osinfo_m.group(1)
+
+    if (os["osinfo"] and os["name"]):
+        args = []
+        short_id: str = os["osinfo"]
+        args.extend(["osinfo-query", "os"])
+        args.extend(["-f", "short-id,release-date"])
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+        (s, _) = p.communicate()
+        #  win7                 | 2009-10-22
+        date_m = re.search(fr"^\s*{short_id}\s*|\s*(\d+-\d+-\d+)\s*$")
+        if (date_m):
+            os["date"] = date_m.group(1)
+
+    if (debug):
+        print(f"os['name'] os['osinfo'] os['date']")
+
     return os
 
 # translate string using a passed dictionary
@@ -85,7 +105,8 @@ def parse_filename(s: str, search_paths: list) -> str:
 
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
-    print(f"[DISK] {basename} => ", end="")
+    if (debug):
+        print(f"[DISK] {basename} => ", end="")
 
     pathname: str = find_file_ref(basename, search_paths[0], False)
     if (pathname == ""):
@@ -93,9 +114,10 @@ def parse_filename(s: str, search_paths: list) -> str:
         if (pathname == "" and len(search_paths) == 3):
             pathname = find_file_ref(basename, search_paths[2], True)
     if (pathname == ""):
-        print(f"NOT FOUND, search paths {search_paths}")
+        print(f"\n${basename} NOT FOUND, search paths {search_paths}")
         sys.exit(1)
-    print(f"{pathname}")
+    if (debug):
+        print(f"{pathname}")
     return pathname
 
 
@@ -185,7 +207,7 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
                 "bus": interface, "x": x, "y": y,
                 "device": '', "driver": '',
                 "cache": '', "path" : '',
-                "os": { "name": '', "osinfo": '' }
+                "os": { "name": '', "osinfo": '', "date": '' }
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
@@ -381,7 +403,11 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
         driver: str = disk["driver"]
 
         if (disk["os"]["name"] == "linux"):
-            bus = "virtio"
+            # XXX googling virtio-blk vs virtio-scsi perf benchmarks and stability XXX
+            if (disk["os"]["date"] > "2022-01-01"):
+                bus = "virtio-scsi"
+            else:
+                bus = "virtio"
 
         s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
         if (vinst_version >= 3.0):
@@ -418,6 +444,9 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
             s += f",mac={mac}"
         args.extend(["--network", s])
 
+    if (debug):
+        print(args)
+
     ### WRITE THE RESULTING DOMAIN XML ###
     xml_file = open(xml_name, 'w', encoding="utf-8")
     try:
@@ -433,6 +462,8 @@ def virt_install(vinst_version: str, xml_name: str, vmx_name: str,
 def detect_vinst_version() -> float:
     s: str = ""
     args: list = [ "virt-install", "--version" ]
+    if (debug):
+        print(args)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
     m = re.match(r"^(\d+\.\d+)", s)
@@ -444,7 +475,8 @@ def detect_vinst_version() -> float:
         print("virt-install version >= 2.2.0 is required for this command to work")
     if (v < 4.0):
         print("virt-install version >= 4.0.0 is recommended for best results")
-    print(f"virt-install: detected version {v}")
+    if (debug):
+        print(f"virt-install: detected version {v}")
     return v
 
 
