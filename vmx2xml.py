@@ -11,10 +11,12 @@ import sys
 import os
 import re
 import subprocess
+import argparse
 from os.path import join
 from collections import defaultdict
 
 debug: bool = False
+program_version: str = "0.1"
 
 def virt_inspector(path: str) -> dict:
     args: list = []
@@ -25,10 +27,16 @@ def virt_inspector(path: str) -> dict:
     args.append(path)
 
     if (debug):
-        print(args)
+        print(args, file=sys.stderr)
 
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
     (s, _) = p.communicate()
+
+    if (p.returncode != 0):
+        if (debug):
+            print(path + " could not be inspected.", file=sys.stderr)
+        return os
+
     name_m = re.search(r"^\s*<name>(.+)</name>\s*$", s, flags=re.MULTILINE)
     osinfo_m = re.search(r"\s*<osinfo>(.+)</osinfo>\s*$", s, flags=re.MULTILINE)
     if (name_m):
@@ -52,7 +60,7 @@ def virt_inspector(path: str) -> dict:
         name: str = os["name"]
         osinfo: str = os["osinfo"]
         date: str = os["date"]
-        print(f"{name} {osinfo} {date}")
+        print(f"{name} {osinfo} {date}", file=sys.stderr)
 
     return os
 
@@ -75,35 +83,36 @@ def parse_filename(s: str, search_paths: list) -> str:
     if (s == ""):
         return s
     if (s.startswith("/dev/")):
-        print(f"[DISK] {s}")
+        print(f"[DISK] {s}", file=sys.stderr)
         if not (os.path.exists(s)):
             try:
                 open(s, 'w').close()
             except:
-                print(f"VM references a block device which does not exist on this host")
-                print(f"and requires privileges to create.")
-                print(f"Consider manually creating a bogus file as a workaround.")
-                print(f"At runtime the VM will require a host with a valid device to run!")
+                print("VM references a block device which does not exist on this host\n"
+                      "and requires privileges to create.\n"
+                      "Consider manually creating a bogus file as a workaround.\n"
+                      "At runtime the VM will require a host with a valid device to run!\n",
+                      file=sys.stderr)
                 exit(1)
         return s
 
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
     if (debug):
-        print(f"[DISK] {basename} => ", end="")
+        print(f"[DISK] {basename} => ", end="", file=sys.stderr)
 
     pathname: str = find_file_ref(basename, search_paths[0], False)
     if (pathname == ""):
         pathname = find_file_ref(basename, search_paths[1], False)
-        for i in range(2, len(search(paths))):
+        for i in range(2, len(search_paths)):
             if (pathname != ""):
                 break
             pathname = find_file_ref(basename, search_paths[i], True)
     if (pathname == ""):
-        print(f"\n${basename} NOT FOUND, search paths {search_paths}")
+        print(f"\n${basename} NOT FOUND, search paths {search_paths}", file=sys.stderr)
         sys.exit(1)
     if (debug):
-        print(f"{pathname}")
+        print(f"{pathname}", file=sys.stderr)
     return pathname
 
 
@@ -438,17 +447,18 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
         args.extend(["--network", s])
 
     if (debug):
-        print(args)
+        print(args, file=sys.stderr)
 
     ### WRITE THE RESULTING DOMAIN XML ###
-    xml_file = open(xml_name, 'w', encoding="utf-8")
+    xml_file = open(xml_name, 'w', encoding="utf-8") if (xml_name) else sys.stdout
     try:
         subprocess.run(args, stdout=xml_file, check=True, encoding='utf-8')
     except:
-        print(" ".join(args))
+        print(" ".join(args), file=sys.stderr)
         sys.exit(1)
 
-    xml_file.close()
+    if (xml_name):
+        xml_file.close()
 
 
 # detect virt-install version only considering major.minor
@@ -456,20 +466,20 @@ def detect_vinst_version() -> float:
     s: str = ""
     args: list = [ "virt-install", "--version" ]
     if (debug):
-        print(args)
+        print(args, file=sys.stderr)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
     m = re.match(r"^(\d+\.\d+)", s)
     if not (m):
-        print(f"failed to detect virt-install version: {s}")
+        print(f"failed to detect virt-install version: {s}", file=sys.stderr)
         sys.exit(1)
     v: float = float(m.group(1)) or 0
     if (v < 2.2):
-        print("virt-install version >= 2.2.0 is required for this command to work")
+        print("virt-install version >= 2.2.0 is required for this command to work", file=sys.stderr)
     if (v < 4.0):
-        print("virt-install version >= 4.0.0 is recommended for best results")
+        print("virt-install version >= 4.0.0 is recommended for best results", file=sys.stderr)
     if (debug):
-        print(f"virt-install: detected version {v}")
+        print(f"virt-install: detected version {v}", file=sys.stderr)
     return v
 
 
@@ -487,23 +497,22 @@ def get_options(argc: int, argv: list) -> tuple:
         "replacing all references to .vmdk to .qcow2\n",
         epilog="requires virt-install and virt-inspector, including libguestfs-winsupport"
     )
-    parser.add_argument('-h', '--help', action='help')
     parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('-V', '--version', action='version')
-    parser.add_argument('filename', action='store_const', nargs=1, required=True,
-                        type=argparse.FileType=('r', encoding='UTF-8'), help='the VMX description file to be converted')
-    parser.add_argument('-o', '--output-xml', action='store_const', nargs=1, default=sys.stdout,
-                        type=argparse.FileType=('r', encoding='UTF-8'), help='output libvirt XML file (default to stdout)')
-    parser.add_argument('-s', '--input-disks', action="store_const", nargs='*',
-                        type=is_dir, help='extra input storage directories to scan for VMDKs and other disk files')
+    parser.add_argument('-V', '--version', action='version', version=program_version)
+    parser.add_argument('-o', '--output-xml', action='store', help='output libvirt XML file (default to stdout)')
+    parser.add_argument('-s', '--storagedir', action="append", nargs='*',
+                        help='extra input storage directories to scan for VMDKs and other disks')
+    parser.add_argument('-f', '--filename', metavar="VMXFILE", action='store', required=True,
+                        help='the VMX description file to be converted')
 
-    args: argsparse.Namespace = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
     if (args.verbose):
         debug = True
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
     search_paths: list = [ os.path.dirname(vmx_name), "." ]
-    search_paths.extend(args.input_disks)
+    if (args.storagedir):
+        search_paths.extend(args.storagedir)
     return (vmx_name, xml_name, search_paths)
 
 
@@ -518,21 +527,22 @@ def main(argc: int, argv: list) -> int:
 
     name: str = d["displayname"]
     if (debug and name):
-        print(f"[NAME] {name}")
+        print(f"[NAME] {name}", file=sys.stderr)
+
     memory: int = int(d["memsize"] or 1024)
     if (debug and memory):
-        print(f"[MEMORY] {memory}")
+        print(f"[MEMORY] {memory}", file=sys.stderr)
 
     genid: str = parse_genid(int(d["vm.genid"] or 0), int(d["vm.genidx"] or 0))
     if (debug and genid):
-        print(f"[GENID] {genid}")
+        print(f"[GENID] {genid}", file=sys.stderr)
 
     # SMBIOS.reflectHost = "TRUE"
     # SMBIOS.noOEMStrings = "TRUE"
     # smbios.addHostVendor = "TRUE"
     sysinfo: str = "host" if (parse_boolean(d["smbios.reflectHost"])) else ""
     if (debug and sysinfo):
-        print(f"[SYSINFO] {sysinfo}")
+        print(f"[SYSINFO] {sysinfo}", file=sys.stderr)
 
     vcpus: int = int(d["numvcpus"] or 0)
     if (vcpus < 1):
@@ -548,7 +558,7 @@ def main(argc: int, argv: list) -> int:
         sockets = 1
     assert(vcpus == sockets * cores)
     if (debug):
-        print(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}")
+        print(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}", file=sys.stderr)
 
     # Jim suggests using host-passthrough migratable=on rather than host-model
     cpu_model: str = "host-passthrough"
@@ -568,7 +578,7 @@ def main(argc: int, argv: list) -> int:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
     if (debug and uefi):
-        print(f"[UEFI] {uefi}")
+        print(f"[UEFI] {uefi}", file=sys.stderr)
 
     # ignore for now
     # guestos: str = parse_guestos(d["guestos"])
@@ -577,13 +587,13 @@ def main(argc: int, argv: list) -> int:
     svga_memory: int = int(d["svgaram.vramSize"] or 0) // 1024
     vga: bool = parse_boolean(d["svga.vgaonly"])
     if (debug and vga):
-        print(f"[VGA]")
+        print(f"[VGA]", file=sys.stderr)
     elif (debug and svga):
-        print(f"[SVGA] {svga_memory}")
+        print(f"[SVGA] {svga_memory}", file=sys.stderr)
 
     sound: str = find_sound(d)
     if (debug and sound):
-        print(f"[SOUND] {sound}")
+        print(f"[SOUND] {sound}", file=sys.stderr)
 
     nvram: str = parse_filename(d["nvram"], search_paths)
 
@@ -601,10 +611,10 @@ def main(argc: int, argv: list) -> int:
     eths: list = find_eths(d, "ethernet")
 
     if (debug):
-        print(disk_ctrls)
-        print(disks)
-        print(floppys)
-        print(eths)
+        print(disk_ctrls, file=sys.stderr)
+        print(disks, file=sys.stderr)
+        print(floppys, file=sys.stderr)
+        print(eths, file=sys.stderr)
 
     # run virt-install to generate the xml
     virt_install(vinst_version, xml_name, vmx_name,
