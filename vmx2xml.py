@@ -349,9 +349,12 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
     if (uefi):
         args.extend(["--boot", f"{uefi}"])
 
-    ### XXX not safe, removed to avoid destroying nvram XXX
-    if (nvram):
-        args.extend(["--boot", f"nvram={nvram}"])
+    ### XXX not safe, removed to avoid destroying nvram XXX ###
+    ### we'd need to convert from the VMWare nvram format ###
+    #
+    #if (nvram):
+    #    args.extend(["--boot", f"nvram={nvram}"])
+
     if (genid):
         args.extend(["--metadata", f"genid={genid}"])
     if (sysinfo):
