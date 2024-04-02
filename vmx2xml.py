@@ -315,7 +315,9 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
     args.append("--dry-run")
     args.append("--noautoconsole")
     args.extend(["--virt-type", "kvm"])
-    args.extend(["--machine", "q35"])
+
+    if (uefi):
+        args.extend(["--machine", "q35"])
 
     # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
     # and especially unfriendly with our import use case.
@@ -385,26 +387,7 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
     ### DISKS AND CONTROLLERS SECTION ###
     ### XXX currently likely dies with interface "nvme", what to do about nvme0, nvme1...? ###
 
-    ### Disabled setting controllers manually, we rely on libvirt
-    #for interface in disk_ctrls:
-    #    if (interface == "ide"): # XXX only 1 IDE controller is supported by virt-install/libvirt
-    #        continue
-    #    ctrls: dict = disk_ctrls[interface]
-    #    for index in ctrls:
-    #        ctrl = ctrls[index]
-    #        s: str = f"type={interface},index={index}"
-    #        model: str = ctrl["model"]
-    #        if (model):
-    #            s += f",model={model}"
-    #            #if (vinst_version >= 4.0):
-    #            #    s += f",queues={vcpus}"
-    #        args.extend(["--controller", s])
-
     for disk in disks:
-        #disk: defaultdict = defaultdict(str, {
-        #    "bus": interface, "x": x, "y": y,
-        #    "cache": "none", "path" : ""
-        #})
         x: int = disk["x"]
         y: int = disk["y"]
         device: str = disk["device"]
@@ -414,12 +397,7 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
         driver: str = disk["driver"]
 
         if (disk["os"]["name"] == "linux"):
-            bus = "virtio"
-            # XXX googling virtio-blk vs virtio-scsi perf benchmarks and stability XXX
-            # we still recommend for important use cases virtio blk though.
-            #
-            #if (disk["os"]["date"] > "2022-01-01"):
-            #    bus = "virtio-scsi"
+            bus = "virtio-transitional"
 
         s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
         if (vinst_version >= 3.0):
