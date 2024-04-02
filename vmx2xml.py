@@ -85,7 +85,7 @@ def qcow_convert(vmdk: str, qcow: str) -> None:
     if (debug):
         printerr(args)
 
-    p = subprocess.run(args, check=True)
+    p = subprocess.run(args, stdout=sys.stderr, check=True)
 
 
 # translate string using a passed dictionary
