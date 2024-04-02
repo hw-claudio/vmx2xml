@@ -355,11 +355,6 @@ def virt_install(vinst_version: float, qcow_mode: int,
     if (vinst_version >= 4.0):
         args.extend(["--os-variant", "detect=on,require=off"])
 
-    ### DISABLED SECTION - Currently disabled, might be enabled in the future ###
-    args.extend(["--controller", "type=usb,model=none"])
-    # ignore HPET for now
-    # hpet: str = d["hpet0"]
-
     ### MAIN VM INFO SECTION - Fundamental VM Options are set here ###
     if (name):
         args.extend(["--name", name])
@@ -427,7 +422,6 @@ def virt_install(vinst_version: float, qcow_mode: int,
                 path = match
                 if (qcow_mode > 1):
                     qcow_convert(vmdk, path)
-
 
         bus: str = disk["bus"]
         cache: str = disk["cache"]
