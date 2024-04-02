@@ -510,6 +510,7 @@ def is_dir(string: str) -> str:
 
 
 def get_options(argc: int, argv: list) -> tuple:
+    global debug
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file,\n"
@@ -527,7 +528,6 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-Q', '--qcow-convert', action='store_true', help='also convert the .vmdk into .qcow2 (implies -q)')
 
     args: argparse.Namespace = parser.parse_args()
-    debug = False
     if (args.verbose):
         debug = True
     vmx_name: str = args.filename
