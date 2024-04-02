@@ -113,7 +113,7 @@ def parse_filename(s: str, search_paths: list) -> str:
                 break
             pathname = find_file_ref(basename, search_paths[i], True)
     if (pathname == ""):
-        printerr(f"\n${basename} NOT FOUND, search paths {search_paths}")
+        printerr(f"\n{basename} NOT FOUND, search paths {search_paths}")
         sys.exit(1)
     if (debug):
         printerr(f"{pathname}")
@@ -507,8 +507,8 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-V', '--version', action='version', version=program_version)
     parser.add_argument('-o', '--output-xml', action='store', help='output libvirt XML file (default to stdout)')
-    parser.add_argument('-s', '--storagedir', action="append", nargs='*',
-                        help='extra input storage directories to scan for VMDKs and other disks')
+    parser.add_argument('-s', '--storagedir', action="append",
+                        help='extra input storage dirs to scan for VMDKs and other disks')
     parser.add_argument('-f', '--filename', metavar="VMXFILE", action='store', required=True,
                         help='the VMX description file to be converted')
 
