@@ -18,6 +18,10 @@ from collections import defaultdict
 debug: bool = False
 program_version: str = "0.1"
 
+def printerr(arg) -> None:
+    print(arg, file=sys.stderr)
+
+
 def virt_inspector(path: str) -> dict:
     args: list = []
     os: dict = { "name": '', "osinfo": '', "date": '' }
@@ -27,14 +31,14 @@ def virt_inspector(path: str) -> dict:
     args.append(path)
 
     if (debug):
-        print(args, file=sys.stderr)
+        printerr(args)
 
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
     (s, _) = p.communicate()
 
     if (p.returncode != 0):
         if (debug):
-            print(path + " could not be inspected.", file=sys.stderr)
+            printerr(path + " could not be inspected.")
         return os
 
     name_m = re.search(r"^\s*<name>(.+)</name>\s*$", s, flags=re.MULTILINE)
@@ -60,7 +64,7 @@ def virt_inspector(path: str) -> dict:
         name: str = os["name"]
         osinfo: str = os["osinfo"]
         date: str = os["date"]
-        print(f"{name} {osinfo} {date}", file=sys.stderr)
+        printerr(f"{name} {osinfo} {date}")
 
     return os
 
@@ -83,12 +87,12 @@ def parse_filename(s: str, search_paths: list) -> str:
     if (s == ""):
         return s
     if (s.startswith("/dev/")):
-        print(f"[DISK] {s}", file=sys.stderr)
+        printerr(f"[DISK] {s}")
         if not (os.path.exists(s)):
             try:
                 open(s, 'w').close()
             except:
-                print("VM references a block device which does not exist on this host\n"
+                printerr("VM references a block device which does not exist on this host\n"
                       "and requires privileges to create.\n"
                       "Consider manually creating a bogus file as a workaround.\n"
                       "At runtime the VM will require a host with a valid device to run!\n",
@@ -99,7 +103,7 @@ def parse_filename(s: str, search_paths: list) -> str:
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
     if (debug):
-        print(f"[DISK] {basename} => ", end="", file=sys.stderr)
+        printerr(f"[DISK] {basename} => ", end="")
 
     pathname: str = find_file_ref(basename, search_paths[0], False)
     if (pathname == ""):
@@ -109,10 +113,10 @@ def parse_filename(s: str, search_paths: list) -> str:
                 break
             pathname = find_file_ref(basename, search_paths[i], True)
     if (pathname == ""):
-        print(f"\n${basename} NOT FOUND, search paths {search_paths}", file=sys.stderr)
+        printerr(f"\n${basename} NOT FOUND, search paths {search_paths}")
         sys.exit(1)
     if (debug):
-        print(f"{pathname}", file=sys.stderr)
+        printerr(f"{pathname}")
     return pathname
 
 
@@ -447,14 +451,14 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
         args.extend(["--network", s])
 
     if (debug):
-        print(args, file=sys.stderr)
+        printerr(args)
 
     ### WRITE THE RESULTING DOMAIN XML ###
     xml_file = open(xml_name, 'w', encoding="utf-8") if (xml_name) else sys.stdout
     try:
         subprocess.run(args, stdout=xml_file, check=True, encoding='utf-8')
     except:
-        print(" ".join(args), file=sys.stderr)
+        printerr(" ".join(args))
         sys.exit(1)
 
     if (xml_name):
@@ -466,20 +470,20 @@ def detect_vinst_version() -> float:
     s: str = ""
     args: list = [ "virt-install", "--version" ]
     if (debug):
-        print(args, file=sys.stderr)
+        printerr(args)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
     m = re.match(r"^(\d+\.\d+)", s)
     if not (m):
-        print(f"failed to detect virt-install version: {s}", file=sys.stderr)
+        printerr(f"failed to detect virt-install version: {s}")
         sys.exit(1)
     v: float = float(m.group(1)) or 0
     if (v < 2.2):
-        print("virt-install version >= 2.2.0 is required for this command to work", file=sys.stderr)
+        printerr("virt-install version >= 2.2.0 is required for this command to work")
     if (v < 4.0):
-        print("virt-install version >= 4.0.0 is recommended for best results", file=sys.stderr)
+        printerr("virt-install version >= 4.0.0 is recommended for best results")
     if (debug):
-        print(f"virt-install: detected version {v}", file=sys.stderr)
+        printerr(f"virt-install: detected version {v}")
     return v
 
 
@@ -527,22 +531,22 @@ def main(argc: int, argv: list) -> int:
 
     name: str = d["displayname"]
     if (debug and name):
-        print(f"[NAME] {name}", file=sys.stderr)
+        printerr(f"[NAME] {name}")
 
     memory: int = int(d["memsize"] or 1024)
     if (debug and memory):
-        print(f"[MEMORY] {memory}", file=sys.stderr)
+        printerr(f"[MEMORY] {memory}")
 
     genid: str = parse_genid(int(d["vm.genid"] or 0), int(d["vm.genidx"] or 0))
     if (debug and genid):
-        print(f"[GENID] {genid}", file=sys.stderr)
+        printerr(f"[GENID] {genid}")
 
     # SMBIOS.reflectHost = "TRUE"
     # SMBIOS.noOEMStrings = "TRUE"
     # smbios.addHostVendor = "TRUE"
     sysinfo: str = "host" if (parse_boolean(d["smbios.reflectHost"])) else ""
     if (debug and sysinfo):
-        print(f"[SYSINFO] {sysinfo}", file=sys.stderr)
+        printerr(f"[SYSINFO] {sysinfo}")
 
     vcpus: int = int(d["numvcpus"] or 0)
     if (vcpus < 1):
@@ -558,7 +562,7 @@ def main(argc: int, argv: list) -> int:
         sockets = 1
     assert(vcpus == sockets * cores)
     if (debug):
-        print(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}", file=sys.stderr)
+        printerr(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}")
 
     # Jim suggests using host-passthrough migratable=on rather than host-model
     cpu_model: str = "host-passthrough"
@@ -578,7 +582,7 @@ def main(argc: int, argv: list) -> int:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
     if (debug and uefi):
-        print(f"[UEFI] {uefi}", file=sys.stderr)
+        printerr(f"[UEFI] {uefi}")
 
     # ignore for now
     # guestos: str = parse_guestos(d["guestos"])
@@ -587,13 +591,13 @@ def main(argc: int, argv: list) -> int:
     svga_memory: int = int(d["svgaram.vramSize"] or 0) // 1024
     vga: bool = parse_boolean(d["svga.vgaonly"])
     if (debug and vga):
-        print(f"[VGA]", file=sys.stderr)
+        printerr(f"[VGA]")
     elif (debug and svga):
-        print(f"[SVGA] {svga_memory}", file=sys.stderr)
+        printerr(f"[SVGA] {svga_memory}")
 
     sound: str = find_sound(d)
     if (debug and sound):
-        print(f"[SOUND] {sound}", file=sys.stderr)
+        printerr(f"[SOUND] {sound}")
 
     nvram: str = parse_filename(d["nvram"], search_paths)
 
@@ -611,10 +615,10 @@ def main(argc: int, argv: list) -> int:
     eths: list = find_eths(d, "ethernet")
 
     if (debug):
-        print(disk_ctrls, file=sys.stderr)
-        print(disks, file=sys.stderr)
-        print(floppys, file=sys.stderr)
-        print(eths, file=sys.stderr)
+        printerr(disk_ctrls)
+        printerr(disks)
+        printerr(floppys)
+        printerr(eths)
 
     # run virt-install to generate the xml
     virt_install(vinst_version, xml_name, vmx_name,
