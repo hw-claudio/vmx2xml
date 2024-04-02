@@ -302,10 +302,9 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
                  vcpus: int, sockets: int, cores: int, threads: int,
                  iothreads: int,
                  genid: str, sysinfo: str,
-                 uefi: str,
+                 uefi: str, nvram: str,
                  svga: bool, svga_memory: int, vga: bool,
                  sound: str,
-                 nvram: str,
                  disk_ctrls: dict, disks: list, floppys: list,
                  eths: list) -> None:
     args: list = []
@@ -568,6 +567,7 @@ def main(argc: int, argv: list) -> int:
             else:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
+    nvram: str = parse_filename(d["nvram"], search_paths)
     if (debug and uefi):
         printerr(f"[UEFI] {uefi}")
 
@@ -586,8 +586,7 @@ def main(argc: int, argv: list) -> int:
     if (debug and sound):
         printerr(f"[SOUND] {sound}")
 
-    nvram: str = parse_filename(d["nvram"], search_paths)
-
+    # these interface names are used in vmware for disks
     disk_ctrls: dict = { "scsi": {}, "sata": {}, "nvme": {}, "ide": {} }
     disks: list = []
     for interface in disk_ctrls:
@@ -614,10 +613,9 @@ def main(argc: int, argv: list) -> int:
                  vcpus, sockets, cores, threads,
                  iothreads,
                  genid, sysinfo,
-                 uefi,
+                 uefi, nvram,
                  svga, svga_memory, vga,
                  sound,
-                 nvram,
                  disk_ctrls, disks, floppys,
                  eths)
     return 0
