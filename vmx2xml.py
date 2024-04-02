@@ -97,9 +97,9 @@ def parse_filename(s: str, search_paths: list) -> str:
                 open(s, 'w').close()
             except:
                 printerr("VM references a block device which does not exist on this host\n"
-                      "and requires privileges to create.\n"
-                      "Consider manually creating a bogus file as a workaround.\n"
-                      "At runtime the VM will require a host with a valid device to run!\n")
+                         "and requires privileges to create.\n"
+                         "Consider manually creating a bogus file as a workaround.\n"
+                        "At runtime the VM will require a host with a valid device to run!\n")
                 exit(1)
         return s
 
