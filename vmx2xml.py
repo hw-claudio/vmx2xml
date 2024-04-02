@@ -520,6 +520,8 @@ def get_options(argc: int, argv: list) -> tuple:
     search_paths: list = [ os.path.dirname(vmx_name), "." ]
     if (args.storagedir):
         search_paths.extend(args.storagedir)
+    if (debug):
+        printerr(f"[OPTIONS] vmx_name={vmx_name} xml_name={xml_name} search_paths:{search_paths}")
     return (vmx_name, xml_name, search_paths)
 
 
