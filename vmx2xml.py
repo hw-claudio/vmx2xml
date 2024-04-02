@@ -296,6 +296,17 @@ def find_eths(d: defaultdict, interface: str) -> list:
     return eths
 
 
+def translate_disk_target(s: str) -> str:
+    translator: defaultdict = defaultdict(str, {
+        "":           "",
+        "scsi":       "virtio-transitional",
+        "sata":       "virtio-transitional",
+        "ide":        "ide",
+        "nvme":       "virtio-transitional"
+    })
+    return translate(translator, s);
+
+
 def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
@@ -391,19 +402,18 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
         y: int = disk["y"]
         device: str = disk["device"]
         path: str = disk["path"]
+
+        (match, n) = re.subn(r"\.vmdk$", ".xml", path, count=1, flags=re.IGNORECASE)
+        if (n == 1):
+            path = match
+
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
-
-        if (disk["os"]["name"] == "linux"):
-            bus = "virtio-transitional"
-
+        target: str = translate_disk_target(bus)
         s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
-        # currently we map vmx scsix:y as such: x->controller bus:0 y->target, no unit (0)
-        # XXX no manual address
-        # s += f",address.type=drive,address.controller={x},address.bus={0},address.target={y}"
         args.extend(["--disk", s])
 
     for disk in floppys:
