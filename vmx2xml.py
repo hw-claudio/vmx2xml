@@ -72,6 +72,22 @@ def virt_inspector(path: str) -> dict:
 
     return os
 
+
+def qcow_convert(vmdk: str, qcow: str) -> None:
+    args: list = []
+    args.extend(["qemu-img", "convert"])
+    args.extend(["-f", "vmdk"])
+    args.extend(["-O", "qcow2"])
+    if (debug):
+        args.append("-p")
+    args.extend([vmdk, qcow])
+
+    if (debug):
+        printerr(args)
+
+    p = subprocess.run(args, check=True)
+
+
 # translate string using a passed dictionary
 def translate(dictionary: defaultdict, s: str) -> str:
     if (s not in dictionary):
@@ -307,7 +323,8 @@ def translate_disk_target(s: str) -> str:
     return translate(translator, s);
 
 
-def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
+def virt_install(vinst_version: float, qcow_mode: int,
+                 xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
                  vcpus: int, sockets: int, cores: int, threads: int,
@@ -403,9 +420,14 @@ def virt_install(vinst_version: float, xml_name: str, vmx_name: str,
         device: str = disk["device"]
         path: str = disk["path"]
 
-        (match, n) = re.subn(r"\.vmdk$", ".xml", path, count=1, flags=re.IGNORECASE)
-        if (n == 1):
-            path = match
+        if (qcow_mode > 0):
+            vmdk: str = path
+            (match, n) = re.subn(r"\.vmdk$", ".qcow2", vmdk, count=1, flags=re.IGNORECASE)
+            if (n == 1):
+                path = match
+                if (qcow_mode > 1):
+                    qcow_convert(vmdk, path)
+
 
         bus: str = disk["bus"]
         cache: str = disk["cache"]
@@ -501,6 +523,8 @@ def get_options(argc: int, argv: list) -> tuple:
                         help='extra input storage dirs to scan for VMDKs and other disks')
     parser.add_argument('-f', '--filename', metavar="VMXFILE", action='store', required=True,
                         help='the VMX description file to be converted')
+    parser.add_argument('-q', '--qcow-translate', action='store_true', help='replace references to .vmdk to .qcow2')
+    parser.add_argument('-Q', '--qcow-convert', action='store_true', help='also convert the .vmdk into .qcow2 (implies -q)')
 
     args: argparse.Namespace = parser.parse_args()
     debug = False
@@ -511,13 +535,14 @@ def get_options(argc: int, argv: list) -> tuple:
     search_paths: list = [ os.path.dirname(vmx_name), "." ]
     if (args.storagedir):
         search_paths.extend(args.storagedir)
+    qcow_mode: int = 2 if (args.qcow_convert) else 1 if (args.qcow_translate) else 0
     if (debug):
-        printerr(f"[OPTIONS] vmx_name={vmx_name} xml_name={xml_name} search_paths:{search_paths}")
-    return (vmx_name, xml_name, search_paths)
+        printerr(f"[OPTIONS] vmx_name={vmx_name} xml_name={xml_name} search_paths:{search_paths} qcow_mode:{qcow_mode}")
+    return (vmx_name, xml_name, search_paths, qcow_mode)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, search_paths) = get_options(argc, argv)
+    (vmx_name, xml_name, search_paths, qcow_mode) = get_options(argc, argv)
 
     vinst_version : float = detect_vinst_version()
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
@@ -617,7 +642,8 @@ def main(argc: int, argv: list) -> int:
         printerr(eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version, xml_name, vmx_name,
+    virt_install(vinst_version, qcow_mode,
+                 xml_name, vmx_name,
                  name, memory,
                  cpu,
                  vcpus, sockets, cores, threads,
