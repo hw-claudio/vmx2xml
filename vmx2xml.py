@@ -22,6 +22,10 @@ def printerr(arg) -> None:
     print(arg, file=sys.stderr)
 
 
+def printerrln(arg) -> None:
+    print(arg, file=sys.stderr, end="")
+
+
 def virt_inspector(path: str) -> dict:
     args: list = []
     os: dict = { "name": '', "osinfo": '', "date": '' }
@@ -95,15 +99,14 @@ def parse_filename(s: str, search_paths: list) -> str:
                 printerr("VM references a block device which does not exist on this host\n"
                       "and requires privileges to create.\n"
                       "Consider manually creating a bogus file as a workaround.\n"
-                      "At runtime the VM will require a host with a valid device to run!\n",
-                      file=sys.stderr)
+                      "At runtime the VM will require a host with a valid device to run!\n")
                 exit(1)
         return s
 
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
     if (debug):
-        printerr(f"[DISK] {basename} => ", end="")
+        printerrln(f"[DISK] {basename} => ")
 
     pathname: str = find_file_ref(basename, search_paths[0], False)
     if (pathname == ""):
