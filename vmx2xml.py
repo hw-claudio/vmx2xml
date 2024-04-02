@@ -14,8 +14,7 @@ import subprocess
 from os.path import join
 from collections import defaultdict
 
-debug: bool = True
-
+debug: bool = False
 
 def virt_inspector(path: str) -> dict:
     args: list = []
@@ -64,24 +63,6 @@ def translate(dictionary: defaultdict, s: str) -> str:
     return dictionary[s]
 
 
-def usage() -> None:
-    print("usage: vmx2xml.py FILENAME.vmx [PATH_STORAGE]\n"
-          "\n"
-          "Convert a VMX Virtual Machine definition into a libvirt XML domain file,\n"
-          "replacing all references to .vmdk to .qcow2\n"
-          "\n"
-          "XXX Possibly in the future converting VMDK to QCOW2, or it could be a separate script XXX\n"
-          "\n"
-          "PATH_STORAGE, if provided, is an additional path to search for referenced files.\n"
-          "\n"
-          "Searched PATHs:\n"
-          "by default this command scans for referenced files in the same directory as\n"
-          "FILENAME.vmx, then tries the current directory, then tries PATH_STORAGE and\n"
-          "its subdirectories recursively if provided.\n\n"
-    )
-    sys.exit(1)
-
-
 def parse_boolean(s: str) -> bool:
     s = s.lower()
     if (s == "true"):
@@ -114,8 +95,10 @@ def parse_filename(s: str, search_paths: list) -> str:
     pathname: str = find_file_ref(basename, search_paths[0], False)
     if (pathname == ""):
         pathname = find_file_ref(basename, search_paths[1], False)
-        if (pathname == "" and len(search_paths) == 3):
-            pathname = find_file_ref(basename, search_paths[2], True)
+        for i in range(2, len(search(paths))):
+            if (pathname != ""):
+                break
+            pathname = find_file_ref(basename, search_paths[i], True)
     if (pathname == ""):
         print(f"\n${basename} NOT FOUND, search paths {search_paths}")
         sys.exit(1)
@@ -490,15 +473,44 @@ def detect_vinst_version() -> float:
     return v
 
 
-def main(argc: int, argv: list) -> int:
-    vinst_version : float = detect_vinst_version()
-    if (argc < 2 or argc > 3):
-        usage()
-    vmx_name: str = argv[1]
-    search_paths: list = [ os.path.dirname(vmx_name), "." ]
-    if (argc > 2):
-        search_paths.append(argv[2])
+def is_dir(string: str) -> str:
+    if (os.path.isdir(string)):
+        return string
+    else:
+        raise NotADirectoryError(string)
 
+
+def get_options(argc: int, argv: list) -> tuple:
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        prog='vmx2xml.py',
+        description="converts a VMX Virtual Machine definition into a libvirt XML domain file,\n"
+        "replacing all references to .vmdk to .qcow2\n",
+        epilog="requires virt-install and virt-inspector, including libguestfs-winsupport"
+    )
+    parser.add_argument('-h', '--help', action='help')
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-V', '--version', action='version')
+    parser.add_argument('filename', action='store_const', nargs=1, required=True,
+                        type=argparse.FileType=('r', encoding='UTF-8'), help='the VMX description file to be converted')
+    parser.add_argument('-o', '--output-xml', action='store_const', nargs=1, default=sys.stdout,
+                        type=argparse.FileType=('r', encoding='UTF-8'), help='output libvirt XML file (default to stdout)')
+    parser.add_argument('-s', '--input-disks', action="store_const", nargs='*',
+                        type=is_dir, help='extra input storage directories to scan for VMDKs and other disk files')
+
+    args: argsparse.Namespace = parser.parse_args()
+    if (args.verbose):
+        debug = True
+    vmx_name: str = args.filename
+    xml_name: str = args.output_xml
+    search_paths: list = [ os.path.dirname(vmx_name), "." ]
+    search_paths.extend(args.input_disks)
+    return (vmx_name, xml_name, search_paths)
+
+
+def main(argc: int, argv: list) -> int:
+    (vmx_name, xml_name, search_paths) = get_options(argc, argv)
+
+    vinst_version : float = detect_vinst_version()
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
     d : defaultdict = defaultdict(str)
     parse_vmx(vmx_file, d)
@@ -595,10 +607,6 @@ def main(argc: int, argv: list) -> int:
         print(eths)
 
     # run virt-install to generate the xml
-    (xml_name, n) = re.subn("\.vmx$", ".xml", vmx_name, count=1, flags=re.IGNORECASE)
-    if (n == 0):
-        xml_name = vmx_name + ".xml"
-
     virt_install(vinst_version, xml_name, vmx_name,
                  name, memory,
                  cpu,
