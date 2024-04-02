@@ -513,6 +513,7 @@ def get_options(argc: int, argv: list) -> tuple:
                         help='the VMX description file to be converted')
 
     args: argparse.Namespace = parser.parse_args()
+    debug = False
     if (args.verbose):
         debug = True
     vmx_name: str = args.filename
