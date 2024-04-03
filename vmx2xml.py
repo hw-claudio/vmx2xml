@@ -396,12 +396,9 @@ def virt_install(vinst_version: float, qcow_mode: int,
     if (vga):
         args.append("model.type=vga")
     elif (svga):
-        video: str = "model.type=vmvga"
-        if (svga_memory > 0):
-            video += f",model.vram={svga_memory}"
-        args.append(video)
-    else:
         args.append("model.type=cirrus")
+    else:
+        args.append("model.type=none")
 
     if (sound):
         args.extend(["--sound", f"model={sound}"])
