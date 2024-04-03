@@ -259,9 +259,9 @@ def translate_eth_model(model: str) -> str:
         "vlance": "pcnet", # for old 32bit OSes (win98)
         "e1000": "e1000",  # winxp, linux-2.4.19
         "e1000e": "e1000e",  # windows 8, server 2012
-        "vmxnet": "vmxnet3", # XXX needs vmware tools? XXX
-        "vmxnet2": "vmxnet3",
-        "vmxnet3": "vmxnet3"
+        "vmxnet": "virtio-net",   # convert PV to PV
+        "vmxnet2": "virtio-net",  # convert PV to PV
+        "vmxnet3": "virtio-net"   # convert PV to PV
     })
     return translate(translator, model)
 
