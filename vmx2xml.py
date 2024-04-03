@@ -316,10 +316,10 @@ def find_eths(d: defaultdict, interface: str) -> list:
 def translate_disk_target(s: str) -> str:
     translator: defaultdict = defaultdict(str, {
         "":           "",
-        "scsi":       "virtio-transitional",
-        "sata":       "virtio-transitional",
+        "scsi":       "virtio",
+        "sata":       "virtio",
         "ide":        "ide",
-        "nvme":       "virtio-transitional"
+        "nvme":       "virtio"
     })
     return translate(translator, s);
 
@@ -424,7 +424,7 @@ def virt_install(vinst_version: float, qcow_mode: int,
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
-        target: str = translate_disk_target(bus)
+        target: str = bus if (disk["device"] == "cdrom") else translate_disk_target(bus)
         s: str = f"device={device},path={path},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
