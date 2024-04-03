@@ -311,6 +311,7 @@ def find_eths(d: defaultdict, interface: str) -> list:
         eths.append(eth)
     return eths
 
+### emulation targets for disks and networks
 
 def translate_disk_target(s: str) -> str:
     translator: defaultdict = defaultdict(str, {
@@ -424,7 +425,7 @@ def virt_install(vinst_version: float, qcow_mode: int,
         cache: str = disk["cache"]
         driver: str = disk["driver"]
         target: str = translate_disk_target(bus)
-        s: str = f"device={device},path={path},target.bus={bus},driver.cache={cache}"
+        s: str = f"device={device},path={path},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
         args.extend(["--disk", s])
