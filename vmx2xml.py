@@ -5,6 +5,12 @@
 #
 # Currently requires virt-install 2.2 and recommends 4.0
 # also requires virt-inspector (libguestfs), including libguestfs-winsupport
+#
+# Note that virt-v2v is most likely what you need.
+#
+# This tool is mostly used to configure the xml so that it more closely matches
+# the original configuration AFTER virt-v2v has been run.
+#
 
 import configparser
 import sys
