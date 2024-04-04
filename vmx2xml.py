@@ -200,7 +200,7 @@ def translate_scsi_controller_model(model: str) -> str:
         "auto":       "auto",
         "lsilogic":   "lsilogic",
         "lsisas1068": "lsisas1068",
-        "pvscsi":     "auto"
+        "pvscsi":     "virtio-scsi"
     })
     return translate(translator, model)
 
@@ -409,7 +409,7 @@ def virt_install(vinst_version: float, qcow_mode: int,
         args.extend(["--sound", f"model={sound}"])
 
     ### DISKS AND CONTROLLERS SECTION ###
-    ### XXX currently likely dies with interface "nvme", what to do about nvme0, nvme1...? ###
+    ### XXX needs testing with interface "nvme", what to do about nvme0, nvme1...? ###
 
     for interface in disk_ctrls:
         # only IDE controller is supported by virt-install/libvirt
