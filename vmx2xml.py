@@ -275,8 +275,8 @@ def translate_eth_model(model: str) -> str:
 def translate_eth_type(eth_type: str) -> str:
     translator: defaultdict = defaultdict(str, {
         "": "",
-        "bridged": "bridge=br0",
-        "vmnet0": "bridge=br0",
+        "bridged": "bridge",
+        "vmnet0": "bridge",
         "hostonly": "user",
         "vmnet1": "user",
         "nat": "network=default",
