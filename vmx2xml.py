@@ -194,7 +194,7 @@ def translate_scsi_controller_model(model: str) -> str:
         "auto":       "auto",
         "lsilogic":   "lsilogic",
         "lsisas1068": "lsisas1068",
-        "pvscsi":     "vmpvscsi"
+        "pvscsi":     "auto"
     })
     return translate(translator, model)
 
@@ -313,15 +313,15 @@ def find_eths(d: defaultdict, interface: str) -> list:
 
 ### emulation targets for disks and networks
 
-def translate_disk_target(s: str) -> str:
-    translator: defaultdict = defaultdict(str, {
-        "":           "",
-        "scsi":       "virtio",
-        "sata":       "virtio",
-        "ide":        "ide",
-        "nvme":       "virtio"
-    })
-    return translate(translator, s);
+# def translate_disk_target(s: str) -> str:
+#     translator: defaultdict = defaultdict(str, {
+#         "":           "",
+#         "scsi":       "virtio",
+#         "sata":       "virtio",
+#         "ide":        "ide",
+#         "nvme":       "virtio"
+#     })
+#     return translate(translator, s);
 
 
 def virt_install(vinst_version: float, qcow_mode: int,
@@ -343,9 +343,7 @@ def virt_install(vinst_version: float, qcow_mode: int,
     args.append("--dry-run")
     args.append("--noautoconsole")
     args.extend(["--virt-type", "kvm"])
-
-    if (uefi):
-        args.extend(["--machine", "q35"])
+    args.extend(["--machine", "q35" if (uefi) else "pc"])
 
     # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
     # and especially unfriendly with our import use case.
@@ -407,6 +405,22 @@ def virt_install(vinst_version: float, qcow_mode: int,
     ### DISKS AND CONTROLLERS SECTION ###
     ### XXX currently likely dies with interface "nvme", what to do about nvme0, nvme1...? ###
 
+    for interface in disk_ctrls:
+        # only IDE controller is supported by virt-install/libvirt
+        # we will have this automatically inserted if targeted by a disk
+        # so we omit it here.
+        if (interface == "ide"):
+            continue
+        ctrls: dict = disk_ctrls[interface]
+        for index in ctrls:
+            ctrl = ctrls[index]
+            s: str = f"type={interface},index={index}"
+            model: str = ctrl["model"]
+            if (model):
+                s += f",model={model}"
+            args.extend(["--controller", s])
+
+
     for disk in disks:
         x: int = disk["x"]
         y: int = disk["y"]
@@ -424,7 +438,8 @@ def virt_install(vinst_version: float, qcow_mode: int,
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
-        target: str = bus if (disk["device"] == "cdrom") else translate_disk_target(bus)
+        #target: str = bus if (disk["device"] == "cdrom") else translate_disk_target(bus)
+        target: str = bus
         s: str = f"device={device},path={path},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
