@@ -4,12 +4,13 @@
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
 # Currently requires virt-install 2.2 and recommends 4.0
-# also requires virt-inspector (libguestfs), including libguestfs-winsupport
-#
-# Note that virt-v2v is most likely what you need.
+# also requires libguestfs, including libguestfs-winsupport
+# virt-v2v, virt-inspector.
 #
 # This tool is mostly used to configure the xml so that it more closely matches
-# the original configuration AFTER virt-v2v has been run.
+# the configuration pre-conversion.
+# It uses virt-v2v to convert the disks (qemu-img),
+# inject the windows and linux drivers and rebuild the initrd.
 #
 
 import configparser
@@ -18,6 +19,7 @@ import os
 import re
 import subprocess
 import argparse
+import glob
 from os.path import join
 from collections import defaultdict
 
@@ -78,20 +80,37 @@ def virt_inspector(path: str) -> dict:
 
     return os
 
-
+# XXX virt-v2v does not allow specifying the exact output filename
 def qcow_convert(vmdk: str, qcow: str) -> None:
     args: list = []
-    args.extend(["qemu-img", "convert"])
-    args.extend(["-f", "vmdk"])
-    args.extend(["-O", "qcow2"])
-    if (debug):
-        args.append("-p")
-    args.extend([vmdk, qcow])
+    dirname: str = os.path.dirname(qcow)
+    args.extend(["virt-v2v", "--root=first"])
+    args.extend(["-i", "disk"])
+    args.extend(["-o", "disk"])
+    args.extend(["-of", "qcow2"])
+    args.extend(["-os", dirname])
+    if (not debug):
+        args.append("--quiet")
+    args.append(vmdk)
 
     if (debug):
         printerr(args)
 
+    srcnames: list = glob.glob(qcow + "-sd*")
+    if (srcnames):
+        first: str = srcnames[0]
+        printerr(f"Existing file or directory {first} could be overwritten by this operation.\n"
+                 f"Consider removing or moving {first} into another directory\n")
+        sys.exit(1)
+
     p = subprocess.run(args, stdout=sys.stderr, check=True)
+
+    # Now rename to the name we want
+    srcnames: list = glob.glob(qcow + "-sd*")
+    if (len(srcnames) != 1):
+        printerr("could not find the generated disk.\n")
+        sys.exit(1)
+    os.rename(srcnames[0], qcow + ".qcow2")
 
 
 # translate string using a passed dictionary
@@ -122,7 +141,7 @@ def parse_filename(s: str, search_paths: list) -> str:
                          "and requires privileges to create.\n"
                          "Consider manually creating a bogus file as a workaround.\n"
                         "At runtime the VM will require a host with a valid device to run!\n")
-                exit(1)
+                sys.exit(1)
         return s
 
     # find the file referenced by the vmx in the local filesystem
@@ -231,7 +250,7 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
                 "bus": interface, "x": x, "y": y,
                 "device": '', "driver": '',
                 "cache": '', "path" : '',
-                "os": { "name": '', "osinfo": '', "date": '' }
+                #"os": { "name": '', "osinfo": '', "date": '' }
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
@@ -239,8 +258,8 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
             disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
             # XXX we never use the actual libvirt/qemu default, writeback?
             disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
-            if (disk["path"]):
-                disk["os"] = virt_inspector(disk["path"])
+            #if (disk["path"]):
+            #    disk["os"] = virt_inspector(disk["path"])
             disks.append(disk)
     return disks
 
@@ -435,11 +454,12 @@ def virt_install(vinst_version: float, qcow_mode: int,
 
         if (qcow_mode > 0):
             vmdk: str = path
-            (match, n) = re.subn(r"\.vmdk$", ".qcow2", vmdk, count=1, flags=re.IGNORECASE)
+            (match, n) = re.subn(r"\.vmdk$", "", vmdk, count=1, flags=re.IGNORECASE)
             if (n == 1):
                 path = match
                 if (qcow_mode > 1):
                     qcow_convert(vmdk, path)
+                path = path + ".qcow2"
 
         bus: str = disk["bus"]
         cache: str = disk["cache"]
