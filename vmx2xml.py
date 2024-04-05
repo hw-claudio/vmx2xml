@@ -23,7 +23,7 @@ import glob
 from os.path import join
 from collections import defaultdict
 
-debug: bool = False
+debug: int = 0
 program_version: str = "0.1"
 
 def printerr(arg) -> None:
@@ -42,14 +42,14 @@ def virt_inspector(path: str) -> dict:
     args.extend(["--no-icon", "--no-applications", "--echo-keys"])
     args.append(path)
 
-    if (debug):
+    if (debug > 1):
         printerr(args)
 
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
     (s, _) = p.communicate()
 
     if (p.returncode != 0):
-        if (debug):
+        if (debug > 0):
             printerr(path + " could not be inspected.")
         return os
 
@@ -72,7 +72,7 @@ def virt_inspector(path: str) -> dict:
         if (date_m):
             os["date"] = date_m.group(1)
 
-    if (debug):
+    if (debug > 1):
         name: str = os["name"]
         osinfo: str = os["osinfo"]
         date: str = os["date"]
@@ -89,11 +89,11 @@ def qcow_convert(vmdk: str, qcow: str) -> None:
     args.extend(["-o", "disk"])
     args.extend(["-of", "qcow2"])
     args.extend(["-os", dirname])
-    if (not debug):
+    if (debug == 0):
         args.append("--quiet")
     args.append(vmdk)
 
-    if (debug):
+    if (debug > 1):
         printerr(args)
 
     srcnames: list = glob.glob(qcow + "-sd*")
@@ -146,7 +146,7 @@ def parse_filename(s: str, search_paths: list) -> str:
 
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
-    if (debug):
+    if (debug > 0):
         printerrln(f"[DISK] {basename} => ")
 
     pathname: str = find_file_ref(basename, search_paths[0], False)
@@ -159,7 +159,7 @@ def parse_filename(s: str, search_paths: list) -> str:
     if (pathname == ""):
         printerr(f"\n{basename} NOT FOUND, search paths {search_paths}")
         sys.exit(1)
-    if (debug):
+    if (debug > 0):
         printerr(f"{pathname}")
     return pathname
 
@@ -498,7 +498,7 @@ def virt_install(vinst_version: float, qcow_mode: int,
             s += f",mac={mac}"
         args.extend(["--network", s])
 
-    if (debug):
+    if (debug > 1):
         printerr(args)
 
     ### WRITE THE RESULTING DOMAIN XML ###
@@ -517,7 +517,7 @@ def virt_install(vinst_version: float, qcow_mode: int,
 def detect_vinst_version() -> float:
     s: str = ""
     args: list = [ "virt-install", "--version" ]
-    if (debug):
+    if (debug > 1):
         printerr(args)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
@@ -528,9 +528,10 @@ def detect_vinst_version() -> float:
     v: float = float(m.group(1)) or 0
     if (v < 2.2):
         printerr("virt-install version >= 2.2.0 is required for this command to work")
+        sys.exit(1)
     if (v < 4.0):
         printerr("virt-install version >= 4.0.0 is recommended for best results")
-    if (debug):
+    if (debug > 0):
         printerr(f"virt-install: detected version {v}")
     return v
 
@@ -550,7 +551,7 @@ def get_options(argc: int, argv: list) -> tuple:
         "replacing all references to .vmdk to .qcow2\n",
         epilog="requires virt-install and virt-inspector, including libguestfs-winsupport"
     )
-    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-v', '--verbose', action='count', default=0)
     parser.add_argument('-V', '--version', action='version', version=program_version)
     parser.add_argument('-o', '--output-xml', action='store', help='output libvirt XML file (default to stdout)')
     parser.add_argument('-s', '--storagedir', action="append",
@@ -561,15 +562,14 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-Q', '--qcow-convert', action='store_true', help='also convert the .vmdk into .qcow2 (implies -q)')
 
     args: argparse.Namespace = parser.parse_args()
-    if (args.verbose):
-        debug = True
+    debug = args.verbose
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
     search_paths: list = [ os.path.dirname(vmx_name), "." ]
     if (args.storagedir):
         search_paths.extend(args.storagedir)
     qcow_mode: int = 2 if (args.qcow_convert) else 1 if (args.qcow_translate) else 0
-    if (debug):
+    if (debug > 1):
         printerr(f"[OPTIONS] vmx_name={vmx_name} xml_name={xml_name} search_paths:{search_paths} qcow_mode:{qcow_mode}")
     return (vmx_name, xml_name, search_paths, qcow_mode)
 
@@ -584,22 +584,22 @@ def main(argc: int, argv: list) -> int:
     vmx_file.close()
 
     name: str = d["displayname"]
-    if (debug and name):
+    if (debug > 1 and name):
         printerr(f"[NAME] {name}")
 
     memory: int = int(d["memsize"] or 1024)
-    if (debug and memory):
+    if (debug > 1 and memory):
         printerr(f"[MEMORY] {memory}")
 
     genid: str = parse_genid(int(d["vm.genid"] or 0), int(d["vm.genidx"] or 0))
-    if (debug and genid):
+    if (debug > 1 and genid):
         printerr(f"[GENID] {genid}")
 
     # SMBIOS.reflectHost = "TRUE"
     # SMBIOS.noOEMStrings = "TRUE"
     # smbios.addHostVendor = "TRUE"
     sysinfo: str = "host" if (parse_boolean(d["smbios.reflectHost"])) else ""
-    if (debug and sysinfo):
+    if (debug > 1 and sysinfo):
         printerr(f"[SYSINFO] {sysinfo}")
 
     vcpus: int = int(d["numvcpus"] or 0)
@@ -615,7 +615,7 @@ def main(argc: int, argv: list) -> int:
     if (sockets < 1):
         sockets = 1
     assert(vcpus == sockets * cores)
-    if (debug):
+    if (debug > 1):
         printerr(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}")
 
     # Jim suggests using host-passthrough migratable=on rather than host-model
@@ -636,7 +636,7 @@ def main(argc: int, argv: list) -> int:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
     nvram: str = parse_filename(d["nvram"], search_paths)
-    if (debug and uefi):
+    if (debug > 1 and uefi):
         printerr(f"[UEFI] {uefi}")
 
     # ignore for now
@@ -645,13 +645,13 @@ def main(argc: int, argv: list) -> int:
     svga: bool = parse_boolean(d["svga.present"])
     svga_memory: int = int(d["svgaram.vramSize"] or 0) // 1024
     vga: bool = parse_boolean(d["svga.vgaonly"])
-    if (debug and vga):
+    if (debug > 1 and vga):
         printerr(f"[VGA]")
-    elif (debug and svga):
+    elif (debug > 1 and svga):
         printerr(f"[SVGA] {svga_memory}")
 
     sound: str = find_sound(d)
-    if (debug and sound):
+    if (debug > 1 and sound):
         printerr(f"[SOUND] {sound}")
 
     # these interface names are used in vmware for disks
@@ -668,7 +668,7 @@ def main(argc: int, argv: list) -> int:
 
     eths: list = find_eths(d, "ethernet")
 
-    if (debug):
+    if (debug > 1):
         printerr(disk_ctrls)
         printerr(disks)
         printerr(floppys)
