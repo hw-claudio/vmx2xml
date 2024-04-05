@@ -13,7 +13,6 @@
 # inject the windows and linux drivers and rebuild the initrd.
 #
 
-import configparser
 import sys
 import os
 import re
