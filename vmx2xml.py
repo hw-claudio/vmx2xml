@@ -21,16 +21,21 @@ import argparse
 import glob
 from os.path import join
 from collections import defaultdict
+import logging
 
-debug: int = 0
+log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
 
-def printerr(arg) -> None:
-    print(arg, file=sys.stderr)
+def log_disable_nl() -> None:
+    global log
+    handler: logging.StreamHandler = log.handlers[0]
+    handler.terminator = ""
 
 
-def printerrln(arg) -> None:
-    print(arg, file=sys.stderr, end="")
+def log_enable_nl() -> None:
+    global log
+    handler: logging.StreamHandler = log.handlers[0]
+    handler.terminator = "\n"
 
 
 def virt_inspector(path: str) -> dict:
@@ -41,15 +46,13 @@ def virt_inspector(path: str) -> dict:
     args.extend(["--no-icon", "--no-applications", "--echo-keys"])
     args.append(path)
 
-    if (debug > 1):
-        printerr(args)
+    log.debug("%s", args)
 
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
     (s, _) = p.communicate()
 
     if (p.returncode != 0):
-        if (debug > 0):
-            printerr(path + " could not be inspected.")
+        log.error("%s could not be inspected.", path)
         return os
 
     name_m = re.search(r"^\s*<name>(.+)</name>\s*$", s, flags=re.MULTILINE)
@@ -71,12 +74,7 @@ def virt_inspector(path: str) -> dict:
         if (date_m):
             os["date"] = date_m.group(1)
 
-    if (debug > 1):
-        name: str = os["name"]
-        osinfo: str = os["osinfo"]
-        date: str = os["date"]
-        printerr(f"{name} {osinfo} {date}")
-
+    log.debug("[OS] %s %s %s", os["name"], os["osinfo"], os["date"])
     return os
 
 # XXX virt-v2v does not allow specifying the exact output filename
@@ -88,18 +86,17 @@ def qcow_convert(vmdk: str, qcow: str) -> None:
     args.extend(["-o", "disk"])
     args.extend(["-of", "qcow2"])
     args.extend(["-os", dirname])
-    if (debug == 0):
+    if (log.getEffectiveLevel() >= logging.WARNING):
         args.append("--quiet")
     args.append(vmdk)
 
-    if (debug > 1):
-        printerr(args)
+    log.debug("%s", args)
 
     srcnames: list = glob.glob(qcow + "-sd*")
     if (srcnames):
         first: str = srcnames[0]
-        printerr(f"Existing file or directory {first} could be overwritten by this operation.\n"
-                 f"Consider removing or moving {first} into another directory\n")
+        log.critical("Existing file or directory %s could be overwritten by this operation.\n"
+                     "Consider removing or moving %s into another directory", first, first)
         sys.exit(1)
 
     p = subprocess.run(args, stdout=sys.stderr, check=True)
@@ -107,7 +104,7 @@ def qcow_convert(vmdk: str, qcow: str) -> None:
     # Now rename to the name we want
     srcnames: list = glob.glob(qcow + "-sd*")
     if (len(srcnames) != 1):
-        printerr("could not find the generated disk.\n")
+        log.critical("could not find the generated disk %s-sd*", qcow)
         sys.exit(1)
     os.rename(srcnames[0], qcow + ".qcow2")
 
@@ -131,22 +128,17 @@ def parse_filename(s: str, search_paths: list) -> str:
     if (s == ""):
         return s
     if (s.startswith("/dev/")):
-        printerr(f"[DISK] {s}")
+        log.info("[DISK] %s", s)
         if not (os.path.exists(s)):
-            try:
-                open(s, 'w').close()
-            except:
-                printerr("VM references a block device which does not exist on this host\n"
-                         "and requires privileges to create.\n"
-                         "Consider manually creating a bogus file as a workaround.\n"
-                        "At runtime the VM will require a host with a valid device to run!\n")
-                sys.exit(1)
+            log.warning("VM references a block device which does not exist on this host,\n"
+                        "at runtime the VM will require a host with a valid device to run!")
         return s
 
     # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
-    if (debug > 0):
-        printerrln(f"[DISK] {basename} => ")
+    log_disable_nl()
+    log.info("[DISK] %s => ", basename)
+    log_enable_nl()
 
     pathname: str = find_file_ref(basename, search_paths[0], False)
     if (pathname == ""):
@@ -156,10 +148,9 @@ def parse_filename(s: str, search_paths: list) -> str:
                 break
             pathname = find_file_ref(basename, search_paths[i], True)
     if (pathname == ""):
-        printerr(f"\n{basename} NOT FOUND, search paths {search_paths}")
+        log.critical("\n%s NOT FOUND, search paths %s", basename, search_paths)
         sys.exit(1)
-    if (debug > 0):
-        printerr(f"{pathname}")
+    log.info("%s", pathname)
     return pathname
 
 
@@ -347,8 +338,29 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     })
 #     return translate(translator, s);
 
+def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) -> str:
+    targetpath: str = sourcepath
+    for datapath in datastores:
+        targetpath = sourcepath.replace(datapath, datastores[datapath], 1)
+        if (targetpath != sourcepath):
+            break
 
-def virt_install(vinst_version: float, qcow_mode: int,
+    if (qcow_mode > 0):
+        vmdk: str = targetpath
+        (match, n) = re.subn(r"\.vmdk$", "", vmdk, count=1, flags=re.IGNORECASE)
+        if (n == 1):
+            targetpath = match
+            if (qcow_mode > 1):
+                qcow_convert(vmdk, targetpath)
+            targetpath = targetpath + ".qcow2"
+        elif (targetpath != sourcepath):
+            if (qcow_mode > 1):
+                shutil.copy(sourcepath, targetpath)
+
+    return targetpath
+
+
+def virt_install(vinst_version: float, qcow_mode: int, datastores: dict,
                  xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
@@ -449,23 +461,14 @@ def virt_install(vinst_version: float, qcow_mode: int,
         x: int = disk["x"]
         y: int = disk["y"]
         device: str = disk["device"]
-        path: str = disk["path"]
-
-        if (qcow_mode > 0):
-            vmdk: str = path
-            (match, n) = re.subn(r"\.vmdk$", "", vmdk, count=1, flags=re.IGNORECASE)
-            if (n == 1):
-                path = match
-                if (qcow_mode > 1):
-                    qcow_convert(vmdk, path)
-                path = path + ".qcow2"
-
+        sourcepath: str = disk["path"]
+        targetpath: str = translate_convert_path(sourcepath, qcow_mode, datastores)
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
         #target: str = bus if (disk["device"] == "cdrom") else translate_disk_target(bus)
         target: str = bus
-        s: str = f"device={device},path={path},target.bus={target},driver.cache={cache}"
+        s: str = f"device={device},path={targetpath},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
         args.extend(["--disk", s])
@@ -497,15 +500,14 @@ def virt_install(vinst_version: float, qcow_mode: int,
             s += f",mac={mac}"
         args.extend(["--network", s])
 
-    if (debug > 1):
-        printerr(args)
+    log.debug("%s", args)
 
     ### WRITE THE RESULTING DOMAIN XML ###
     xml_file = open(xml_name, 'w', encoding="utf-8") if (xml_name) else sys.stdout
     try:
         subprocess.run(args, stdout=xml_file, check=True, encoding='utf-8')
     except:
-        printerr(" ".join(args))
+        log.critical(" ".join(args))
         sys.exit(1)
 
     if (xml_name):
@@ -516,22 +518,21 @@ def virt_install(vinst_version: float, qcow_mode: int,
 def detect_vinst_version() -> float:
     s: str = ""
     args: list = [ "virt-install", "--version" ]
-    if (debug > 1):
-        printerr(args)
+
+    log.debug("%s", args)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
     m = re.match(r"^(\d+\.\d+)", s)
     if not (m):
-        printerr(f"failed to detect virt-install version: {s}")
+        log.critical("failed to detect virt-install version: %s", s)
         sys.exit(1)
     v: float = float(m.group(1)) or 0
     if (v < 2.2):
-        printerr("virt-install version >= 2.2.0 is required for this command to work")
+        log.critical("virt-install version >= 2.2.0 is required for this command to work")
         sys.exit(1)
     if (v < 4.0):
-        printerr("virt-install version >= 4.0.0 is recommended for best results")
-    if (debug > 0):
-        printerr(f"virt-install: detected version {v}")
+        log.warning("virt-install version >= 4.0.0 is recommended for best results")
+    log.info("virt-install: detected version %s", v)
     return v
 
 
@@ -543,38 +544,63 @@ def is_dir(string: str) -> str:
 
 
 def get_options(argc: int, argv: list) -> tuple:
-    global debug
+    global log
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
-        description="converts a VMX Virtual Machine definition into a libvirt XML domain file,\n"
-        "replacing all references to .vmdk to .qcow2\n",
+        description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n",
         epilog="requires virt-install and virt-inspector, including libguestfs-winsupport"
     )
-    parser.add_argument('-v', '--verbose', action='count', default=0)
+    parser.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
+    parser.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-V', '--version', action='version', version=program_version)
     parser.add_argument('-o', '--output-xml', action='store', help='output libvirt XML file (default to stdout)')
     parser.add_argument('-s', '--storagedir', action="append",
                         help='extra input storage dirs to scan for VMDKs and other disks')
     parser.add_argument('-f', '--filename', metavar="VMXFILE", action='store', required=True,
                         help='the VMX description file to be converted')
-    parser.add_argument('-q', '--qcow-translate', action='store_true', help='replace references to .vmdk to .qcow2')
-    parser.add_argument('-Q', '--qcow-convert', action='store_true', help='also convert the .vmdk into .qcow2 (implies -q)')
+    parser.add_argument('-t', '--translate-qcow2', action='store_true', help='translate path references from .vmdk to .qcow2')
+    parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
+    parser.add_argument('-d', '--translate-datastore', action='append',
+                        help='datastore1,datastore2 (can be specified multiple times) translate all paths containing datastore1 with datastore2')
 
     args: argparse.Namespace = parser.parse_args()
-    debug = args.verbose
+    if (args.verbose and args.quiet):
+        log.critical("cannot specify both --verbose and --quiet at the same time.")
+        sys.exit(1)
+    if (args.verbose > 2):
+        args.verbose = 2
+    if (args.quiet > 2):
+        args.quiet = 2
+    loglevel: int = logging.WARNING - (args.verbose * 10) + (args.quiet * 10)
+
+    log.setLevel(loglevel)
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(fmt='%(message)s'))
+    log.addHandler(handler)
+
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
     search_paths: list = [ os.path.dirname(vmx_name), "." ]
     if (args.storagedir):
         search_paths.extend(args.storagedir)
-    qcow_mode: int = 2 if (args.qcow_convert) else 1 if (args.qcow_translate) else 0
-    if (debug > 1):
-        printerr(f"[OPTIONS] vmx_name={vmx_name} xml_name={xml_name} search_paths:{search_paths} qcow_mode:{qcow_mode}")
-    return (vmx_name, xml_name, search_paths, qcow_mode)
+
+    datastores: defaultdict = defaultdict(str)
+    if (args.translate_datastore):
+        for i in range(0, len(args.translate_datastore)):
+            (fro, match, to) = args.translate_datastore[i].partition(",")
+            if not (match):
+                log.critical("--translate-datastore needs a , separator");
+                sys.exit(1)
+            datastores[fro] = to
+
+    qcow_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_qcow2) else 0
+
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s", vmx_name, xml_name, search_paths, qcow_mode, datastores)
+    return (vmx_name, xml_name, search_paths, qcow_mode, datastores)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, search_paths, qcow_mode) = get_options(argc, argv)
+    (vmx_name, xml_name, search_paths, qcow_mode, datastores) = get_options(argc, argv)
 
     vinst_version : float = detect_vinst_version()
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
@@ -583,23 +609,23 @@ def main(argc: int, argv: list) -> int:
     vmx_file.close()
 
     name: str = d["displayname"]
-    if (debug > 1 and name):
-        printerr(f"[NAME] {name}")
+    if (name):
+        log.debug("[NAME] %s", name)
 
     memory: int = int(d["memsize"] or 1024)
-    if (debug > 1 and memory):
-        printerr(f"[MEMORY] {memory}")
+    if (memory):
+        log.debug("[MEMORY] %s", memory)
 
     genid: str = parse_genid(int(d["vm.genid"] or 0), int(d["vm.genidx"] or 0))
-    if (debug > 1 and genid):
-        printerr(f"[GENID] {genid}")
+    if (genid):
+        log.debug("[GENID] %s", genid)
 
     # SMBIOS.reflectHost = "TRUE"
     # SMBIOS.noOEMStrings = "TRUE"
     # smbios.addHostVendor = "TRUE"
     sysinfo: str = "host" if (parse_boolean(d["smbios.reflectHost"])) else ""
-    if (debug > 1 and sysinfo):
-        printerr(f"[SYSINFO] {sysinfo}")
+    if (sysinfo):
+        log.debug("[SYSINFO] %s", sysinfo)
 
     vcpus: int = int(d["numvcpus"] or 0)
     if (vcpus < 1):
@@ -614,15 +640,13 @@ def main(argc: int, argv: list) -> int:
     if (sockets < 1):
         sockets = 1
     assert(vcpus == sockets * cores)
-    if (debug > 1):
-        printerr(f"[VCPUS] {vcpus},sockets={sockets},cores={cores},threads={threads}")
+    log.debug("[VCPUS] %d,sockets=%d,cores=%d,threads=%d", vcpus, sockets, cores, threads)
 
     # Jim suggests using host-passthrough migratable=on rather than host-model
     cpu_model: str = "host-passthrough"
     cpu_check: str = "none"
     cpu_migratable: str = "on"
     cpu: dict = { "model": cpu_model, "check": cpu_check, "migratable": cpu_migratable }
-
     iothreads: int = vcpus # XXX forgot the rule of thumb to set this
 
     uefi: str = ""
@@ -635,8 +659,8 @@ def main(argc: int, argv: list) -> int:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
     nvram: str = parse_filename(d["nvram"], search_paths)
-    if (debug > 1 and uefi):
-        printerr(f"[UEFI] {uefi}")
+    if (uefi):
+        log.debug("[UEFI] %s", uefi)
 
     # ignore for now
     # guestos: str = parse_guestos(d["guestos"])
@@ -644,14 +668,14 @@ def main(argc: int, argv: list) -> int:
     svga: bool = parse_boolean(d["svga.present"])
     svga_memory: int = int(d["svgaram.vramSize"] or 0) // 1024
     vga: bool = parse_boolean(d["svga.vgaonly"])
-    if (debug > 1 and vga):
-        printerr(f"[VGA]")
-    elif (debug > 1 and svga):
-        printerr(f"[SVGA] {svga_memory}")
+    if (vga):
+        log.debug("[VGA]")
+    elif (svga):
+        log.debug("[SVGA] %d", svga_memory)
 
     sound: str = find_sound(d)
-    if (debug > 1 and sound):
-        printerr(f"[SOUND] {sound}")
+    if (sound):
+        log.debug("[SOUND] %s", sound)
 
     # these interface names are used in vmware for disks
     disk_ctrls: dict = { "scsi": {}, "sata": {}, "nvme": {}, "ide": {} }
@@ -667,14 +691,13 @@ def main(argc: int, argv: list) -> int:
 
     eths: list = find_eths(d, "ethernet")
 
-    if (debug > 1):
-        printerr(disk_ctrls)
-        printerr(disks)
-        printerr(floppys)
-        printerr(eths)
+    log.debug("%s", disk_ctrls)
+    log.debug("%s", disks)
+    log.debug("%s", floppys)
+    log.debug("%s", eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version, qcow_mode,
+    virt_install(vinst_version, qcow_mode, datastores,
                  xml_name, vmx_name,
                  name, memory,
                  cpu,
