@@ -22,6 +22,7 @@ import glob
 from os.path import join
 from collections import defaultdict
 import logging
+import shutil
 
 log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
