@@ -1,1 +1,68 @@
 *** THIS IS JUST FOR RESEARCH AND TESTING, DO NOT USE IN PRODUCTION ***
+
+
+REQUIREMENTS
+------------
+
+This script has been developed as a result of a sales opportunity for a VMWare -> KVM conversion, which did not materialize.
+
+The relevant requirements in the context of this specific script were:
+
+* NFS servers serving OS images as .VMDK files, VM using vmware pvscsi virtual network device.
+* Guest OSes including Windows 2008 .. 2022, RHEL 6.x to 8.x, SLES 12 to SLES 15 SP2, Ubuntu
+* Virtual Firmware all legacy BIOS
+* Conversion of VMDK to QCOW2 was needed but concern on the conversion times (automation and optimization required)
+
+* Move from existing NFS datastore volumes to new NFS datastore volumes was necessary,
+since the existing ones were already almost full at capacity, so the disks could not be converted "in place" in the same datastore.
+
+
+--------------------
+WHAT THE SCRIPT DOES
+
+The script primarily converts a VMX Virtual Machine definition into a libvirt XML domain file, that notably tries to match the existing configuration, controller topology etc of the original VMX (with huge limitations, WIP etc).
+
+The script also optionally can translate all references to VMDK disks in the VMX to references to QCOW2 disks,
+optionally on a different datastore (IMPORTANT).
+
+Here a datastore is basically just an NFS-reachable directory, so this functionality can be used also to convert VMs locally between different local disks.
+
+The script also can optionally convert the VMDK disks into QCOW2 disks bootable under KVM,
+and this is done using the virt-v2v tool.
+
+virt-v2v just uses qemu-img for the conversion, but notably also runs a very complex set of libguestfs commands to primarily check the guest and inject Linux and Windows drivers for virtio.
+
+The script contains these different optional functionalities, so it can be relaunched once the QCOW2 disks have been already converted,
+in order to update and fine tune the xml conversion itself, without the costly operation of moving or converting disk images.
+
+
+------------
+CMDLINE HELP
+
+usage: vmx2xml.py [-h] [-v] [-q] [-V] [-o OUTPUT_XML] [-s STORAGEDIR] -f
+                  VMXFILE [-t] [-c] [-d TRANSLATE_DATASTORE]
+
+converts a VMX Virtual Machine definition into a libvirt XML domain file
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --verbose         can be specified up to 2 times
+  -q, --quiet           can be specified up to 2 times
+  -V, --version         show program's version number and exit
+  -o OUTPUT_XML, --output-xml OUTPUT_XML
+                        output libvirt XML file (default to stdout)
+  -s STORAGEDIR, --storagedir STORAGEDIR
+                        extra input storage dirs to scan for VMDKs and other
+                        disks
+  -f VMXFILE, --filename VMXFILE
+                        the VMX description file to be converted
+  -t, --translate-qcow2
+                        translate path references from .vmdk to .qcow2
+  -c, --convert-disks   convert and move disk contents across datastores
+                        (implies -t)
+  -d TRANSLATE_DATASTORE, --translate-datastore TRANSLATE_DATASTORE
+                        datastore1,datastore2 (can be specified multiple
+                        times) translate all paths containing datastore1 with
+                        datastore2
+
+requires virt-install, libguestfs including libguestfs-winsupport and virt-v2v
