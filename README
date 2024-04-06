@@ -20,17 +20,20 @@ since the existing ones were already almost full at capacity, so the disks could
 --------------------
 WHAT THE SCRIPT DOES
 
-The script primarily converts a VMX Virtual Machine definition into a libvirt XML domain file, that notably tries to match the existing configuration, controller topology etc of the original VMX (with huge limitations, WIP etc).
+The script primarily converts a VMX Virtual Machine definition into a libvirt XML domain file, that notably tries to match the existing
+configuration, controller topology etc of the original VMX (with huge limitations, WIP etc).
 
 The script also optionally can translate all references to VMDK disks in the VMX to references to QCOW2 disks,
 optionally on a different datastore (IMPORTANT).
 
-Here a datastore is basically just an NFS-reachable directory, so this functionality can be used also to convert VMs locally between different local disks.
+Here a datastore is basically just an NFS-reachable directory, so this functionality can be used also to convert VMs locally between
+different local disks.
 
 The script also can optionally convert the VMDK disks into QCOW2 disks bootable under KVM,
 and this is done using the virt-v2v tool.
 
-virt-v2v just uses qemu-img for the conversion, but notably also runs a very complex set of libguestfs commands to primarily check the guest and inject Linux and Windows drivers for virtio.
+virt-v2v just uses qemu-img for the conversion, but notably also runs a very complex set of libguestfs commands to primarily check
+the guest and inject Linux and Windows drivers for virtio.
 
 The script contains these different optional functionalities, so it can be relaunched once the QCOW2 disks have been already converted,
 in order to update and fine tune the xml conversion itself, without the costly operation of moving or converting disk images.
