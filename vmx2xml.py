@@ -351,7 +351,7 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) ->
         if (n == 1):
             targetpath = match
             if (qcow_mode > 1):
-                qcow_convert(vmdk, targetpath)
+                qcow_convert(sourcepath, targetpath)
             targetpath = targetpath + ".qcow2"
         elif (targetpath != sourcepath):
             if (qcow_mode > 1):
