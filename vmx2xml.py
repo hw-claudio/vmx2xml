@@ -39,6 +39,51 @@ def log_enable_nl() -> None:
     handler.terminator = "\n"
 
 
+def readln(p: subprocess.Popen) -> str:
+    line: str = p.stdout.readline()
+    if (line == ""):
+        return None
+    else:
+        return line.strip()
+
+
+def readignore(p: subprocess.Popen) -> None:
+    while (readln(p) != None):
+        pass
+
+
+def writeln(p: subprocess.Popen, message: str) -> None:
+    p.stdin.write(f"{msg}\n");
+
+
+def guestfish_convert(path: str) -> bool:
+    args: list = []
+    out: str = ""
+    args.append("guestfish")
+    args.extend(["-a", path])
+
+    p: subprocess.Popen = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf-8')
+    if (p.returncode != 0):
+        return False
+
+    readignore(p)               # discard welcome message
+    writeln(p, "run")
+    readignore(p)
+    writeln(p, "inspect-os")
+    out = readln(p)
+    if (!out):
+        return False
+    root: str = out
+    readignore(p)               # ignore all other roots
+    writeln(p, f"inspect-get-type {root}")
+    out = readln(p)
+    if (!out):
+        return False
+    if (out == "linux"):
+        return True
+    return False
+
+
 def virt_inspector(path: str) -> dict:
     args: list = []
     os: dict = { "name": '', "osinfo": '', "date": '' }
@@ -78,36 +123,21 @@ def virt_inspector(path: str) -> dict:
     log.debug("[OS] %s %s %s", os["name"], os["osinfo"], os["date"])
     return os
 
-# XXX virt-v2v does not allow specifying the exact output filename
-def qcow_convert(vmdk: str, qcow: str) -> None:
+
+# this step is done separately, and not with virt-v2v, in order to avoid the
+# additional overlay image for performance reasons, and to allow more flexibility
+# in terms of control over the qemu-img parameters in the future (-m etc).
+def qemu_img_convert(vmdk: str, qcow: str) -> None:
     args: list = []
-    dirname: str = os.path.dirname(qcow)
-    args.extend(["virt-v2v", "--root=first"])
-    args.extend(["-i", "disk"])
-    args.extend(["-o", "disk"])
-    args.extend(["-of", "qcow2"])
-    args.extend(["-os", dirname])
-    if (log.getEffectiveLevel() >= logging.WARNING):
-        args.append("--quiet")
-    args.append(vmdk)
+    args.extend(["qemu-img", "convert"])
+    args.extend(["-f", "vmdk"])
+    args.extend(["-O", "qcow2"])
+    if (log.getEffectiveLevel() < logging.WARNING):
+        args.append("-p")
+    args.extend([vmdk, qcow])
 
     log.debug("%s", args)
-
-    srcnames: list = glob.glob(qcow + "-sd*")
-    if (srcnames):
-        first: str = srcnames[0]
-        log.critical("Existing file or directory %s could be overwritten by this operation.\n"
-                     "Consider removing or moving %s into another directory", first, first)
-        sys.exit(1)
-
     p = subprocess.run(args, stdout=sys.stderr, check=True)
-
-    # Now rename to the name we want
-    srcnames: list = glob.glob(qcow + "-sd*")
-    if (len(srcnames) != 1):
-        log.critical("could not find the generated disk %s-sd*", qcow)
-        sys.exit(1)
-    os.rename(srcnames[0], qcow + ".qcow2")
 
 
 # translate string using a passed dictionary
@@ -348,12 +378,16 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) ->
 
     if (qcow_mode > 0):
         vmdk: str = targetpath
-        (match, n) = re.subn(r"\.vmdk$", "", vmdk, count=1, flags=re.IGNORECASE)
+        (match, n) = re.subn(r"\.vmdk$", ".qcow2", vmdk, count=1, flags=re.IGNORECASE)
         if (n == 1):
             targetpath = match
             if (qcow_mode > 1):
-                qcow_convert(sourcepath, targetpath)
-            targetpath = targetpath + ".qcow2"
+                qemu_img_convert(sourcepath, targetpath)
+                if (guestfish_convert(targetpath)):
+                    print("SUCCESS!!!")
+                else:
+                    print("FAILURE!!!")
+
         elif (targetpath != sourcepath):
             if (qcow_mode > 1):
                 shutil.copy(sourcepath, targetpath)
