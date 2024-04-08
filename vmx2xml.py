@@ -4,12 +4,12 @@
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
 # Currently requires virt-install 2.2 and recommends 4.0
-# also requires libguestfs, including libguestfs-winsupport
-# virt-v2v
+# also requires qemu-img, libguestfs, including libguestfs-winsupport
 #
 # This tool is mostly used to configure the xml so that it more closely matches
 # the configuration pre-conversion.
-# It uses virt-v2v to convert the disks (qemu-img),
+#
+# It uses qemu-img to convert the disks, and then libguestfs to
 # inject the windows and linux drivers and rebuild the initrd.
 #
 
@@ -549,7 +549,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n",
-        epilog="requires virt-install and virt-v2v, including libguestfs-winsupport"
+        epilog="requires virt-install, qemu-img and libguestfs, including libguestfs-winsupport"
     )
     parser.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')

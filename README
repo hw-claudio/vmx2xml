@@ -30,10 +30,12 @@ Here a datastore is basically just an NFS-reachable directory, so this functiona
 different local disks.
 
 The script also can optionally convert the VMDK disks into QCOW2 disks bootable under KVM,
-and this is done using the virt-v2v tool.
+and this is done using the libguestfs tools in a similar way to a subset of the virt-v2v functionality.
 
-virt-v2v just uses qemu-img for the conversion, but notably also runs a very complex set of libguestfs commands to primarily check
-the guest and inject Linux and Windows drivers for virtio.
+virt-v2v just uses qemu-img for the conversion, but notably also runs a very complex set of libguestfs commands, including
+creating an overlay that is expensive for our operation. The --in-place functionality seems not to be functional.
+
+We can do something simpler by just injecting the windows and linux drivers, as this is what is actually required.
 
 The script contains these different optional functionalities, so it can be relaunched once the QCOW2 disks have been already converted,
 in order to update and fine tune the xml conversion itself, without the costly operation of moving or converting disk images.
@@ -68,4 +70,4 @@ optional arguments:
                         times) translate all paths containing datastore1 with
                         datastore2
 
-requires virt-install, libguestfs including libguestfs-winsupport and virt-v2v
+requires virt-install, qemu-img and libguestfs including libguestfs-winsupport
