@@ -349,6 +349,8 @@ def guestfs_convert(path: str) -> bool:
 
 def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) -> str:
     targetpath: str = sourcepath
+    is_qcow: int = 0
+
     for datapath in datastores:
         targetpath = sourcepath.replace(datapath, datastores[datapath], 1)
         if (targetpath != sourcepath):
@@ -356,19 +358,20 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) ->
 
     if (qcow_mode > 0):
         vmdk: str = targetpath
-        (match, n) = re.subn(r"\.vmdk$", ".qcow2", vmdk, count=1, flags=re.IGNORECASE)
-        if (n == 1):
+        (match, is_qcow) = re.subn(r"\.vmdk$", ".qcow2", vmdk, count=1, flags=re.IGNORECASE)
+        if (is_qcow == 1):
             targetpath = match
-            if (qcow_mode > 1):
-                qemu_img_convert(sourcepath, targetpath)
-                if (guestfs_convert(targetpath)):
-                    log.info("libguestfs: successfully adjusted %s.", targetpath)
-                else:
-                    log.warning("libguestfs: could not adjust %s.", targetpath)
 
+    if (qcow_mode > 1):
+        os.makedirs(os.path.dirname(targetpath), exist_ok=True)
+        if (is_qcow):
+            qemu_img_convert(sourcepath, targetpath)
+            if (guestfs_convert(targetpath)):
+                log.info("libguestfs: successfully adjusted %s.", targetpath)
+            else:
+                log.warning("libguestfs: could not adjust %s.", targetpath)
         elif (targetpath != sourcepath):
-            if (qcow_mode > 1):
-                shutil.copy(sourcepath, targetpath)
+            shutil.copy(sourcepath, targetpath)
 
     return targetpath
 
@@ -610,6 +613,10 @@ def get_options(argc: int, argv: list) -> tuple:
 
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
+
+    # handy to create already the path to the destination xml
+    os.makedirs(os.path.dirname(xml_name), exist_ok=True)
+
     search_paths: list = [ os.path.dirname(vmx_name), "." ]
     if (args.storagedir):
         search_paths.extend(args.storagedir)
