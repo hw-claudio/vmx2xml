@@ -95,7 +95,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     version: str = ""
     # try to use symlinks from /boot/vmlinuz, /boot/initrd and /boot/initrd.img
     # to determine the version part of the currently used initrd filename
-    links: list = [ "vmlinuz", "initrd", "initrd.img" ]
+    links: list = [ "vmlinuz", "initrd", "initrd.img", "initramfs", "initramfs.img", "config", "System.map" ]
     target: str = ""
     for link in links:
         try:
@@ -133,6 +133,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
         try:
             matches: list = g.glob_expand("/boot/initrd*")
             if (len(matches) < 1):
+                matches = g.glob_expand("/boot/initramfs*")
                 raise RuntimeError("no initrd match")
             if (len(matches) > 1):
                 log.warning("matching the first initrd found and crossing fingers!")
@@ -147,7 +148,6 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     # try make-initrd, which should automatically install virtio stuff when virtualized
     sbin: str = get_initrd_prg(g, "make-initrd")
     if (sbin):
-        # command /usr/sbin/make-initrd -k 6.4.0-150600.10-default    ;; automatically adds virtio stuff
         try:
             g.command([sbin, "-k", version])
             return True
@@ -169,6 +169,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     if (sbin):
         try:
             g.write_append("/etc/initramfs-tools/modules", "\nvirtio_pci\nvirtio_scsi\nvirtio_blk\n")
+            g.command([sbin, "-c", "-k", version])
             return True
         except RuntimeError as err:
             log.error("update-initramfs failed: %s", err)
@@ -177,7 +178,6 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     # try mkinitrd
     sbin = get_initrd_prg(g, "mkinitrd")
     if (sbin):
-        # command /usr/sbin/mkinitrd --with=virtio_pci --with=virtio_scsi --with=virtio_blk /boot/initrd-6.4.0-150600.10-default 6.4.0-150600.10-default
         try:
             g.command([sbin, "--with=virtio_pci", "--with=virtio_scsi", "--with=virtio_blk", initrd, version])
             return True
