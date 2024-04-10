@@ -4,13 +4,10 @@
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
 # Currently requires virt-install 2.2 and recommends 4.0
-# also requires qemu-img, libguestfs, including libguestfs-winsupport
+# also requires qemu-img, guestfs_adjust.
 #
 # This tool is mostly used to configure the xml so that it more closely matches
 # the configuration pre-conversion.
-#
-# It uses qemu-img to convert the disks, and then libguestfs to
-# inject the windows and linux drivers and rebuild the initrd.
 #
 
 import sys
@@ -37,51 +34,6 @@ def log_enable_nl() -> None:
     global log
     handler: logging.StreamHandler = log.handlers[0]
     handler.terminator = "\n"
-
-
-def readln(p: subprocess.Popen) -> str:
-    line: str = p.stdout.readline()
-    if (line == ""):
-        return None
-    else:
-        return line.strip()
-
-
-def readignore(p: subprocess.Popen) -> None:
-    while (readln(p) != None):
-        pass
-
-
-def writeln(p: subprocess.Popen, message: str) -> None:
-    p.stdin.write(f"{msg}\n");
-
-
-def guestfish_convert(path: str) -> bool:
-    args: list = []
-    out: str = ""
-    args.append("guestfish")
-    args.extend(["-a", path])
-
-    p: subprocess.Popen = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, encoding='utf-8')
-    if (p.returncode != 0):
-        return False
-
-    readignore(p)               # discard welcome message
-    writeln(p, "run")
-    readignore(p)
-    writeln(p, "inspect-os")
-    out = readln(p)
-    if (!out):
-        return False
-    root: str = out
-    readignore(p)               # ignore all other roots
-    writeln(p, f"inspect-get-type {root}")
-    out = readln(p)
-    if (!out):
-        return False
-    if (out == "linux"):
-        return True
-    return False
 
 
 def virt_inspector(path: str) -> dict:
@@ -369,6 +321,32 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     })
 #     return translate(translator, s);
 
+def guestfs_convert(path: str) -> bool:
+    args: list = []
+    args.append("guestfs_adjust.py")
+    v: int = 0; q: int = 0; i: int
+
+    if (log.level < logging.WARNING):
+        v = (logging.WARNING - log.level) // 10
+    if (log.level > logging.WARNING):
+        q = (log.level - logging.WARNING) // 10
+
+    for i in range(v):
+        args.append("-v")
+    for i in range(q):
+        args.append("-q")
+
+    args.extend(["-f", path])
+    log.debug("%s", args)
+
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    (s, _) = p.communicate()
+
+    if (p.returncode != 0):
+        return False
+    return True
+
+
 def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) -> str:
     targetpath: str = sourcepath
     for datapath in datastores:
@@ -383,10 +361,10 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) ->
             targetpath = match
             if (qcow_mode > 1):
                 qemu_img_convert(sourcepath, targetpath)
-                if (guestfish_convert(targetpath)):
-                    print("SUCCESS!!!")
+                if (guestfs_convert(targetpath)):
+                    log.info("libguestfs: successfully adjusted %s.", targetpath)
                 else:
-                    print("FAILURE!!!")
+                    log.warning("libguestfs: could not adjust %s.", targetpath)
 
         elif (targetpath != sourcepath):
             if (qcow_mode > 1):
@@ -571,6 +549,23 @@ def detect_vinst_version() -> float:
     return v
 
 
+# detect guestfs_adjust version only considering major.minor
+def detect_guestfs_adjust_version() -> float:
+    s: str = ""
+    args: list = [ "guestfs_adjust.py", "--version" ]
+
+    log.debug("%s", args)
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    (s, _) = p.communicate()
+    m = re.match(r"^(\d+\.\d+)", s)
+    if not (m):
+        log.critical("failed to detect guestfs_adjust version: %s", s)
+        sys.exit(1)
+    v: float = float(m.group(1)) or 0
+    log.info("guestfs_adjust: detected version %s", v)
+    return v
+
+
 def is_dir(string: str) -> str:
     if (os.path.isdir(string)):
         return string
@@ -583,7 +578,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n",
-        epilog="requires virt-install, qemu-img and libguestfs, including libguestfs-winsupport"
+        epilog="requires virt-install, qemu-img and guestfs_adjust"
     )
     parser.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
@@ -637,7 +632,9 @@ def get_options(argc: int, argv: list) -> tuple:
 def main(argc: int, argv: list) -> int:
     (vmx_name, xml_name, search_paths, qcow_mode, datastores) = get_options(argc, argv)
 
-    vinst_version : float = detect_vinst_version()
+    vinst_version: float = detect_vinst_version()
+    adjust_version: float = detect_guestfs_adjust_version()
+
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
     d : defaultdict = defaultdict(str)
     parse_vmx(vmx_file, d)
