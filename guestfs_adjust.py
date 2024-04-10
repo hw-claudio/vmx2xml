@@ -114,6 +114,15 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
             glob: str = f"/boot/initrd*-{version}"
             matches: list = g.glob_expand(glob)
             if (len(matches) != 1):
+                glob = f"/boot/initrd*-{version}.img"
+                matches: list = g.glob_expand(glob)
+            if (len(matches) != 1):
+                glob = f"/boot/initramfs*-{version}"
+                matches: list = g.glob_expand(glob)
+            if (len(matches) != 1):
+                glob = f"/boot/initramfs*-{version}.img"
+                matches: list = g.glob_expand(glob)
+            if (len(matches) != 1):
                 raise RuntimeError("no unique initrd match")
             initrd = matches[0]
         except RuntimeError as err:
