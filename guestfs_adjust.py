@@ -90,13 +90,12 @@ def guestfs_lin_mount_all(g: guestfs.GuestFS, root: str) -> bool:
 
 def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     # look for the currently used initrd and the kernel version
-    link: str = ""
-    initrd: str = ""
-    version: str = ""
+    link: str = ""; initrd: str = ""; version: str = ""
     # try to use symlinks from /boot/vmlinuz, /boot/initrd and /boot/initrd.img
     # to determine the version part of the currently used initrd filename
     links: list = [ "vmlinuz", "initrd", "initrd.img", "initramfs", "initramfs.img", "config", "System.map" ]
-    target: str = ""
+    target: str = ""; matches: list
+
     for link in links:
         try:
             target = g.readlink(f"/boot/{link}")
@@ -106,35 +105,51 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
         except RuntimeError:
             log.info("no /boot/%s link found", link)
     if (target):
-        # if we have such a link, try to find an initrd file that is named after the version in the link
+        version = target[len(f"/boot/{link}") + 1:]
+
+    if (not version):
+        # we could not get version from a link, try from /lib/modules/version
+        matches = g.glob_expand("/lib/modules/*")
+        if (len(matches) == 1):
+            target = matches[0]
+            version = target[len(f"/lib/modules/"):-1] # strip the final / added by glob to dirs
+    if (not version):
+        # try from unique entries of links
+        for link in links:
+            matches = g.glob_expand(f"/boot/{link}-*")
+            if (len(matches) == 1):
+                target = matches[0]
+                version = target[len(f"/boot/{link}-"):]
+    if (version):
+        # finally we got a version
+        log.debug("version %s detected", version)
+        # try to find an initrd file that is named after the version
         try:
-            log.debug("target %s", target)
-            version = target[len(f"/boot/{link}") + 1:]
-            log.debug("version %s detected", version)
             glob: str = f"/boot/initrd*-{version}"
-            matches: list = g.glob_expand(glob)
+            matches = g.glob_expand(glob)
             if (len(matches) != 1):
                 glob = f"/boot/initrd*-{version}.img"
-                matches: list = g.glob_expand(glob)
+                matches = g.glob_expand(glob)
             if (len(matches) != 1):
                 glob = f"/boot/initramfs*-{version}"
-                matches: list = g.glob_expand(glob)
+                matches = g.glob_expand(glob)
             if (len(matches) != 1):
                 glob = f"/boot/initramfs*-{version}.img"
-                matches: list = g.glob_expand(glob)
+                matches = g.glob_expand(glob)
             if (len(matches) != 1):
                 raise RuntimeError("no unique initrd match")
             initrd = matches[0]
         except RuntimeError as err:
-            log.info("could not find initrd via link %s: %s", link, err)
+            log.info("could not find initrd for version %s: %s", version, err)
 
     if (not initrd):
-        # if we failed to use symlinks, try to get the first initrd and hope for the best
+        # everything has failed, try getting the first inird we see
         try:
-            matches: list = g.glob_expand("/boot/initrd*")
+            matches = g.glob_expand("/boot/initrd*")
             if (len(matches) < 1):
                 matches = g.glob_expand("/boot/initramfs*")
-                raise RuntimeError("no initrd match")
+                if (len(matches) < 1):
+                    raise RuntimeError("no initrd match")
             if (len(matches) > 1):
                 log.warning("matching the first initrd found and crossing fingers!")
             initrd = matches[0]
