@@ -40,7 +40,7 @@ def guestfs_launch(path: str) -> tuple:
         g: guestfs.GuestFS = guestfs.GuestFS(python_return_dict=True)
         if (log.level <= logging.DEBUG):
             g.set_trace(1)
-        g.add_drive_opts(path, format="qcow2")
+        g.add_drive_opts(path, format="qcow2", discard="besteffort", cachemode="unsafe")
         g.launch()
         os_type: str = ""
         root: str = ""
@@ -84,6 +84,28 @@ def guestfs_lin_mount_all(g: guestfs.GuestFS, root: str) -> bool:
             g.mount(mountpoints[key], key)
     except RuntimeError as err:
         log.debug("failed to mount: %s, ignoring.", err)
+
+    return True
+
+
+def guestfs_lin_trim_all(g: guestfs.GuestFS) -> bool:
+    # mount all the filesystems and trim them
+    try:
+        filesystems: dict = g.list_filesystems()
+    except RuntimeError as err:
+        log.warning("%s", err)
+        return False
+
+    for fs in filesystems:
+        if (filesystems[fs] == "swap"):
+            continue
+        try:
+            g.umount_all()
+            g.mount_options("discard", fs, "/")
+            # XXX maybe also g.zero_free_space() before that? What's the impact on large VMs?
+            g.fstrim("/")
+        except RuntimeError as err:
+            log.info("%s, ignoring.", err)
 
     return True
 
@@ -208,6 +230,8 @@ def guestfs_lin(g: guestfs.GuestFS, root: str) -> bool:
     if not (guestfs_lin_mount_all(g, root)):
         return False
     if not (guestfs_lin_update_initrd(g)):
+        return False
+    if not (guestfs_lin_trim_all(g)):
         return False
     return True
 
