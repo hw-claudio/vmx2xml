@@ -1,0 +1,34 @@
+*) "cputune": vmx sched.cpu.affinity => translate to virt-install "cputune" ?
+
+*) queues=NN performance improvement for disks needs libvirt 10 and qemu 9
+
+*)  --features apic.eoi=on Enable
+APIC PV EOI
+
+*)  --features pvspinlock=on
+Notify the guest that the host supports paravirtual spinlocks for example by
+exposing the pvticketlocks mechanism
+
+*) --pm suspend_to_mem.enabled=on,suspend_to_disk.enabled=off
+
+*) --boot cdrom,fd,hd,network
+   translated from VMX bios.bootOrder
+
+*) add bios menuitems?
+   --boot bootmenu.enable=on,bios.useserial=on
+
+*) --network add virtualport.* options?
+   https://libvirt.org/formatdomain.html#elementsNICS
+   there are VMX vswitch fields to convert from.
+
+*) vdagent for copy/paste with vnc
+
+*) install qemu-guest-agent? install spice-vdagent for VNC clipboard?
+
+
+
+
+
+
+
+
