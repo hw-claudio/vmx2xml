@@ -76,6 +76,36 @@ def virt_inspector(path: str) -> dict:
     return os
 
 
+def v2v_img_convert(vmdk: str, qcow: str) -> None:
+    args: list = []
+    dirname: str = os.path.dirname(qcow)
+    args.extend(["virt-v2v", "--root=first"])
+    args.extend(["-i", "disk"])
+    args.extend(["-o", "disk"])
+    args.extend(["-of", "qcow2"])
+    args.extend(["-os", dirname])
+    if (log.getEffectiveLevel() >= logging.WARNING):
+        args.append("--quiet")
+    args.append(vmdk)
+    log.debug("%s", args)
+
+    srcnames: list = glob.glob(qcow[0:-len(".qcow2")] + "-sd*")
+    if (srcnames):
+        first: str = srcnames[0]
+        log.critical("Existing file or directory %s could be overwritten by this operation.\n"
+                     "Consider removing or moving %s into another directory", first, first)
+        sys.exit(1)
+
+    p = subprocess.run(args, stdout=sys.stderr, check=True)
+
+    # Now rename to the name we want
+    srcnames: list = glob.glob(qcow[0:-len(".qcow2")] + "-sd*")
+    if (len(srcnames) != 1):
+        log.critical("could not find the generated disk")
+        sys.exit(1)
+    os.rename(srcnames[0], qcow)
+
+
 # this step is done separately, and not with virt-v2v, in order to avoid the
 # additional overlay image for performance reasons, and to allow more flexibility
 # in terms of control over the qemu-img parameters in the future (-m etc).
@@ -347,7 +377,7 @@ def guestfs_convert(path: str) -> bool:
     return True
 
 
-def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) -> str:
+def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, use_v2v: bool) -> str:
     targetpath: str = sourcepath
     is_qcow: int = 0
 
@@ -365,18 +395,21 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict) ->
     if (qcow_mode > 1):
         os.makedirs(os.path.dirname(targetpath), exist_ok=True)
         if (is_qcow):
-            qemu_img_convert(sourcepath, targetpath)
-            if (guestfs_convert(targetpath)):
-                log.info("libguestfs: successfully adjusted %s.", targetpath)
+            if (use_v2v):
+                v2v_img_convert(sourcepath, targetpath)
             else:
-                log.warning("libguestfs: could not adjust %s.", targetpath)
+                qemu_img_convert(sourcepath, targetpath)
+                if (guestfs_convert(targetpath)):
+                    log.info("guestfs_adjust.py: successfully adjusted %s.", targetpath)
+                else:
+                    log.warning("guestfs_adjust.py: failed to adjust %s.", targetpath)
         elif (targetpath != sourcepath):
             shutil.copy(sourcepath, targetpath)
 
     return targetpath
 
 
-def virt_install(vinst_version: float, qcow_mode: int, datastores: dict,
+def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: bool,
                  xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
@@ -478,7 +511,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict,
         y: int = disk["y"]
         device: str = disk["device"]
         sourcepath: str = disk["path"]
-        targetpath: str = translate_convert_path(sourcepath, qcow_mode, datastores)
+        targetpath: str = translate_convert_path(sourcepath, qcow_mode, datastores, use_v2v)
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
@@ -578,6 +611,7 @@ def is_dir(string: str) -> str:
 
 def get_options(argc: int, argv: list) -> tuple:
     global log
+    use_v2v: bool = True
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n",
@@ -593,10 +627,13 @@ def get_options(argc: int, argv: list) -> tuple:
                         help='the VMX description file to be converted')
     parser.add_argument('-t', '--translate-qcow2', action='store_true', help='translate path references from .vmdk to .qcow2')
     parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
+    parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use the more efficient but experimental conversion method')
     parser.add_argument('-d', '--translate-datastore', action='append',
                         help='datastore1,datastore2 (can be specified multiple times) translate all paths containing datastore1 with datastore2')
 
     args: argparse.Namespace = parser.parse_args()
+    if (args.experimental):
+        use_v2v = False
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
@@ -632,12 +669,13 @@ def get_options(argc: int, argv: list) -> tuple:
 
     qcow_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_qcow2) else 0
 
-    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s", vmx_name, xml_name, search_paths, qcow_mode, datastores)
-    return (vmx_name, xml_name, search_paths, qcow_mode, datastores)
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s usev2v:%s",
+              vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v)
+    return (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, search_paths, qcow_mode, datastores) = get_options(argc, argv)
+    (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
@@ -736,7 +774,7 @@ def main(argc: int, argv: list) -> int:
     log.debug("%s", eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version, qcow_mode, datastores,
+    virt_install(vinst_version, qcow_mode, datastores, use_v2v,
                  xml_name, vmx_name,
                  name, memory,
                  cpu,
