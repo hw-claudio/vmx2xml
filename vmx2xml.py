@@ -406,7 +406,7 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
                 if (guestfs_convert(targetpath)):
                     log.info("guestfs_adjust.py: successfully adjusted %s.", targetpath)
                 else:
-                    log.warning("guestfs_adjust.py: failed to adjust %s.", targetpath)
+                    log.warning("guestfs_adjust.py: no adjustment done to %s.", targetpath)
         elif (targetpath != sourcepath):
             shutil.copy(sourcepath, targetpath)
 
