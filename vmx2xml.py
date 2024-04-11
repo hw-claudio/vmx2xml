@@ -20,6 +20,7 @@ from os.path import join
 from collections import defaultdict
 import logging
 import shutil
+import tempfile
 
 log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
@@ -110,13 +111,24 @@ def v2v_img_convert(vmdk: str, qcow: str) -> None:
     os.rename(srcnames[0], qcow)
 
 
+# there is no annotation for Tempfile, so return type is unknown
+def qemu_img_create_overlay(vmdk: str):
+    tmp = tempfile.NamedTemporaryFile()
+    args: list = ["qemu-img", "create", "-b", vmdk, '-F', 'vmdk', '-f', 'qcow2']
+    if (log.level > logging.DEBUG):
+        args.append("-q")
+    args.append(tmp.name)
+    log.debug("%s", args)
+    p = subprocess.run(args, stdout=sys.stderr, check=True)
+    return tmp
+
+
 # this step is done separately, and not with virt-v2v, in order to avoid the
 # additional overlay image for performance reasons, and to allow more flexibility
 # in terms of control over the qemu-img parameters in the future (-m etc).
 def qemu_img_convert(vmdk: str, qcow: str) -> None:
     args: list = []
     args.extend(["qemu-img", "convert"])
-    args.extend(["-f", "vmdk"])
     args.extend(["-O", "qcow2"])
     if (log.getEffectiveLevel() < logging.WARNING):
         args.append("-p")
@@ -402,11 +414,14 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
             if (use_v2v):
                 v2v_img_convert(sourcepath, targetpath)
             else:
-                qemu_img_convert(sourcepath, targetpath)
-                if (guestfs_convert(targetpath)):
-                    log.info("guestfs_adjust.py: successfully adjusted %s.", targetpath)
+                tmp = qemu_img_create_overlay(sourcepath)
+                if (guestfs_convert(tmp.name)):
+                    log.info("guestfs_adjust.py: successfully adjusted %s.", tmp.name)
                 else:
-                    log.warning("guestfs_adjust.py: no adjustment done to %s.", targetpath)
+                    log.warning("guestfs_adjust.py: no adjustment done to %s.", tmp.name)
+                qemu_img_convert(tmp.name, targetpath)
+                tmp.close()
+
         elif (targetpath != sourcepath):
             shutil.copy(sourcepath, targetpath)
 
