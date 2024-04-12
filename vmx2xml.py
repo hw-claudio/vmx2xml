@@ -424,12 +424,16 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
                 tmp.close()
 
         elif (targetpath != sourcepath):
-            if (filecmp.cmp(sourcepath, targetpath, shallow=True)):
-                log.info("disk already found at %s, no need to copy.", targetpath)
-            else:
-                log.info("copy non-VMDK disk to %s", targetpath)
-                # use copy2 so we preserve modification time.
-                shutil.copy2(sourcepath, targetpath)
+            try:
+                if (filecmp.cmp(sourcepath, targetpath, shallow=True)):
+                    log.info("disk already found at %s, no need to copy.", targetpath)
+                    return targetpath
+            except:
+                log.info("could not compare to %s, assume we need to copy.", targetpath)
+
+            log.info("copy non-VMDK disk to %s", targetpath)
+            # use copy2 so we try to preserve modification time.
+            shutil.copy2(sourcepath, targetpath)
 
     return targetpath
 
