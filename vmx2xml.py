@@ -21,6 +21,7 @@ from collections import defaultdict
 import logging
 import shutil
 import tempfile
+import filecmp
 
 log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
@@ -423,7 +424,12 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
                 tmp.close()
 
         elif (targetpath != sourcepath):
-            shutil.copy(sourcepath, targetpath)
+            if (filecmp.cmp(sourcepath, targetpath, shallow=True)):
+                log.info("disk already found at %s, no need to copy.", targetpath)
+            else:
+                log.info("copy non-VMDK disk to %s", targetpath)
+                # use copy2 so we preserve modification time.
+                shutil.copy2(sourcepath, targetpath)
 
     return targetpath
 
