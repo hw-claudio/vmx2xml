@@ -39,15 +39,10 @@ def log_enable_nl() -> None:
 
 
 def virt_inspector(path: str) -> dict:
-    args: list = []
+    args: list = [ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ]
     os: dict = { "name": '', "osinfo": '', "date": '' }
 
-    args.append("virt-inspector")
-    args.extend(["--no-icon", "--no-applications", "--echo-keys"])
-    args.append(path)
-
     log.debug("%s", args)
-
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
     (s, _) = p.communicate()
 
@@ -63,12 +58,11 @@ def virt_inspector(path: str) -> dict:
         os["osinfo"] = osinfo_m.group(1)
 
     if (os["osinfo"] and os["name"]):
-        args = []
-        short_id: str = os["osinfo"]
-        args.extend(["osinfo-query", "os"])
-        args.extend(["-f", "short-id,release-date"])
+        args = [ "osinfo-query", "os", "-f", "short-id,release-date" ]
+        log.debug("%s", args)
         p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
         (s, _) = p.communicate()
+        short_id: str = os["osinfo"]
         #  win7                 | 2009-10-22
         date_m = re.search(fr"^\s*{short_id}\s*|\s*(\d+-\d+-\d+)\s*$", s, flags=re.MULTILINE)
         if (date_m):
@@ -79,13 +73,9 @@ def virt_inspector(path: str) -> dict:
 
 
 def v2v_img_convert(vmdk: str, qcow: str) -> None:
-    args: list = []
     dirname: str = os.path.dirname(qcow)
-    args.extend(["virt-v2v", "--root=first"])
-    args.extend(["-i", "disk"])
-    args.extend(["-o", "disk"])
-    args.extend(["-of", "qcow2"])
-    args.extend(["-os", dirname])
+    args: list = [ "virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", "qcow2", "-os", dirname ]
+
     if (log.level > logging.WARNING):
         args.append("--quiet")
     if (log.level < logging.WARNING):
@@ -93,7 +83,6 @@ def v2v_img_convert(vmdk: str, qcow: str) -> None:
     if (log.level <= logging.DEBUG):
         args.append("-x")
     args.append(vmdk)
-    log.debug("%s", args)
 
     srcnames: list = glob.glob(qcow[0:-len(".qcow2")] + "-sd*")
     if (srcnames):
@@ -102,6 +91,7 @@ def v2v_img_convert(vmdk: str, qcow: str) -> None:
                      "Consider removing or moving %s into another directory", first, first)
         sys.exit(1)
 
+    log.debug("%s", args)
     p = subprocess.run(args, stdout=sys.stderr, check=True)
 
     # Now rename to the name we want
@@ -128,9 +118,7 @@ def qemu_img_create_overlay(vmdk: str):
 # additional overlay image for performance reasons, and to allow more flexibility
 # in terms of control over the qemu-img parameters in the future (-m etc).
 def qemu_img_convert(vmdk: str, qcow: str) -> None:
-    args: list = []
-    args.extend(["qemu-img", "convert"])
-    args.extend(["-O", "qcow2"])
+    args: list = [ "qemu-img", "convert", "-O", "qcow2" ]
     if (log.getEffectiveLevel() <= logging.WARNING):
         args.append("-p")
     args.extend([vmdk, qcow])
@@ -369,23 +357,19 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     return translate(translator, s);
 
 def guestfs_convert(path: str) -> bool:
-    args: list = []
-    args.append("guestfs_adjust.py")
+    args: list = [ "guestfs_adjust.py", "-f", path ]
     v: int = 0; q: int = 0; i: int
 
     if (log.level < logging.WARNING):
         v = (logging.WARNING - log.level) // 10
     if (log.level > logging.WARNING):
         q = (log.level - logging.WARNING) // 10
-
     for i in range(v):
         args.append("-v")
     for i in range(q):
         args.append("-q")
 
-    args.extend(["-f", path])
     log.debug("%s", args)
-
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     (s, _) = p.communicate()
 
@@ -450,12 +434,8 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
                  sound: str,
                  disk_ctrls: dict, disks: list, floppys: list,
                  eths: list) -> None:
-    args: list = []
     ### GENERAL SECTION - General Options for selecting the main functionality ###
-    args.append("virt-install")
-    args.append("--print-xml")
-    args.append("--dry-run")
-    args.append("--noautoconsole")
+    args: list = [ "virt-install", "--print-xml", "--dry-run", "--noautoconsole" ]
     args.extend(["--virt-type", "kvm"])
     args.extend(["--machine", "q35" if (uefi) else "pc"])
 
