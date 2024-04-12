@@ -10,5 +10,5 @@ DATASTORE2=/virt1-share-migration/datastore2
 
 for VMX in `find ${DATASTORE1} -name "*.vmx"` ; do
     XML=`echo ${VMX} | sed "s,${DATASTORE1},${DATASTORE2},"`
-    vmx2xml.py -d${DATASTORE1}=${DATASTORE2} -c -o ${XML}.xml -f ${VMX}
+    vmx2xml.py ${*} -d${DATASTORE1}=${DATASTORE2} -c -o ${XML}.xml -f ${VMX}
 done
