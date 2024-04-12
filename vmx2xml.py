@@ -85,7 +85,7 @@ def v2v_img_convert(vmdk: str, qcow: str) -> None:
     args.extend(["-o", "disk"])
     args.extend(["-of", "qcow2"])
     args.extend(["-os", dirname])
-    if (log.level >= logging.WARNING):
+    if (log.level > logging.WARNING):
         args.append("--quiet")
     if (log.level < logging.WARNING):
         args.append("--verbose")
@@ -130,7 +130,7 @@ def qemu_img_convert(vmdk: str, qcow: str) -> None:
     args: list = []
     args.extend(["qemu-img", "convert"])
     args.extend(["-O", "qcow2"])
-    if (log.getEffectiveLevel() < logging.WARNING):
+    if (log.getEffectiveLevel() <= logging.WARNING):
         args.append("-p")
     args.extend([vmdk, qcow])
 
