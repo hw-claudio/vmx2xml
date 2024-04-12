@@ -647,8 +647,8 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-t', '--translate-qcow2', action='store_true', help='translate path references from .vmdk to .qcow2')
     parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
     parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use the more efficient but experimental conversion method')
-    parser.add_argument('-d', '--translate-datastore', action='append',
-                        help='datastore1,datastore2 (can be specified multiple times) translate all paths containing datastore1 with datastore2')
+    parser.add_argument('-d', '--translate-datastore', metavar="DS1=DS2", action='append',
+                        help='(can be specified multiple times) translate all paths containing DS1 with DS2')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.experimental):
@@ -673,16 +673,17 @@ def get_options(argc: int, argv: list) -> tuple:
         # handy to create already the path to the destination xml
         os.makedirs(os.path.dirname(xml_name), exist_ok=True)
 
-    search_paths: list = [ os.path.dirname(vmx_name), "." ]
+    vmxdir: str = os.path.dirname(vmx_name)
+    search_paths: list = [ vmxdir, os.path.join(vmxdir, ".." ) ]
     if (args.storagedir):
         search_paths.extend(args.storagedir)
 
     datastores: defaultdict = defaultdict(str)
     if (args.translate_datastore):
         for i in range(0, len(args.translate_datastore)):
-            (fro, match, to) = args.translate_datastore[i].partition(",")
+            (fro, match, to) = args.translate_datastore[i].partition("=")
             if not (match):
-                log.critical("--translate-datastore needs a , separator");
+                log.critical("--translate-datastore needs a = separator");
                 sys.exit(1)
             datastores[fro] = to
 
