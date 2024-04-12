@@ -669,9 +669,9 @@ def get_options(argc: int, argv: list) -> tuple:
 
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
-
-    # handy to create already the path to the destination xml
-    os.makedirs(os.path.dirname(xml_name), exist_ok=True)
+    if (xml_name):
+        # handy to create already the path to the destination xml
+        os.makedirs(os.path.dirname(xml_name), exist_ok=True)
 
     search_paths: list = [ os.path.dirname(vmx_name), "." ]
     if (args.storagedir):
