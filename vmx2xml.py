@@ -564,7 +564,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
 
     ### MISCELLANEOUS DEVICES ###
     args.extend(["--rng", "/dev/urandom"])
-    args.extend(["--memballoon none"])
+    args.extend(["--memballoon", "none"])
 
     log.debug("%s", args)
 
