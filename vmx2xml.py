@@ -439,12 +439,6 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     args.extend(["--virt-type", "kvm"])
     args.extend(["--machine", "q35" if (uefi) else "pc"])
 
-    ### DISABLED FUNCTIONALITY ###
-    args.extend(["--memballoon none"])
-
-    ### COMMUNICATIONS ###
-
-
     # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
     # and especially unfriendly with our import use case.
     # To avoid this there is an environment variable to set, VIRTINSTALL_OSINFO_DISABLE_REQUIRE=1
@@ -562,6 +556,15 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         if (mac and eth["addr_type"] == ".address"):
             s += f",mac={mac}"
         args.extend(["--network", s])
+
+    ### COMMUNICATIONS, GUEST-AGENT ###
+    args.extend(["--vsock", "cid.auto=yes"])
+    args.extend(["--controller", "type=virtio-serial,model=virtio"])
+    args.extend(["--channel", "unix,mode=bind,target_type=virtio,name=org.qemu.guest_agent.0"])
+
+    ### MISCELLANEOUS DEVICES ###
+    args.extend(["--rng", "/dev/urandom"])
+    args.extend(["--memballoon none"])
 
     log.debug("%s", args)
 
