@@ -636,7 +636,7 @@ def get_options(argc: int, argv: list) -> tuple:
                         help='the VMX description file to be converted')
     parser.add_argument('-t', '--translate-qcow2', action='store_true', help='translate path references from .vmdk to .qcow2')
     parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
-    parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use the more efficient but experimental conversion method')
+    parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use experimental conversion method (only for linux guests')
     parser.add_argument('-d', '--translate-datastore', metavar="DS1=DS2", action='append',
                         help='(can be specified multiple times) translate all paths containing DS1 with DS2')
 
