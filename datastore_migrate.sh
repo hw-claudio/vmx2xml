@@ -10,5 +10,5 @@ for VMX in `find ${DATASTORE1} -name "*.vmx"` ; do
     XML=${VMX/${DATASTORE1}/${DATASTORE2}}
     XML=${XML/%.vmx/.xml}
     echo "datastore_migrate.sh: converting $VMX to $XML..."
-    vmx2xml.py ${*} -d${DATASTORE1}=${DATASTORE2} -c -o ${XML}.xml -f ${VMX}
+    vmx2xml.py ${*} -d${DATASTORE1}=${DATASTORE2} -c -o ${XML} -f ${VMX}
 done
