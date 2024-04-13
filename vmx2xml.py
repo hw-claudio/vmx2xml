@@ -439,6 +439,12 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     args.extend(["--virt-type", "kvm"])
     args.extend(["--machine", "q35" if (uefi) else "pc"])
 
+    ### DISABLED FUNCTIONALITY ###
+    args.extend(["--memballoon none"])
+
+    ### COMMUNICATIONS ###
+
+
     # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
     # and especially unfriendly with our import use case.
     # To avoid this there is an environment variable to set, VIRTINSTALL_OSINFO_DISABLE_REQUIRE=1
@@ -483,7 +489,6 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     ### MULTIMEDIA SECTION - display, graphics, sound ###
     args.extend(["--graphics", "vnc"])
 
-    # we fully trusted the parsing we could consider video "none", instead we default to cirrus
     args.append("--video")
 
     if (vga):
