@@ -793,7 +793,7 @@ def main(argc: int, argv: list) -> int:
     # guestos: str = parse_guestos(d["guestos"])
 
     svga: bool = parse_boolean(d["svga.present"])
-    svga_memory: int = int(d["svgaram.vramSize"] or 0) // 1024
+    svga_memory: int = int(d["svga.vramsize"] or 0) // 1024
     vga: bool = parse_boolean(d["svga.vgaonly"])
     if (vga):
         log.debug("[VGA]")
