@@ -183,6 +183,13 @@ def parse_genid(genid: int, genidx: int) -> str:
     return result
 
 
+def parse_vm_affinity(s: str) -> str:
+    if (not s or s.lower() == "all"):
+        return ""
+    # it seems that the vmx affinity string is a valid cpuset string
+    return s
+
+
 # find a file referred to by the VMX file
 def find_file_ref(name: str, path: str, recurse: bool) -> str:
     pathname: str = os.path.join(path, name)
@@ -426,7 +433,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
                  xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
-                 vcpus: int, sockets: int, cores: int, threads: int,
+                 vcpus: int, sockets: int, cores: int, threads: int, vm_affinity: str,
                  iothreads: int,
                  genid: str, sysinfo: str,
                  uefi: str, nvram: str,
@@ -461,7 +468,10 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     args.extend(["--cpu", cpu_str])
 
     assert(vcpus > 0 and sockets > 0 and cores > 0 and threads > 0)
-    args.extend(["--vcpus", f"{vcpus},sockets={sockets},cores={cores},threads={threads}"])
+    vcpu_str = f"{vcpus},sockets={sockets},cores={cores},threads={threads}"
+    if (vm_affinity):
+        vcpu_str += f",cpuset={vm_affinity}"
+    args.extend(["--vcpus", vcpu_str])
     assert(iothreads > 0)
     args.extend(["--iothreads", f"{iothreads}"])
 
@@ -743,6 +753,7 @@ def main(argc: int, argv: list) -> int:
     cpu_migratable: str = "on"
     cpu: dict = { "model": cpu_model, "check": cpu_check, "migratable": cpu_migratable }
     iothreads: int = vcpus # XXX forgot the rule of thumb to set this
+    vm_affinity: str = parse_vm_affinity(d["sched.cpu.affinity"])
 
     uefi: str = ""
     if (d["firmware"] == "efi"):
@@ -796,7 +807,7 @@ def main(argc: int, argv: list) -> int:
                  xml_name, vmx_name,
                  name, memory,
                  cpu,
-                 vcpus, sockets, cores, threads,
+                 vcpus, sockets, cores, threads, vm_affinity,
                  iothreads,
                  genid, sysinfo,
                  uefi, nvram,
