@@ -394,37 +394,44 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
         if (targetpath != sourcepath):
             break
 
-    if (qcow_mode > 0):
+    if (qcow_mode >= 1):
         vmdk: str = targetpath
         (match, is_qcow) = re.subn(r"\.vmdk$", ".qcow2", vmdk, count=1, flags=re.IGNORECASE)
         if (is_qcow == 1):
             targetpath = match
 
-    if (qcow_mode > 1):
-        os.makedirs(os.path.dirname(targetpath), exist_ok=True)
-        if (is_qcow):
-            if (use_v2v):
-                v2v_img_convert(sourcepath, targetpath)
+    os.makedirs(os.path.dirname(targetpath), exist_ok=True)
+    if (qcow_mode <= 1):
+        # we need to create a pseudo disk for the virt install command to succeed
+        if (not os.path.exists(targetpath)):
+            open(targetpath, 'a').close()
+        return targetpath
+
+    # CONVERSION / MOVE asked
+    assert(qcow_mode >= 2)
+    if (is_qcow):
+        if (use_v2v):
+            v2v_img_convert(sourcepath, targetpath)
+        else:
+            tmp = qemu_img_create_overlay(sourcepath)
+            if (guestfs_convert(tmp.name)):
+                log.info("guestfs_adjust.py: successfully adjusted %s.", tmp.name)
             else:
-                tmp = qemu_img_create_overlay(sourcepath)
-                if (guestfs_convert(tmp.name)):
-                    log.info("guestfs_adjust.py: successfully adjusted %s.", tmp.name)
-                else:
-                    log.warning("guestfs_adjust.py: no adjustment done to %s.", tmp.name)
-                qemu_img_convert(tmp.name, targetpath)
-                tmp.close()
+                log.warning("guestfs_adjust.py: no adjustment done to %s.", tmp.name)
+            qemu_img_convert(tmp.name, targetpath)
+            tmp.close()
 
-        elif (targetpath != sourcepath):
-            try:
-                if (filecmp.cmp(sourcepath, targetpath, shallow=True)):
-                    log.info("disk already found at %s, no need to copy.", targetpath)
-                    return targetpath
-            except:
-                log.info("could not compare to %s, assume we need to copy.", targetpath)
+    elif (targetpath != sourcepath):
+        try:
+            if (filecmp.cmp(sourcepath, targetpath, shallow=True)):
+                log.info("disk already found at %s, no need to copy.", targetpath)
+                return targetpath
+        except:
+            log.info("could not compare to %s, assume we need to copy.", targetpath)
 
-            log.info("copy non-VMDK disk to %s", targetpath)
-            # use copy2 so we try to preserve modification time.
-            shutil.copy2(sourcepath, targetpath)
+        log.info("copy non-VMDK disk to %s", targetpath)
+        # use copy2 so we try to preserve modification time.
+        shutil.copy2(sourcepath, targetpath)
 
     return targetpath
 
