@@ -808,7 +808,6 @@ def main(argc: int, argv: list) -> int:
     disk_ctrls: dict = { "scsi": {}, "sata": {}, "nvme": {}, "ide": {} }
     disks: list = []
     for interface in disk_ctrls:
-        # XXX we will ignore the controllers XXX
         disk_ctrls[interface] = find_disk_controllers(d, interface)
         disks.extend(find_disks(d, search_paths, interface, disk_ctrls[interface]))
 
