@@ -716,9 +716,9 @@ def get_options(argc: int, argv: list) -> tuple:
     if (xml_name):
         if (os.path.exists(xml_name)):
             if (not overwrite):
-                log.warning("%s exists, skipping")
+                log.warning("%s exists, skipping", xml_name)
                 sys.exit(0)
-            log.warning("%s exists, overwriting")
+            log.warning("%s exists, overwriting", xml_name)
 
     return (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v)
 
