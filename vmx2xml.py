@@ -654,6 +654,7 @@ def get_options(argc: int, argv: list) -> tuple:
                         help='the VMX description file to be converted')
     parser.add_argument('-t', '--translate-qcow2', action='store_true', help='translate path references from .vmdk to .qcow2')
     parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
+    parser.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
     parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use experimental conversion method (only for linux guests')
     parser.add_argument('-d', '--translate-datastore', metavar="DS1=DS2", action='append',
                         help='(can be specified multiple times) translate all paths containing DS1 with DS2')
@@ -696,9 +697,22 @@ def get_options(argc: int, argv: list) -> tuple:
             datastores[fro] = to
 
     qcow_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_qcow2) else 0
+    overwrite: bool = args.overwrite
 
-    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s usev2v:%s",
-              vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v)
+    if (overwrite and not xml_name):
+        log.critical("option --overwrite requires --output-xml")
+        sys.exit(1)
+
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s",
+              vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, overwrite)
+
+    if (xml_name):
+        if (os.path.exists(xml_name)):
+            if (not overwrite):
+                log.warning("%s exists, skipping")
+                sys.exit(0)
+            log.warning("%s exists, overwriting")
+
     return (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v)
 
 
