@@ -787,7 +787,7 @@ def main(argc: int, argv: list) -> int:
         uefi = "uefi"
         if (vinst_version >= 4.0):
             if (parse_boolean(d["uefi.secureboot.enabled"])):
-                uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes,firmware.feature1.name=enrolled-keys,firmware.feature1.enabled=yes"
+                uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=yes"
             else:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
