@@ -22,6 +22,7 @@ import logging
 import shutil
 import tempfile
 import filecmp
+import struct
 
 log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
@@ -175,9 +176,14 @@ def parse_genid(genid: int, genidx: int) -> str:
     # e9392370-2917-565e-692b-d057f46512d6
     if (genid == 0 and genidx == 0):
         return ""
-    s: str = f"{genidx:016x}{genid:016x}"
+    packed_num = struct.pack('>q', genid)
+    ugenid = struct.unpack('>Q', packed_num)[0]
+    packed_num = struct.pack('>q', genidx)
+    ugenidx = struct.unpack('>Q', packed_num)[0]
+    s: str = f"{ugenidx:016x}{ugenid:016x}"
     # insert the - chars in the proper position
-    assert(len(s) == 32)
+    if (len(s) != 32):
+        log.warning(f'malformed GENID: "{s}"')
     result: str = s[0:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:32]
     return result
 
