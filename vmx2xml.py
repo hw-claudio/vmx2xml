@@ -449,7 +449,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
                  disk_ctrls: dict, disks: list, floppys: list,
                  eths: list) -> None:
     ### GENERAL SECTION - General Options for selecting the main functionality ###
-    args: list = [ "virt-install", "--print-xml", "--dry-run", "--noautoconsole" ]
+    args: list = [ "virt-install", "--print-xml", "--dry-run", "--noautoconsole", "--check", "all=off" ]
     args.extend(["--virt-type", "kvm"])
     args.extend(["--machine", "q35" if (uefi) else "pc"])
 
