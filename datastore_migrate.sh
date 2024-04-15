@@ -4,7 +4,7 @@
 # an entire datastore of .VMX VMs and referenced disks
 
 DATASTORE1=/virt1-share-migration/datastore1
-DATASTORE2=/virt1-share-migration/datastore2
+DATASTORE2=/virt1-share-migration/datastore-libvirt
 VMIMAGES=/virt1-share-migration/vmimages/floppies
 
 for VMX in `find ${DATASTORE1} -name "*.vmx"` ; do
