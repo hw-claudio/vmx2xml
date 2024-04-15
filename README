@@ -1,10 +1,7 @@
-*** THIS IS JUST FOR RESEARCH AND TESTING, DO NOT USE IN PRODUCTION ***
-
-
 REQUIREMENTS
 ------------
 
-This script has been developed as a result of a sales opportunity for a VMWare -> KVM conversion, which did not materialize.
+This script has been developed as a result of a sales opportunity for a VMWare -> KVM conversion.
 
 The relevant requirements in the context of this specific script were:
 
@@ -17,8 +14,8 @@ The relevant requirements in the context of this specific script were:
 since the existing ones were already almost full at capacity, so the disks could not be converted "in place" in the same datastore.
 
 
---------------------
-WHAT THE SCRIPT DOES
+----------------------------
+WHAT THE vmx2xml SCRIPT DOES
 
 The script primarily converts a VMX Virtual Machine definition into a libvirt XML domain file, that notably tries to match the existing
 configuration, controller topology etc of the original VMX (with huge limitations, WIP etc).
@@ -29,45 +26,42 @@ optionally on a different datastore (IMPORTANT).
 Here a datastore is basically just an NFS-reachable directory, so this functionality can be used also to convert VMs locally between
 different local disks.
 
-The script also can optionally convert the VMDK disks into QCOW2 disks bootable under KVM,
-and this is done using the libguestfs tools in a similar way to a subset of the virt-v2v functionality.
+The script also can optionally trigger the conversion of the VMDK disks into QCOW2 disks bootable under KVM,
+and this is done using the libguestfs tools and in most cases using virt-v2v.
 
-virt-v2v just uses qemu-img for the conversion, but notably also runs a very complex set of libguestfs commands, including
-creating an overlay that is expensive for our operation. The --in-place functionality seems not to be functional.
-
-We can do something simpler by just injecting the windows and linux drivers, as this is what is actually required.
+There is a special option (-x) that can be used to use an alternative to virt-v2v, but it is experimental and especially not ready to handle Windows guests.
 
 The script contains these different optional functionalities, so it can be relaunched once the QCOW2 disks have been already converted,
 in order to update and fine tune the xml conversion itself, without the costly operation of moving or converting disk images.
 
 
 ------------
-CMDLINE HELP
 
-usage: vmx2xml.py [-h] [-v] [-q] [-V] [-o OUTPUT_XML] [-s STORAGEDIR] -f
-                  VMXFILE [-t] [-c] [-d TRANSLATE_DATASTORE]
+WHAT THE guestfs_adjust.py SCRIPT DOES
 
-converts a VMX Virtual Machine definition into a libvirt XML domain file
+This is an experimental script that can be triggered instead of virt-v2v by using special option (-x) in the vmx2xml tool.
+If in doubt, ignore it.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  -v, --verbose         can be specified up to 2 times
-  -q, --quiet           can be specified up to 2 times
-  -V, --version         show program's version number and exit
-  -o OUTPUT_XML, --output-xml OUTPUT_XML
-                        output libvirt XML file (default to stdout)
-  -s STORAGEDIR, --storagedir STORAGEDIR
-                        extra input storage dirs to scan for VMDKs and other
-                        disks
-  -f VMXFILE, --filename VMXFILE
-                        the VMX description file to be converted
-  -t, --translate-qcow2
-                        translate path references from .vmdk to .qcow2
-  -c, --convert-disks   convert and move disk contents across datastores
-                        (implies -t)
-  -d TRANSLATE_DATASTORE, --translate-datastore TRANSLATE_DATASTORE
-                        datastore1,datastore2 (can be specified multiple
-                        times) translate all paths containing datastore1 with
-                        datastore2
+------------
 
-requires virt-install, qemu-img and libguestfs including libguestfs-winsupport
+WHAT THE datastore_migrate.sh SCRIPT DOES
+
+This is a simple example script (that needs adaptation before use), which focuses on converting a whole datastore worth of VMs,
+moving it to either a different datastore or another directory in the same datastore.
+
+It is just a loop that calls vmx2xml for all .vmx VM definitions in a datastore,
+with pre-chosen options to show a simple conversion from a DATASTORE1 to a DATASTORE-libvirt, including a separate extra
+storage directory.
+
+Normally it would be called as
+
+# datastore_migrate.sh -c
+
+to start the full conversion, including generating the .xml files, but also converting all the storage.
+
+It can also be called as:
+
+# datastore_migrate.sh -t
+
+to translate the .vmx to .xml only,
+also translating references to VMDK disks to QCOW2 disks, but without converting the storage itself.
