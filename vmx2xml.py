@@ -541,7 +541,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
-        target: str = "virtio" if (target == "nvme") else bus
+        target: str = "virtio" if (bus == "nvme") else bus
         s: str = f"device={device},path={targetpath},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
