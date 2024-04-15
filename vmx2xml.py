@@ -84,20 +84,19 @@ def v2v_img_convert(vmdk: str, qcow: str) -> None:
         args.append("-x")
     args.append(vmdk)
 
-    srcnames: list = glob.glob(qcow[0:-len(".qcow2")] + "-sd*")
-    if (srcnames):
-        first: str = srcnames[0]
-        log.critical("Existing file or directory %s could be overwritten by this operation.\n"
-                     "Consider removing or moving %s into another directory", first, first)
-        sys.exit(1)
-
     log.debug("%s", args)
-    p = subprocess.run(args, stdout=sys.stderr, check=True)
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    (out, _) = p.communicate()
+
+    if (p.returncode == 0):
+        log.info("virt-v2v: reports success converting disk %s", vmdk)
+    else:
+        log.warning("virt-v2v: reports failure converting disk %s", vmdk)
 
     # Now rename to the name we want
     srcnames: list = glob.glob(qcow[0:-len(".qcow2")] + "-sd*")
     if (len(srcnames) != 1):
-        log.critical("could not find the generated disk")
+        log.critical("could not find the generated disk %s", qcow)
         sys.exit(1)
     os.rename(srcnames[0], qcow)
 
