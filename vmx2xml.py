@@ -512,13 +512,15 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         args.extend(["--sound", f"model={sound}"])
 
     ### DISKS AND CONTROLLERS SECTION ###
-    ### XXX needs testing with interface "nvme", what to do about nvme0, nvme1...? ###
 
     for interface in disk_ctrls:
-        # only IDE controller is supported by virt-install/libvirt
+        # only 1 IDE controller is supported by virt-install/libvirt,
         # we will have this automatically inserted if targeted by a disk
         # so we omit it here.
         if (interface == "ide"):
+            continue
+        ### XXX libvirt does not support nvme, so we add them as virtio disks ###
+        if (interface == "nvme"):
             continue
         ctrls: dict = disk_ctrls[interface]
         for index in ctrls:
@@ -539,8 +541,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
-        #target: str = bus if (disk["device"] == "cdrom") else translate_disk_target(bus)
-        target: str = bus
+        target: str = "virtio" if (target == "nvme") else bus
         s: str = f"device={device},path={targetpath},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
