@@ -441,7 +441,7 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
     return targetpath
 
 
-def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: bool,
+def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: bool, fidelity: bool,
                  xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
@@ -519,24 +519,27 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
 
     ### DISKS AND CONTROLLERS SECTION ###
 
-    for interface in disk_ctrls:
-        # only 1 IDE controller is supported by virt-install/libvirt,
-        # we will have this automatically inserted if targeted by a disk
-        # so we omit it here.
-        if (interface == "ide"):
-            continue
-        ### XXX libvirt does not support nvme, so we add them as virtio disks ###
-        if (interface == "nvme"):
-            continue
-        ctrls: dict = disk_ctrls[interface]
-        for index in ctrls:
-            ctrl = ctrls[index]
-            s: str = f"type={interface},index={index}"
-            model: str = ctrl["model"]
-            if (model):
-                s += f",model={model}"
-            args.extend(["--controller", s])
-
+    if (fidelity):
+        # only in fidelity mode we explicitly add controllers as present in the original config file,
+        # translating pvscsi to virtio-scsi.
+        # Otherwise we let libvirt add controllers and use virtio-blk for everything we can.
+        for interface in disk_ctrls:
+            # only 1 IDE controller is supported by virt-install/libvirt,
+            # we will have this automatically inserted if targeted by a disk
+            # so we omit it here.
+            if (interface == "ide"):
+                continue
+            ### XXX libvirt does not support nvme, so we add them as virtio disks ###
+            if (interface == "nvme"):
+                continue
+            ctrls: dict = disk_ctrls[interface]
+            for index in ctrls:
+                ctrl = ctrls[index]
+                s: str = f"type={interface},index={index}"
+                model: str = ctrl["model"]
+                if (model):
+                    s += f",model={model}"
+                args.extend(["--controller", s])
 
     for disk in disks:
         x: int = disk["x"]
@@ -547,7 +550,11 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
-        target: str = "virtio" if (bus == "nvme") else bus
+        target: str
+        if (fidelity or device == "cdrom"):
+            target = "virtio" if (bus == "nvme") else bus
+        else:
+            target = "virtio"
         s: str = f"device={device},path={targetpath},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
@@ -671,6 +678,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use experimental conversion method (only for linux guests')
     parser.add_argument('-d', '--translate-datastore', metavar="DS1=DS2", action='append',
                         help='(can be specified multiple times) translate all paths containing DS1 with DS2')
+    parser.add_argument('-F', '--fidelity', action='store_true', help='configuration fidelity mode. Default is to privilege performance')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.experimental):
@@ -691,6 +699,7 @@ def get_options(argc: int, argv: list) -> tuple:
 
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
+    fidelity: bool = args.fidelity
     if (xml_name):
         # handy to create already the path to the destination xml
         os.makedirs(os.path.dirname(os.path.abspath(xml_name)), exist_ok=True)
@@ -716,8 +725,8 @@ def get_options(argc: int, argv: list) -> tuple:
         log.critical("option --overwrite requires --output-xml")
         sys.exit(1)
 
-    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s",
-              vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, overwrite)
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s",
+              vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, overwrite, fidelity)
 
     if (xml_name):
         if (os.path.exists(xml_name)):
@@ -726,11 +735,11 @@ def get_options(argc: int, argv: list) -> tuple:
                 sys.exit(0)
             log.warning("%s exists, overwriting", xml_name)
 
-    return (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v)
+    return (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, fidelity)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v) = get_options(argc, argv)
+    (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, fidelity) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
@@ -829,7 +838,7 @@ def main(argc: int, argv: list) -> int:
     log.debug("%s", eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version, qcow_mode, datastores, use_v2v,
+    virt_install(vinst_version, qcow_mode, datastores, use_v2v, fidelity,
                  xml_name, vmx_name,
                  name, memory,
                  cpu,
