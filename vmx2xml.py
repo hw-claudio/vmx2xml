@@ -456,6 +456,9 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     ### GENERAL SECTION - General Options for selecting the main functionality ###
     args: list = [ "virt-install", "--print-xml", "--dry-run", "--noautoconsole", "--check", "all=off" ]
     args.extend(["--virt-type", "kvm"])
+
+    # for Windows 2012, "PC" is necessary to boot, with legacy BIOS, and "fidelity" mode MUST be used
+    # otherwise the OS will detect the hardware change and refuse to start.
     args.extend(["--machine", "q35" if (uefi) else "pc"])
 
     # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
@@ -521,7 +524,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
 
     if (fidelity):
         # only in fidelity mode we explicitly add controllers as present in the original config file,
-        # translating pvscsi to virtio-scsi.
+        # only translating VMWare PV to Virtio PV (pvscsi to virtio-scsi).
         # Otherwise we let libvirt add controllers and use virtio-blk for everything we can.
         for interface in disk_ctrls:
             # only 1 IDE controller is supported by virt-install/libvirt,
