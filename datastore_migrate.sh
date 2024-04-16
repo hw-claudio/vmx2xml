@@ -3,8 +3,8 @@
 # Example of a script that leverages vmx2xml.py to migrate
 # an entire datastore of .VMX VMs and referenced disks
 
-DATASTORE1=/virt1-share-migration/datastore1
-DATASTORE2=/virt1-share-migration/datastore-libvirt
+DATASTORE1=/virt1-share-migration/datastore1/
+DATASTORE2=/virt1-share-migration/datastore-libvirt/
 VMIMAGES=/virt1-share-migration/vmimages/floppies
 
 for VMX in `find ${DATASTORE1} -name "*.vmx"` ; do
