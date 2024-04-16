@@ -7,7 +7,7 @@ The relevant requirements in the context of this specific script were:
 
 * NFS servers serving OS images as .VMDK files, VM using vmware pvscsi virtual network device.
 * Guest OSes including Windows 2008 .. 2022, RHEL 6.x to 8.x, SLES 12 to SLES 15 SP2, Ubuntu
-* Virtual Firmware all legacy BIOS
+* Virtual Firmware all legacy BIOS (most?)
 * Conversion of VMDK to QCOW2 was needed but concern on the conversion times (automation and optimization required)
 
 * Move from existing NFS datastore volumes to new NFS datastore volumes was necessary,
@@ -17,22 +17,26 @@ since the existing ones were already almost full at capacity, so the disks could
 ----------------------------
 WHAT THE vmx2xml SCRIPT DOES
 
-The script primarily converts a VMX Virtual Machine definition into a libvirt XML domain file, that notably tries to match the existing
-configuration, controller topology etc of the original VMX (with huge limitations, WIP etc).
+The script primarily converts a VMX Virtual Machine definition into a libvirt XML domain file,
+that notably tries to match the existing configuration of the original VMX (with huge limitations, WIP etc).
+
+For disks and controllers it can operate respecting more the original configuration ("fidelity" mode),
+or converting all disks for performance to virtio-blk.
 
 The script also optionally can translate all references to VMDK disks in the VMX to references to QCOW2 disks,
-optionally on a different datastore (IMPORTANT).
+optionally on a different datastore.
+
+This is important because some of the VMs may have different large disks scattered across datastores.
 
 Here a datastore is basically just an NFS-reachable directory, so this functionality can be used also to convert VMs locally between
 different local disks.
 
-The script also can optionally trigger the conversion of the VMDK disks into QCOW2 disks bootable under KVM,
-and this is done using the libguestfs tools and in most cases using virt-v2v.
+The script also can optionally trigger the conversion of the VMDK disks into QCOW2 disks bootable under KVM, and this is done using the libguestfs tools and by default using virt-v2v.
 
 There is a special option (-x) that can be used to use an alternative to virt-v2v, but it is experimental and especially not ready to handle Windows guests.
 
 The script contains these different optional functionalities, so it can be relaunched once the QCOW2 disks have been already converted,
-in order to update and fine tune the xml conversion itself, without the costly operation of moving or converting disk images.
+in order to update and fine tune the xml conversion itself, without the costly operation of moving or reconverting disk images.
 
 
 ------------
@@ -40,7 +44,12 @@ in order to update and fine tune the xml conversion itself, without the costly o
 WHAT THE guestfs_adjust.py SCRIPT DOES
 
 This is an experimental script that can be triggered instead of virt-v2v by using special option (-x) in the vmx2xml tool.
-If in doubt, ignore it.
+
+As a last resort, if virt-v2v fails completely to process the disks, one can try this experimental approach,
+but beware that Windows cannot work yet with PV drivers because virtio injection is not implemented for Windows.
+
+If in doubt, ignore it, since virt-v2v is used by default.
+
 
 ------------
 
@@ -63,5 +72,5 @@ It can also be called as:
 
 # datastore_migrate.sh -t
 
-to translate the .vmx to .xml only,
-also translating references to VMDK disks to QCOW2 disks, but without converting the storage itself.
+to translate the .vmx to .xml only, also translating references to VMDK disks to QCOW2 disks, but without converting the storage itself.
+This is useful to do a slight change to the configuration without reprocessing any disk.
