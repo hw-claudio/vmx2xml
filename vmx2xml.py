@@ -484,7 +484,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
 
     assert(vcpus > 0 and sockets > 0 and cores > 0 and threads > 0)
     vcpu_str = f"{vcpus},sockets={sockets},cores={cores},threads={threads}"
-    if (vm_affinity):
+    if (fidelity and vm_affinity):
         vcpu_str += f",cpuset={vm_affinity}"
     args.extend(["--vcpus", vcpu_str])
     assert(iothreads > 0)
