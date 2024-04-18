@@ -23,6 +23,7 @@ import shutil
 import tempfile
 import filecmp
 import struct
+import time
 
 log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
@@ -545,7 +546,19 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         y: int = disk["y"]
         device: str = disk["device"]
         sourcepath: str = disk["path"]
+        start_time: float = time.perf_counter()
         targetpath: str = translate_convert_path(sourcepath, qcow_mode, datastores, use_v2v)
+        if (qcow_mode >= 2):
+            end_time: float = time.perf_counter();
+            elapsed: float = end_time - start_time
+            if (elapsed > 0.0):
+                sourcestat = os.stat(sourcepath)
+                sourcesize = sourcestat.st_blocks * 512 // (1024 * 1024)
+                targetstat = os.stat(targetpath)
+                targetsize = targetstat.st_blocks * 512 // (1024 * 1024)
+                log.info("src %s MiB to dst %s MiB in %s sec = %s MiB/s (src), %s MiB/s (tgt)",
+                         sourcesize, targetsize, elapsed, sourcesize // elapsed, targetsize // elapsed)
+
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver: str = disk["driver"]
