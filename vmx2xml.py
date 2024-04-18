@@ -86,8 +86,7 @@ def v2v_img_convert(vmdk: str, qcow: str) -> None:
     args.append(vmdk)
 
     log.debug("%s", args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    (out, _) = p.communicate()
+    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8')
 
     if (p.returncode == 0):
         log.info("virt-v2v: reports success converting disk %s", vmdk)
@@ -114,9 +113,6 @@ def qemu_img_create_overlay(vmdk: str):
     return tmp
 
 
-# this step is done separately, and not with virt-v2v, in order to avoid the
-# additional overlay image for performance reasons, and to allow more flexibility
-# in terms of control over the qemu-img parameters in the future (-m etc).
 def qemu_img_convert(vmdk: str, qcow: str) -> None:
     args: list = [ "qemu-img", "convert", "-O", "qcow2" ]
     if (log.getEffectiveLevel() <= logging.WARNING):
@@ -124,7 +120,7 @@ def qemu_img_convert(vmdk: str, qcow: str) -> None:
     args.extend([vmdk, qcow])
 
     log.debug("%s", args)
-    p = subprocess.run(args, stdout=sys.stderr, check=True)
+    p = subprocess.run(args, check=True)
 
 
 # translate string using a passed dictionary
