@@ -516,7 +516,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         args.extend(["--sound", f"model={sound}"])
 
     ### DISKS AND CONTROLLERS SECTION ###
-
+    s: str; model: str; device: str; driver: str; path: str
     if (fidelity):
         # only in fidelity mode we explicitly add controllers as present in the original config file,
         # only translating VMWare PV to Virtio PV (pvscsi to virtio-scsi).
@@ -533,8 +533,8 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
             ctrls: dict = disk_ctrls[interface]
             for index in ctrls:
                 ctrl = ctrls[index]
-                s: str = f"type={interface},index={index}"
-                model: str = ctrl["model"]
+                s = f"type={interface},index={index}"
+                model = ctrl["model"]
                 if (model):
                     s += f",model={model}"
                 args.extend(["--controller", s])
@@ -542,28 +542,28 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     for disk in disks:
         x: int = disk["x"]
         y: int = disk["y"]
-        device: str = disk["device"]
+        device = disk["device"]
         sourcepath: str = disk["path"]
         start_time: float = time.perf_counter()
-        targetpath: str = translate_convert_path(sourcepath, qcow_mode, datastores, use_v2v)
+        path = translate_convert_path(sourcepath, qcow_mode, datastores, use_v2v)
         if (qcow_mode >= 2):
             end_time: float = time.perf_counter();
             elapsed: float = end_time - start_time
             if (elapsed > 0.0):
-                targetstat = os.stat(targetpath)
+                targetstat = os.stat(path)
                 targetsize = targetstat.st_blocks * 512 // (1024 * 1024)
                 log.info("%s MiB in %s sec = %s MiB/s",
                          targetsize, elapsed, targetsize // elapsed)
 
         bus: str = disk["bus"]
         cache: str = disk["cache"]
-        driver: str = disk["driver"]
+        driver = disk["driver"]
         target: str
         if (fidelity or device == "cdrom"):
             target = "virtio" if (bus == "nvme") else bus
         else:
             target = "virtio"
-        s: str = f"device={device},path={targetpath},target.bus={target},driver.cache={cache}"
+        s = f"device={device},path={path},target.bus={target},driver.cache={cache}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
         args.extend(["--disk", s])
@@ -571,11 +571,11 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     for disk in floppys:
         if not disk:
             continue
-        device: str = "floppy"
-        path: str = disk
-        driver: str = "file"
+        device = "floppy"
+        driver = "file"
+        path = disk
 
-        s: str = f"device={device},path={path}"
+        s = f"device={device},path={path}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
         args.extend(["--disk", s])
@@ -586,8 +586,8 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     ### NETWORKS ###
 
     for eth in eths:
-        s: str = eth["type"]
-        model: str = eth["model"]
+        s = eth["type"]
+        model = eth["model"]
         mac: str = eth["mac"]
         if (model):
             s += f",model={model}"
