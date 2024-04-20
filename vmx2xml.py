@@ -80,10 +80,8 @@ def v2v_img_convert(vmdk: str, qcow: str) -> None:
 
     if (log.level > logging.WARNING):
         args.append("--quiet")
-    if (log.level < logging.WARNING):
-        args.append("--verbose")
     if (log.level <= logging.DEBUG):
-        args.append("-x")
+        args.extend(["--verbose", "-x"])
     args.append(vmdk)
 
     log.debug("%s", args)
@@ -552,12 +550,10 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
             end_time: float = time.perf_counter();
             elapsed: float = end_time - start_time
             if (elapsed > 0.0):
-                sourcestat = os.stat(sourcepath)
-                sourcesize = sourcestat.st_blocks * 512 // (1024 * 1024)
                 targetstat = os.stat(targetpath)
                 targetsize = targetstat.st_blocks * 512 // (1024 * 1024)
-                log.info("src %s MiB to dst %s MiB in %s sec = %s MiB/s (src), %s MiB/s (tgt)",
-                         sourcesize, targetsize, elapsed, sourcesize // elapsed, targetsize // elapsed)
+                log.info("%s MiB in %s sec = %s MiB/s",
+                         targetsize, elapsed, targetsize // elapsed)
 
         bus: str = disk["bus"]
         cache: str = disk["cache"]
