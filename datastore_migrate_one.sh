@@ -2,10 +2,10 @@
 
 # Example of a script that migrates a single VMX
 
-DATASTORE1=/virt1-share-migration/datastore1
-DATASTORE2=/virt1-share-migration/datastore-libvirt
-VMIMAGES=/virt1-share-migration/vmimages/floppies
-VMX=/virt1-share-migration/datastore1/w2k16esxi/w2k16esxi.vmx
+DATASTORE1=/100G/datastore1/
+DATASTORE2=/100G/datastore-libvirt/
+VMIMAGES=/100G/vmimages/
+VMX=${DATASTORE1}/15sp6bios/15sp6bios.vmx
 
 XML=${VMX/${DATASTORE1}/${DATASTORE2}}
 XML=${XML/%.vmx/.xml}
