@@ -35,12 +35,16 @@ def log_enable_nl() -> None:
 #
 # Es: (g, "/dev/sda2", "linux")
 #
-def guestfs_launch(path: str) -> tuple:
+def guestfs_launch(path: str, nbd: bool) -> tuple:
     try:
         g: guestfs.GuestFS = guestfs.GuestFS(python_return_dict=True)
         if (log.level <= logging.DEBUG):
             g.set_trace(1)
-        g.add_drive_opts(path, format="qcow2", discard="besteffort", cachemode="unsafe")
+        if (not nbd):
+            g.add_drive_opts(path, format="qcow2", discard="besteffort", cachemode="unsafe")
+        else:
+            srv: str = f"unix:{path}"
+            g.add_drive_opts("", format="raw", protocol="nbd", server=[srv], discard="besteffort", cachemode="unsafe")
         g.launch()
         os_type: str = ""
         root: str = ""
@@ -240,9 +244,9 @@ def guestfs_win(g: guestfs.GuestFS, root: str) -> bool:
     return False
 
 
-def guestfs_convert(path: str) -> bool:
+def guestfs_adjust(path: str, nbd: bool) -> bool:
     g: guestfs.GuestFS; root: str; os_type: str
-    (g, root, os_type) = guestfs_launch(path)
+    (g, root, os_type) = guestfs_launch(path, nbd)
     if (not g):
         log.warning("could not detect any supported guestOS in %s,\n"
                     "it will be left untouched.", path)
@@ -258,7 +262,7 @@ def guestfs_convert(path: str) -> bool:
     return rv
 
 
-def get_options(argc: int, argv: list) -> str:
+def get_options(argc: int, argv: list) -> tuple:
     global log
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='guestfs_adjust.py',
@@ -268,12 +272,20 @@ def get_options(argc: int, argv: list) -> str:
     parser.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-V', '--version', action='version', version=program_version)
-    parser.add_argument('-f', '--filename', metavar="IMGFILE", action='store', required=True,
+    parser.add_argument('-f', '--filename', metavar="IMGFILE", action='store',
                         help='the guest image to be converted')
+    parser.add_argument('-n', '--nbd', metavar="NAMEDSOCKET", action='store',
+                        help='an NBD socket to use instead of filename')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
+        sys.exit(1)
+    if (not args.filename) and (not args.nbd):
+        log.critical("specify either -f, --filename or -n, --nbd.")
+        sys.exit(1)
+    if (args.filename and args.nbd):
+        log.critical("cannot specify both -f, --filename and -n, --nbd at the same time.")
         sys.exit(1)
     if (args.verbose > 2):
         args.verbose = 2
@@ -287,18 +299,25 @@ def get_options(argc: int, argv: list) -> str:
     log.addHandler(handler)
 
     filename: str = args.filename
-    log.debug("[OPTIONS] filename=%s", filename)
-    return filename
+    nbd: str = args.nbd
+    log.debug("[OPTIONS] filename=%s nbd=%s", filename, nbd)
+    return (filename, nbd)
 
 
 def main(argc: int, argv: list) -> int:
-    filename: str = get_options(argc, argv)
+    (filename, nbd) = get_options(argc, argv)
+    rv: bool
 
-    if (guestfs_convert(filename)):
-        log.info("guest conversion successful.")
+    if (filename):
+        rv = guestfs_adjust(filename, False)
+    else:
+        rv = guestfs_adjust(nbd, True)
+
+    if (rv):
+        log.warning("guest adjustment successful.")
         return 0
     else:
-        log.info("guest conversion reports failure.")
+        log.warning("guest adjustment reports failure.")
         return 1
 
 

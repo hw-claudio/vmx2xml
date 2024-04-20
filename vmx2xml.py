@@ -42,7 +42,7 @@ def log_enable_nl() -> None:
 
 def virt_inspector(path: str) -> dict:
     args: list = [ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ]
-    os: dict = { "name": '', "osinfo": '', "date": '' }
+    osd: dict = { "name": '', "osinfo": '' }
 
     log.debug("%s", args)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
@@ -50,28 +50,17 @@ def virt_inspector(path: str) -> dict:
 
     if (p.returncode != 0):
         log.error("%s could not be inspected.", path)
-        return os
+        return osd
 
     name_m = re.search(r"^\s*<name>(.+)</name>\s*$", s, flags=re.MULTILINE)
     osinfo_m = re.search(r"\s*<osinfo>(.+)</osinfo>\s*$", s, flags=re.MULTILINE)
     if (name_m):
-        os["name"] = name_m.group(1)
+        osd["name"] = name_m.group(1)
     if (osinfo_m):
-        os["osinfo"] = osinfo_m.group(1)
+        osd["osinfo"] = osinfo_m.group(1)
 
-    if (os["osinfo"] and os["name"]):
-        args = [ "osinfo-query", "os", "-f", "short-id,release-date" ]
-        log.debug("%s", args)
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-        (s, _) = p.communicate()
-        short_id: str = os["osinfo"]
-        #  win7                 | 2009-10-22
-        date_m = re.search(fr"^\s*{short_id}\s*|\s*(\d+-\d+-\d+)\s*$", s, flags=re.MULTILINE)
-        if (date_m):
-            os["date"] = date_m.group(1)
-
-    log.debug("[OS] %s %s %s", os["name"], os["osinfo"], os["date"])
-    return os
+    log.debug("[OS DATA] %s %s", osd["name"], osd["osinfo"])
+    return osd
 
 
 def v2v_img_convert(vmdk: str, qcow: str) -> None:
@@ -112,7 +101,16 @@ def qemu_img_create_overlay(vmdk: str):
     return tmp
 
 
-def qemu_img_convert(vmdk: str, qcow: str) -> None:
+def qemu_img_create(qcow: str, vsize: int) -> None:
+    args: list = ["qemu-img", "create", "-f", "qcow2" ]
+    if (log.level > logging.DEBUG):
+        args.append("-q")
+    args.extend([qcow, str(vsize)])
+    log.debug("%s", args)
+    p = subprocess.run(args, stdout=sys.stderr, check=True)
+
+
+def qemu_img_copy(vmdk: str, qcow: str) -> None:
     args: list = [ "qemu-img", "convert", "-O", "qcow2" ]
     if (log.getEffectiveLevel() <= logging.WARNING):
         args.append("-p")
@@ -120,6 +118,78 @@ def qemu_img_convert(vmdk: str, qcow: str) -> None:
 
     log.debug("%s", args)
     p = subprocess.run(args, check=True)
+
+
+def qemu_img_info(vmdk: str) -> int:
+    args: list = ["qemu-img", "info", "-U", vmdk ]
+
+    log.debug("%s", args)
+    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    (s, _) = p.communicate()
+    if (p.returncode != 0):
+        log.critical("qemu-img info command failed!")
+        sys.exit(1)
+    # sorry, human output is way easier to parse than the json file.
+    vsize_m = re.search(r"^virtual size:.*\((\d+) bytes\)", s, flags=re.MULTILINE)
+    if (not vsize_m):
+        log.critical("qemu-img info output could not be parsed!")
+        sys.exit(1)
+    return int(vsize_m.group(1))
+
+
+def qemu_img_convert(sourcepath: str, targetpath: str) -> None:
+    tmp = qemu_img_create_overlay(sourcepath)
+    guestfs_adjust(tmp.name, False)
+    qemu_img_copy(tmp.name, targetpath)
+    tmp.close()
+
+
+def qemu_kill_nbd(pid: int) -> None:
+    os.kill(pid, 15)
+
+
+def qemu_nbd_create(s: str, overlay: bool) -> tuple:
+    tmp = tempfile.NamedTemporaryFile(delete=False)
+    args: list = [ "qemu-nbd", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
+    if (overlay):
+        args.append("-s")
+    args.append(s)
+    log.debug("%s", args)
+    pid: int = os.fork()
+    if (pid == 0):
+        os.execvp(args[0], args)
+    args: list = [ "nbdinfo", f"nbd+unix:///?socket={tmp.name}" ]
+    while True:
+        log.debug("%s", args)
+        p = subprocess.run(args, check=False)
+        if (p.returncode == 0):
+            break
+        time.sleep(1)
+    return (tmp, pid)
+
+
+def qemu_nbd_copy(sin: str, sout: str) -> None:
+    args: list = [ "nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress' ]
+    args.extend(["--threads=0", "--connections=4", "--sparse=65536", "--request-size=524288", "--queue-size=33554432"])
+
+    log.debug("%s", args)
+    p = subprocess.run(args, check=True)
+
+
+def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool) -> None:
+    (sin, pidin) = qemu_nbd_create(sourcepath, adjust)
+    if (adjust):
+        guestfs_adjust(sin.name, True)
+    vsize: int = qemu_img_info(sourcepath)
+    qemu_img_create(targetpath, vsize)
+    (sout, pidout) = qemu_nbd_create(targetpath, False)
+    qemu_nbd_copy(sin.name, sout.name)
+    sin.close()
+    sout.close()
+    os.remove(sin.name)
+    os.remove(sout.name)
+    qemu_kill_nbd(pidin)
+    qemu_kill_nbd(pidout)
 
 
 # translate string using a passed dictionary
@@ -265,7 +335,7 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
                 "bus": interface, "x": x, "y": y,
                 "device": '', "driver": '',
                 "cache": '', "path" : '',
-                #"os": { "name": '', "osinfo": '', "date": '' }
+                "os": { "name": '', "osinfo": '' }
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
@@ -273,8 +343,8 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
             disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
             # XXX we never use the actual libvirt/qemu default, writeback?
             disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
-            #if (disk["path"]):
-            #    disk["os"] = virt_inspector(disk["path"])
+            if (disk["path"]):
+                disk["os"] = virt_inspector(disk["path"])
             disks.append(disk)
     return disks
 
@@ -363,8 +433,8 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     })
 #     return translate(translator, s);
 
-def guestfs_convert(path: str) -> bool:
-    args: list = [ "guestfs_adjust.py", "-f", path ]
+def guestfs_adjust(path: str, nbd: bool) -> bool:
+    args: list = [ "guestfs_adjust.py", "-n" if (nbd) else "-f", path ]
     v: int = 0; q: int = 0; i: int
 
     if (log.level < logging.WARNING):
@@ -385,7 +455,7 @@ def guestfs_convert(path: str) -> bool:
     return True
 
 
-def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, use_v2v: bool) -> str:
+def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, use_v2v: int, osd: dict) -> str:
     targetpath: str = sourcepath
     is_qcow: int = 0
 
@@ -410,16 +480,17 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
     # CONVERSION / MOVE asked
     assert(qcow_mode >= 2)
     if (is_qcow):
-        if (use_v2v):
-            v2v_img_convert(sourcepath, targetpath)
-        else:
-            tmp = qemu_img_create_overlay(sourcepath)
-            if (guestfs_convert(tmp.name)):
-                log.info("guestfs_adjust.py: successfully adjusted %s.", tmp.name)
+        if (osd["name"]):
+            if (use_v2v == 1):
+                v2v_img_convert(sourcepath, targetpath)
+            elif (use_v2v == 0):
+                qemu_img_convert(sourcepath, targetpath)
+            elif (use_v2v == -1):
+                qemu_nbd_convert(sourcepath, targetpath, True)
             else:
-                log.warning("guestfs_adjust.py: no adjustment done to %s.", tmp.name)
-            qemu_img_convert(tmp.name, targetpath)
-            tmp.close()
+                assert(0) # unhandled use_v2v value
+        else:
+            qemu_nbd_convert(sourcepath, targetpath, False)
 
     elif (targetpath != sourcepath):
         try:
@@ -436,7 +507,7 @@ def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, us
     return targetpath
 
 
-def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: bool, fidelity: bool,
+def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: int, fidelity: bool,
                  xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
@@ -545,7 +616,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         device = disk["device"]
         sourcepath: str = disk["path"]
         start_time: float = time.perf_counter()
-        path = translate_convert_path(sourcepath, qcow_mode, datastores, use_v2v)
+        path = translate_convert_path(sourcepath, qcow_mode, datastores, use_v2v, disk["os"])
         if (qcow_mode >= 2):
             end_time: float = time.perf_counter();
             elapsed: float = end_time - start_time
@@ -668,7 +739,7 @@ def is_dir(string: str) -> str:
 
 def get_options(argc: int, argv: list) -> tuple:
     global log
-    use_v2v: bool = True
+    use_v2v: int = 1
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n",
@@ -685,14 +756,20 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-t', '--translate-qcow2', action='store_true', help='translate path references from .vmdk to .qcow2')
     parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
     parser.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
-    parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use experimental conversion method (only for linux guests')
+    parser.add_argument('-x', '--experimental', action='store_true', help='use experimental old conversion method (qemu-img)')
+    parser.add_argument('-y', '--experimental2', action='store_true', help='use experimental new conversion method (qemu-nbd)')
     parser.add_argument('-d', '--translate-datastore', metavar="DS1=DS2", action='append',
                         help='(can be specified multiple times) translate all paths containing DS1 with DS2')
     parser.add_argument('-F', '--fidelity', action='store_true', help='configuration fidelity mode. Default is to privilege performance')
 
     args: argparse.Namespace = parser.parse_args()
+    if (args.experimental and args.experimental2):
+        log.critical("cannot specify both -x and -y at the same time.")
+        sys.exit(1)
     if (args.experimental):
-        use_v2v = False
+        use_v2v = 0
+    elif (args.experimental2):
+        use_v2v = -1
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
