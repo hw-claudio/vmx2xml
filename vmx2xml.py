@@ -137,34 +137,60 @@ def parse_boolean(s: str) -> bool:
         return False
 
 
-def parse_filename(s: str, search_paths: list) -> str:
-    if (s == ""):
-        return s
-    if (s.startswith("/dev/")):
-        log.info("[DISK] %s", s)
-        if not (os.path.exists(s)):
-            log.warning("VM references a block device which does not exist on this host,\n"
-                        "at runtime the VM will require a host with a valid device to run!")
-        return s
+# parse a Reference to a filename in the VMX
+def parse_filename_ref(s: str, datastores: dict, translate_qcow2: bool) -> list:
+    # an empty string is valid, not really present.
+    if (not s):
+        return [None, None]
 
-    # find the file referenced by the vmx in the local filesystem
     basename: str = os.path.basename(s)
     log_disable_nl()
     log.info("[DISK] %s => ", basename)
     log_enable_nl()
 
-    pathname: str = find_file_ref(basename, search_paths[0], False)
-    if (pathname == ""):
-        pathname = find_file_ref(basename, search_paths[1], False)
-        for i in range(2, len(search_paths)):
-            if (pathname != ""):
+    if (s.startswith("/vmfs/devices")):
+        log.error("VM references a local device, this cannot work! Ignoring.")
+        return [None, None]
+
+    # find the file referenced by the vmx in the locally reachable filesystem
+    paths: list = [None, None]
+
+    # a relative path is relative to the VM directory
+    if not (os.path.isabs(s)):
+        log.info("looking in datastore '.' %s", datastores["."])
+        paths = find_file_ref(basename, datastores["."][0], datastores["."], False)
+    if (not all(paths)):
+        dirname: str = os.path.dirname(s)
+        for ref in datastores:
+            # skip special datastores that are considered before and after this loop.
+            if (ref == "." or ref == ".."):
+                continue
+            log.info("looking in datastore %s", datastores[ref])
+            sourcedir = datastores[ref][0]
+            log.debug(f're.subn("^{ref}", "{sourcedir}", {dirname}, count=1')
+            (match, n) = re.subn(f"^{ref}", sourcedir, dirname, count=1)
+            if (n == 1):
+                log.debug('[MATCH] %s', match)
+                paths = find_file_ref(basename, match, datastores[ref], True)
                 break
-            pathname = find_file_ref(basename, search_paths[i], True)
-    if (pathname == ""):
-        log.critical("\n%s NOT FOUND, search paths %s", basename, search_paths)
+            else:
+                log.debug('[NO MATCH]')
+
+    # last fallback is to check this datastore
+    if (not all (paths)):
+        log.info("looking in datastore '..' %s", datastores[".."])
+        paths = find_file_ref(basename, datastores[".."][0], datastores[".."], False)
+    if (not all (paths)):
+        log.critical("\n%s NOT FOUND, datastores %s", basename, datastores)
         sys.exit(1)
-    log.info("%s", pathname)
-    return pathname
+
+    if (translate_qcow2):
+        (match, is_qcow) = re.subn(r"\.vmdk$", ".qcow2", paths[1], count=1, flags=re.IGNORECASE)
+        if (is_qcow == 1):
+            paths[1] = match
+
+    log.info("%s", paths)
+    return paths
 
 
 def parse_genid(genid: int, genidx: int) -> str:
@@ -190,18 +216,29 @@ def parse_vm_affinity(s: str) -> str:
     return s
 
 
-# find a file referred to by the VMX file
-def find_file_ref(name: str, path: str, recurse: bool) -> str:
-    pathname: str = os.path.join(path, name)
-    if (os.path.exists(pathname)):
-        return pathname
-    if (not recurse):
-        return ""
-    for (root, dirs, files) in os.walk(path):
+def walk_find(sourcepath: str, name: str) -> str:
+    for (root, dirs, files) in os.walk(sourcepath, followlinks=True):
         for this in files:
             if (this == name):
                 return os.path.join(root, name)
     return ""
+
+
+# find a file referred to by the VMX file
+def find_file_ref(name: str, match: str, datastore: tuple, recurse: bool) -> list:
+    sourcepath: str = match
+    sourcefile: str = ""
+    pathname: str = os.path.join(sourcepath, name)
+    if (os.path.exists(pathname)):
+        sourcefile = pathname
+    elif (recurse):
+        sourcefile = walk_find(sourcepath, name)
+    if (not sourcefile):
+        return [ None, None ]
+    log.debug("find_file_ref sourcefile %s sourcepath %s pathname %s", sourcefile, sourcepath, pathname)
+    targetfile: str = os.path.join(datastore[1], os.path.relpath(sourcefile, datastore[0]))
+    log.debug("find_file_ref targetfile %s", targetfile)
+    return [ sourcefile, targetfile ]
 
 
 def parse_vmx(f, d: defaultdict) -> None:
@@ -251,7 +288,7 @@ def find_disk_controllers(d: defaultdict, interface: str) -> dict:
     return controllers
 
 
-def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: dict) -> list:
+def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: dict, translate_qcow2: bool) -> list:
     disks: list = []
     for x in range(4):
         if (x not in controllers) and (interface != "ide"):  # IDE does not show explicit controllers entries
@@ -264,17 +301,18 @@ def find_disks(d: defaultdict, search_paths: list, interface: str, controllers: 
             disk: dict = {
                 "bus": interface, "x": x, "y": y,
                 "device": '', "driver": '',
-                "cache": '', "path" : '',
-                #"os": { "name": '', "osinfo": '', "date": '' }
+                "cache": '', "path": [ None, None ] ,
+                "os": { "name": '', "osinfo": '', "date": '' }
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
-            disk["path"] = parse_filename(d[f"{interface}{x}:{y}.filename"], search_paths)
-            disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
+            disk["path"] = parse_filename_ref(d[f"{interface}{x}:{y}.filename"], datastores, translate_qcow2)
+            #disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
+            disk["driver"] = "file"
             # XXX we never use the actual libvirt/qemu default, writeback?
             disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
-            #if (disk["path"]):
-            #    disk["os"] = virt_inspector(disk["path"])
+            if (all(disk["path"])):
+                disk["os"] = virt_inspector(disk["path"][0])
             disks.append(disk)
     return disks
 
@@ -385,15 +423,8 @@ def guestfs_convert(path: str) -> bool:
     return True
 
 
-def translate_convert_path(sourcepath: str, qcow_mode: int, datastores: dict, use_v2v: bool) -> str:
-    targetpath: str = sourcepath
+def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: dict, use_v2v: bool) -> str:
     is_qcow: int = 0
-
-    for datapath in datastores:
-        targetpath = sourcepath.replace(datapath, datastores[datapath], 1)
-        if (targetpath != sourcepath):
-            break
-
     if (qcow_mode >= 1):
         vmdk: str = targetpath
         (match, is_qcow) = re.subn(r"\.vmdk$", ".qcow2", vmdk, count=1, flags=re.IGNORECASE)
@@ -443,7 +474,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
                  vcpus: int, sockets: int, cores: int, threads: int, vm_affinity: str,
                  iothreads: int,
                  genid: str, sysinfo: str,
-                 uefi: str, nvram: str,
+                 uefi: str, nvram: list,
                  svga: bool, svga_memory: int, vga: bool,
                  sound: str,
                  disk_ctrls: dict, disks: list, floppys: list,
@@ -543,9 +574,10 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         x: int = disk["x"]
         y: int = disk["y"]
         device = disk["device"]
-        sourcepath: str = disk["path"]
+        paths: tuple = disk["path"]
         start_time: float = time.perf_counter()
-        path = translate_convert_path(sourcepath, qcow_mode, datastores, use_v2v)
+        path = convert_path(paths[0], paths[1], qcow_mode, datastores, use_v2v)
+
         if (qcow_mode >= 2):
             end_time: float = time.perf_counter();
             elapsed: float = end_time - start_time
@@ -568,12 +600,12 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
             s += f",type={driver}"
         args.extend(["--disk", s])
 
-    for disk in floppys:
-        if not disk:
+    for paths in floppys:
+        if not all (paths):
             continue
         device = "floppy"
+        path = paths[1]
         driver = "file"
-        path = disk
 
         s = f"device={device},path={path}"
         if (vinst_version >= 3.0):
@@ -659,11 +691,14 @@ def detect_guestfs_adjust_version() -> float:
     return v
 
 
-def is_dir(string: str) -> str:
-    if (os.path.isdir(string)):
-        return string
-    else:
-        raise NotADirectoryError(string)
+def is_dir(string: str) -> bool:
+    try:
+        if (os.path.isdir(string)):
+            return True
+    except:
+        log.warning("could not stat %s", string)
+
+    return False
 
 
 def get_options(argc: int, argv: list) -> tuple:
@@ -671,23 +706,38 @@ def get_options(argc: int, argv: list) -> tuple:
     use_v2v: bool = True
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
-        description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n",
-        epilog="requires virt-install, qemu-img and guestfs_adjust"
+        description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n"
+        "and optionally translates and converts datastores.\n",
+        usage="%(prog)s [options]\n"
+        "\n"
+        "INPUT DATASTORES: by default the directory containing the input VMX and its parent are used as the input datastore.\n"
+        "OUTPUT DATASTORES: by default the directory containing the output XML and its parent is used as the output datastore.\n\n"
+        "To add further datastores provide multiple -d options, for example:\n\n"
+        "-d /vmfs/volumes/datastore2/,/share/volumes/datastore2/=/share/libvirt-datastore2/\n"
+        "...\n\n"
+        "All references in the VMX file to paths starting with '/vmfs/volumes/datastore2/' will be translated to\n"
+        "'/share/volumes/datastore2', assuming the path is reachable on this host.\n\n"
+        "The file will then be copied or converted to /share/libvirt-datastore2/\n\n"
+        "The ',' input reference translation could be omitted if this host sees /vmfs/volumes/datastore2/ as the same path:\n"
+        "-d /vmfs/volumes/datastore2/=/vmfs/volumes/libvirt-isos/\n"
+        "The '=' output translation can also be omitted when input datastore is the same as the output:\n"
+        "-d /vmfs/volumes/isos,/share/volumes/isos/\n\n"
+        "There is no translation of the output path to output xml reference, so ensure the output datastore path is final.\n\n"
+        "The simplest scenario is where all volumes can be reached via /vmfs/volumes/, and need to be translated to the same path:\n\n"
+        "-d /vmfs/volumes/=/vmfs/libvirt-volumes/\n\n"
     )
     parser.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-V', '--version', action='version', version=program_version)
-    parser.add_argument('-o', '--output-xml', action='store', help='output libvirt XML file (default to stdout)')
-    parser.add_argument('-s', '--storagedir', action="append",
-                        help='extra input storage dirs to scan for VMDKs and other disks')
+    parser.add_argument('-o', '--output-xml', action='store', help='output libvirt XML file', required=True)
     parser.add_argument('-f', '--filename', metavar="VMXFILE", action='store', required=True,
-                        help='the VMX description file to be converted')
+                        help='the VMX description file to be converted. Its directory is added to input datastores')
     parser.add_argument('-t', '--translate-qcow2', action='store_true', help='translate path references from .vmdk to .qcow2')
     parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
     parser.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
     parser.add_argument('-x', '--experimental', action='store_true', default=False, help='use experimental conversion method (only for linux guests')
-    parser.add_argument('-d', '--translate-datastore', metavar="DS1=DS2", action='append',
-                        help='(can be specified multiple times) translate all paths containing DS1 with DS2')
+    parser.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
+                        help='(can be specified multiple times) translate references starting with RIDS to IDS, then convert to ODS')
     parser.add_argument('-F', '--fidelity', action='store_true', help='configuration fidelity mode. Default is to privilege performance')
 
     args: argparse.Namespace = parser.parse_args()
@@ -710,46 +760,43 @@ def get_options(argc: int, argv: list) -> tuple:
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
     fidelity: bool = args.fidelity
-    if (xml_name):
-        # handy to create already the path to the destination xml
-        os.makedirs(os.path.dirname(os.path.abspath(xml_name)), exist_ok=True)
 
     vmxdir: str = os.path.dirname(os.path.abspath(vmx_name))
-    search_paths: list = [ vmxdir, os.path.join(vmxdir, ".." ) ]
-    if (args.storagedir):
-        search_paths.extend(args.storagedir)
+    xmldir: str = os.path.dirname(os.path.abspath(xml_name))
+    os.makedirs(xmldir, exist_ok=True)
 
-    datastores: defaultdict = defaultdict(str)
-    if (args.translate_datastore):
-        for i in range(0, len(args.translate_datastore)):
-            (fro, match, to) = args.translate_datastore[i].partition("=")
-            if not (match):
-                log.critical("--translate-datastore needs a = separator");
-                sys.exit(1)
-            datastores[fro] = to
+    datastores: defaultdict = defaultdict(str, {
+        ".": (vmxdir, xmldir),
+        "..": (os.path.dirname(vmxdir), os.path.dirname(xmldir))
+    })
+
+    if (args.datastore):
+        for i in range(0, len(args.datastore)):
+            (fro, match_eq, targetpath) = args.datastore[i].partition("=")
+            (ref, match_cm, sourcepath) = fro.partition(",")
+            if (not match_cm):
+                sourcepath = ref
+            if (not match_eq):
+                targetpath = sourcepath
+            datastores[ref] = (sourcepath, targetpath)
 
     qcow_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_qcow2) else 0
     overwrite: bool = args.overwrite
 
-    if (overwrite and not xml_name):
-        log.critical("option --overwrite requires --output-xml")
-        sys.exit(1)
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s",
+              vmx_name, xml_name, qcow_mode, datastores, use_v2v, overwrite, fidelity)
 
-    log.debug("[OPTIONS] vmx_name=%s xml_name=%s search_paths:%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s",
-              vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, overwrite, fidelity)
+    if (os.path.exists(xml_name)):
+        if (not overwrite):
+            log.warning("%s exists, skipping", xml_name)
+            sys.exit(0)
+        log.warning("%s exists, overwriting", xml_name)
 
-    if (xml_name):
-        if (os.path.exists(xml_name)):
-            if (not overwrite):
-                log.warning("%s exists, skipping", xml_name)
-                sys.exit(0)
-            log.warning("%s exists, overwriting", xml_name)
-
-    return (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, fidelity)
+    return (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, search_paths, qcow_mode, datastores, use_v2v, fidelity) = get_options(argc, argv)
+    (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
@@ -810,7 +857,7 @@ def main(argc: int, argv: list) -> int:
             else:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
-    nvram: str = parse_filename(d["nvram"], search_paths)
+    nvram: list = parse_filename_ref(d["nvram"], datastores, (qcow_mode >= 1))
     if (uefi):
         log.debug("[UEFI] %s", uefi)
 
@@ -834,11 +881,11 @@ def main(argc: int, argv: list) -> int:
     disks: list = []
     for interface in disk_ctrls:
         disk_ctrls[interface] = find_disk_controllers(d, interface)
-        disks.extend(find_disks(d, search_paths, interface, disk_ctrls[interface]))
+        disks.extend(find_disks(d, datastores, interface, disk_ctrls[interface], qcow_mode >= 1))
 
-    floppys: list = [ "", "" ]
+    floppys: list = [ [None, None], [None, None] ]
     for i in range(2):
-        floppys[i] = parse_filename(d[f"floppy{i}.filename"], search_paths)
+        floppys[i] = parse_filename_ref(d[f"floppy{i}.filename"], datastores, qcow_mode >= 1)
 
     eths: list = find_eths(d, "ethernet")
 
