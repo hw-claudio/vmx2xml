@@ -158,7 +158,7 @@ def qemu_nbd_create(s: str, overlay: bool) -> tuple:
     pid: int = os.fork()
     if (pid == 0):
         os.execvp(args[0], args)
-    args: list = [ "nbdinfo", f"nbd+unix:///?socket={tmp.name}" ]
+    args = [ "nbdinfo", f"nbd+unix:///?socket={tmp.name}" ]
     while True:
         log.debug("%s", args)
         p = subprocess.run(args, check=False)
@@ -493,7 +493,7 @@ def guestfs_adjust(path: str, nbd: bool) -> bool:
     return True
 
 
-def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: dict, use_v2v: bool, osd: dict) -> str:
+def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: dict, use_v2v: int, osd: dict) -> str:
     os.makedirs(os.path.dirname(targetpath), exist_ok=True)
     if (qcow_mode <= 1):
         # we need to create a pseudo disk for the virt install command to succeed
