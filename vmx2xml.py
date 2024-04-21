@@ -150,7 +150,7 @@ def qemu_kill_nbd(pid: int) -> None:
 
 def qemu_nbd_create(s: str, overlay: bool) -> tuple:
     tmp = tempfile.NamedTemporaryFile(delete=False)
-    args: list = [ "qemu-nbd", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
+    args: list = [ "qemu-nbd", "--cache=none", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
     if (overlay):
         args.append("-s")
     args.append(s)
@@ -161,7 +161,7 @@ def qemu_nbd_create(s: str, overlay: bool) -> tuple:
     args = [ "nbdinfo", f"nbd+unix:///?socket={tmp.name}" ]
     while True:
         log.debug("%s", args)
-        p = subprocess.run(args, check=False)
+        p = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
         if (p.returncode == 0):
             break
         time.sleep(1)
@@ -170,8 +170,6 @@ def qemu_nbd_create(s: str, overlay: bool) -> tuple:
 
 def qemu_nbd_copy(sin: str, sout: str) -> None:
     args: list = [ "nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress' ]
-    args.extend(["--threads=0", "--connections=4", "--sparse=65536", "--request-size=524288", "--queue-size=33554432"])
-
     log.debug("%s", args)
     p = subprocess.run(args, check=True)
 
