@@ -503,9 +503,7 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
 
     # CONVERSION / MOVE asked
     assert(qcow_mode >= 2)
-    is_qcow: True if (re.match(r"\.qcow2$", targetpath)) else False
-
-    if (is_qcow):
+    if (targetpath.endswith(".qcow2")):
         if (osd["name"]):
             if (use_v2v == 1):
                 v2v_img_convert(sourcepath, targetpath)
