@@ -358,7 +358,7 @@ def find_disk_controllers(d: defaultdict, interface: str) -> dict:
     return controllers
 
 
-def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: dict, translate_qcow2: bool) -> list:
+def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: dict, qcow_mode: int) -> list:
     disks: list = []
     for x in range(4):
         if (x not in controllers) and (interface != "ide"):  # IDE does not show explicit controllers entries
@@ -376,12 +376,12 @@ def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: di
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
-            disk["path"] = parse_filename_ref(d[f"{interface}{x}:{y}.filename"], datastores, translate_qcow2)
+            disk["path"] = parse_filename_ref(d[f"{interface}{x}:{y}.filename"], datastores, qcow_mode >= 1)
             #disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
             disk["driver"] = "file"
             # XXX we never use the actual libvirt/qemu default, writeback?
             disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
-            if (all(disk["path"])):
+            if (all(disk["path"]) and qcow_mode >= 2 and disk["path"][0].endswith(".vmdk")):
                 disk["os"] = virt_inspector(disk["path"][0])
             disks.append(disk)
     return disks
@@ -950,7 +950,7 @@ def main(argc: int, argv: list) -> int:
     disks: list = []
     for interface in disk_ctrls:
         disk_ctrls[interface] = find_disk_controllers(d, interface)
-        disks.extend(find_disks(d, datastores, interface, disk_ctrls[interface], qcow_mode >= 1))
+        disks.extend(find_disks(d, datastores, interface, disk_ctrls[interface], qcow_mode))
 
     floppys: list = [ [None, None], [None, None] ]
     for i in range(2):
