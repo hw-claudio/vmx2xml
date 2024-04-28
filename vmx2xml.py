@@ -114,7 +114,7 @@ def qemu_img_create(qcow: str, vsize: int) -> None:
     p = subprocess.run(args, stdout=sys.stderr, check=True)
 
 
-def qemu_img_copy(vmdk: str, qcow: str, trace_cmd: bool, cache_mode: str) -> None:
+def qemu_img_copy(vmdk: str, qcow: str, trace_cmd: bool, cache_mode: str, numa_node: int) -> None:
     args: list = []
     if (trace_cmd):
         args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-qemu-img.dat", "-e", "sched" ])
@@ -145,11 +145,11 @@ def qemu_img_info(vmdk: str) -> int:
     return int(vsize_m.group(1))
 
 
-def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str) -> None:
+def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int) -> None:
     tmp = qemu_img_create_overlay(sourcepath)
     if (adjust):
         guestfs_adjust(tmp.name, False)
-    qemu_img_copy(tmp.name, targetpath, trace_cmd, cache_mode)
+    qemu_img_copy(tmp.name, targetpath, trace_cmd, cache_mode, numa_node)
     tmp.close()
 
 
@@ -177,7 +177,7 @@ def qemu_nbd_create(s: str, overlay: bool, cache_mode: str) -> tuple:
     return (tmp, pid)
 
 
-def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool) -> None:
+def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int) -> None:
     args: list = []
     if (trace_cmd):
         args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-nbdcopy.dat", "-e", "sched" ])
@@ -188,14 +188,14 @@ def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool) -> None:
     p = subprocess.run(args, check=True)
 
 
-def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str) -> None:
+def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int) -> None:
     (sin, pidin) = qemu_nbd_create(sourcepath, adjust, cache_mode)
     if (adjust):
         guestfs_adjust(sin.name, True)
     vsize: int = qemu_img_info(sourcepath)
     qemu_img_create(targetpath, vsize)
     (sout, pidout) = qemu_nbd_create(targetpath, False, cache_mode)
-    qemu_nbd_copy(sin.name, sout.name, trace_cmd)
+    qemu_nbd_copy(sin.name, sout.name, trace_cmd, numa_node)
     sin.close()
     sout.close()
     os.remove(sin.name)
@@ -506,7 +506,7 @@ def guestfs_adjust(path: str, nbd: bool) -> bool:
 
 
 def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: dict, use_v2v: int, osd: dict,
-                 trace_cmd: bool, cache_mode: str) -> str:
+                 trace_cmd: bool, cache_mode: str, numa_node: int) -> str:
     os.makedirs(os.path.dirname(targetpath), exist_ok=True)
     if (qcow_mode <= 1):
         # we need to create a pseudo disk for the virt install command to succeed
@@ -522,11 +522,11 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
             if (has_os):
                 v2v_img_convert(sourcepath, targetpath, trace_cmd)
             else:
-                qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode)
+                qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode, numa_node)
         elif (use_v2v == 0):
-            qemu_img_convert(sourcepath, targetpath, has_os, trace_cmd, cache_mode)
+            qemu_img_convert(sourcepath, targetpath, has_os, trace_cmd, cache_mode, numa_node)
         elif (use_v2v == -1):
-            qemu_nbd_convert(sourcepath, targetpath, has_os, trace_cmd, cache_mode)
+            qemu_nbd_convert(sourcepath, targetpath, has_os, trace_cmd, cache_mode, numa_node)
         else:
             assert(0) # unhandled use_v2v value
 
@@ -545,7 +545,8 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
     return targetpath
 
 
-def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: int, fidelity: bool, trace_cmd: bool, cache_mode: str,
+def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: int, fidelity: bool,
+                 trace_cmd: bool, cache_mode: str, numa_node: int,
                  xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
@@ -654,7 +655,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         device = disk["device"]
         paths: tuple = disk["path"]
         start_time: float = time.perf_counter()
-        path = convert_path(paths[0], paths[1], qcow_mode, datastores, use_v2v, disk["os"], trace_cmd, cache_mode)
+        path = convert_path(paths[0], paths[1], qcow_mode, datastores, use_v2v, disk["os"], trace_cmd, cache_mode, numa_node)
         if (qcow_mode >= 2):
             end_time: float = time.perf_counter();
             elapsed: float = end_time - start_time
@@ -820,6 +821,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
                         help='(can be specified multiple times) translate references starting with RIDS to IDS, then convert to ODS')
     parser.add_argument('-F', '--fidelity', action='store_true', help='configuration fidelity mode. Default is to privilege performance')
+    parser.add_argument('-N', '--numa-node', action='store', type=int, default=-1, help='restrict execution (mem, cpu) to NUMA node')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.experimental and args.experimental2):
@@ -854,6 +856,7 @@ def get_options(argc: int, argv: list) -> tuple:
     vmxdir: str = os.path.dirname(os.path.abspath(vmx_name))
     xmldir: str = os.path.dirname(os.path.abspath(xml_name))
     os.makedirs(xmldir, exist_ok=True)
+    numa_node: int = args.numa_node
 
     datastores: defaultdict = defaultdict(str, {
         ".": (vmxdir, xmldir),
@@ -873,8 +876,8 @@ def get_options(argc: int, argv: list) -> tuple:
     qcow_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_qcow2) else 0
     overwrite: bool = args.overwrite
 
-    log.debug("[OPTIONS] vmx_name=%s xml_name=%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s trace_cmd:%s cache_mode:%s",
-              vmx_name, xml_name, qcow_mode, datastores, use_v2v, overwrite, fidelity, trace_cmd, cache_mode)
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s trace_cmd:%s cache_mode:%s numa_node:%s",
+              vmx_name, xml_name, qcow_mode, datastores, use_v2v, overwrite, fidelity, trace_cmd, cache_mode, numa_node)
 
     if (os.path.exists(xml_name)):
         if (not overwrite):
@@ -882,11 +885,11 @@ def get_options(argc: int, argv: list) -> tuple:
             sys.exit(0)
         log.warning("%s exists, overwriting", xml_name)
 
-    return (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity, trace_cmd, cache_mode)
+    return (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity, trace_cmd, cache_mode, numa_node)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity, trace_cmd, cache_mode) = get_options(argc, argv)
+    (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity, trace_cmd, cache_mode, numa_node) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
@@ -985,7 +988,7 @@ def main(argc: int, argv: list) -> int:
     log.debug("%s", eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version, qcow_mode, datastores, use_v2v, fidelity, trace_cmd, cache_mode,
+    virt_install(vinst_version, qcow_mode, datastores, use_v2v, fidelity, trace_cmd, cache_mode, numa_node,
                  xml_name, vmx_name,
                  name, memory,
                  cpu,
