@@ -63,9 +63,13 @@ def virt_inspector(path: str) -> dict:
     return osd
 
 
-def v2v_img_convert(vmdk: str, qcow: str) -> None:
+def v2v_img_convert(vmdk: str, qcow: str, trace_cmd: bool) -> None:
     dirname: str = os.path.dirname(qcow)
-    args: list = [ "virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", "qcow2", "-os", dirname ]
+    args: list = []
+    if (trace_cmd):
+        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-v2v.dat", "-e", "sched" ])
+
+    args.extend([ "virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", "qcow2", "-os", dirname ])
 
     if (log.level > logging.WARNING):
         args.append("--quiet")
@@ -110,8 +114,12 @@ def qemu_img_create(qcow: str, vsize: int) -> None:
     p = subprocess.run(args, stdout=sys.stderr, check=True)
 
 
-def qemu_img_copy(vmdk: str, qcow: str) -> None:
-    args: list = [ "qemu-img", "convert", "-O", "qcow2" ]
+def qemu_img_copy(vmdk: str, qcow: str, trace_cmd: bool) -> None:
+    args: list = []
+    if (trace_cmd):
+        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-qemu-img.dat", "-e", "sched" ])
+
+    args.extend([ "qemu-img", "convert", "-O", "qcow2", "-t", "unsafe", "-T", "unsafe" ])
     if (log.getEffectiveLevel() <= logging.WARNING):
         args.append("-p")
     args.extend([vmdk, qcow])
@@ -137,10 +145,10 @@ def qemu_img_info(vmdk: str) -> int:
     return int(vsize_m.group(1))
 
 
-def qemu_img_convert(sourcepath: str, targetpath: str) -> None:
+def qemu_img_convert(sourcepath: str, targetpath: str, trace_cmd: bool) -> None:
     tmp = qemu_img_create_overlay(sourcepath)
     guestfs_adjust(tmp.name, False)
-    qemu_img_copy(tmp.name, targetpath)
+    qemu_img_copy(tmp.name, targetpath, trace_cmd)
     tmp.close()
 
 
@@ -150,7 +158,7 @@ def qemu_kill_nbd(pid: int) -> None:
 
 def qemu_nbd_create(s: str, overlay: bool) -> tuple:
     tmp = tempfile.NamedTemporaryFile(delete=False)
-    args: list = [ "qemu-nbd", "--cache=none", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
+    args: list = [ "qemu-nbd", "--cache=unsafe", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
     if (overlay):
         args.append("-s")
     args.append(s)
@@ -171,7 +179,7 @@ def qemu_nbd_create(s: str, overlay: bool) -> tuple:
 def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool) -> None:
     args: list = []
     if (trace_cmd):
-        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace.dat", "-e", "sched" ])
+        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-nbdcopy.dat", "-e", "sched" ])
 
     args.extend([ "nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress' ])
     log.debug("%s", args)
@@ -509,9 +517,9 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
     if (targetpath.endswith(".qcow2")):
         if (osd["name"]):
             if (use_v2v == 1):
-                v2v_img_convert(sourcepath, targetpath)
+                v2v_img_convert(sourcepath, targetpath, trace_cmd)
             elif (use_v2v == 0):
-                qemu_img_convert(sourcepath, targetpath)
+                qemu_img_convert(sourcepath, targetpath, trace_cmd)
             elif (use_v2v == -1):
                 qemu_nbd_convert(sourcepath, targetpath, True, trace_cmd)
             else:
