@@ -145,9 +145,10 @@ def qemu_img_info(vmdk: str) -> int:
     return int(vsize_m.group(1))
 
 
-def qemu_img_convert(sourcepath: str, targetpath: str, trace_cmd: bool) -> None:
+def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool) -> None:
     tmp = qemu_img_create_overlay(sourcepath)
-    guestfs_adjust(tmp.name, False)
+    if (adjust):
+        guestfs_adjust(tmp.name, False)
     qemu_img_copy(tmp.name, targetpath, trace_cmd)
     tmp.close()
 
@@ -515,17 +516,18 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
     # CONVERSION / MOVE asked
     assert(qcow_mode >= 2)
     if (targetpath.endswith(".qcow2")):
-        if (osd["name"]):
-            if (use_v2v == 1):
+        has_os: bool = True if osd["name"] else False
+        if (use_v2v == 1):
+            if (has_os):
                 v2v_img_convert(sourcepath, targetpath, trace_cmd)
-            elif (use_v2v == 0):
-                qemu_img_convert(sourcepath, targetpath, trace_cmd)
-            elif (use_v2v == -1):
-                qemu_nbd_convert(sourcepath, targetpath, True, trace_cmd)
             else:
-                assert(0) # unhandled use_v2v value
+                qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd)
+        elif (use_v2v == 0):
+            qemu_img_convert(sourcepath, targetpath, has_os, trace_cmd)
+        elif (use_v2v == -1):
+            qemu_nbd_convert(sourcepath, targetpath, has_os, trace_cmd)
         else:
-            qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd)
+            assert(0) # unhandled use_v2v value
 
     elif (targetpath != sourcepath):
         try:
