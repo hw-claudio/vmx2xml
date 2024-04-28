@@ -27,6 +27,7 @@ import time
 
 log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
+cache_mode: str = "none"
 
 def log_disable_nl() -> None:
     global log
@@ -119,7 +120,7 @@ def qemu_img_copy(vmdk: str, qcow: str, trace_cmd: bool) -> None:
     if (trace_cmd):
         args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-qemu-img.dat", "-e", "sched" ])
 
-    args.extend([ "qemu-img", "convert", "-O", "qcow2", "-t", "unsafe", "-T", "unsafe" ])
+    args.extend([ "qemu-img", "convert", "-O", "qcow2", "-t", cache_mode, "-T", cache_mode ])
     if (log.getEffectiveLevel() <= logging.WARNING):
         args.append("-p")
     args.extend([vmdk, qcow])
@@ -159,7 +160,7 @@ def qemu_kill_nbd(pid: int) -> None:
 
 def qemu_nbd_create(s: str, overlay: bool) -> tuple:
     tmp = tempfile.NamedTemporaryFile(delete=False)
-    args: list = [ "qemu-nbd", "--cache=unsafe", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
+    args: list = [ "qemu-nbd", f"--cache={cache_mode}", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
     if (overlay):
         args.append("-s")
     args.append(s)
@@ -778,7 +779,8 @@ def is_dir(string: str) -> bool:
 
 
 def get_options(argc: int, argv: list) -> tuple:
-    global log
+    global log, cache_mode
+    cache_modes: list = [ "none", "writeback", "unsafe", "directsync", "writethrough" ]
     use_v2v: int = 1
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
@@ -813,6 +815,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
     parser.add_argument('-x', '--experimental', action='store_true', help='use experimental old conversion method (qemu-img)')
     parser.add_argument('-y', '--experimental2', action='store_true', help='use experimental new conversion method (qemu-nbd)')
+    parser.add_argument('-C', '--cache-mode', action='store', help=f'{cache_modes} for qemu-nbd and qemu-img convert')
     parser.add_argument('-T', '--trace-cmd', action='store_true', help='(debugging) generate a trace.dat of nbdcopy run')
     parser.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
                         help='(can be specified multiple times) translate references starting with RIDS to IDS, then convert to ODS')
@@ -826,6 +829,9 @@ def get_options(argc: int, argv: list) -> tuple:
         use_v2v = 0
     elif (args.experimental2):
         use_v2v = -1
+    if (args.cache_mode not in cache_modes):
+        log.critical("cache_mode must be cannot specify both --verbose and --quiet at the same time.")
+        sys.exit(1)
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
@@ -844,7 +850,7 @@ def get_options(argc: int, argv: list) -> tuple:
     xml_name: str = args.output_xml
     fidelity: bool = args.fidelity
     trace_cmd: bool = args.trace_cmd
-
+    cache_mode = args.cache_mode
     vmxdir: str = os.path.dirname(os.path.abspath(vmx_name))
     xmldir: str = os.path.dirname(os.path.abspath(xml_name))
     os.makedirs(xmldir, exist_ok=True)
