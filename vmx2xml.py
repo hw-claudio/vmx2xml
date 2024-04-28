@@ -168,20 +168,25 @@ def qemu_nbd_create(s: str, overlay: bool) -> tuple:
     return (tmp, pid)
 
 
-def qemu_nbd_copy(sin: str, sout: str) -> None:
-    args: list = [ "nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress' ]
+def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool) -> None:
+    args: list = []
+    if (trace_cmd):
+        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace.dat", "-e", "sched" ])
+
+    args.extend([ "nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress' ])
     log.debug("%s", args)
+
     p = subprocess.run(args, check=True)
 
 
-def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool) -> None:
+def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool) -> None:
     (sin, pidin) = qemu_nbd_create(sourcepath, adjust)
     if (adjust):
         guestfs_adjust(sin.name, True)
     vsize: int = qemu_img_info(sourcepath)
     qemu_img_create(targetpath, vsize)
     (sout, pidout) = qemu_nbd_create(targetpath, False)
-    qemu_nbd_copy(sin.name, sout.name)
+    qemu_nbd_copy(sin.name, sout.name, trace_cmd)
     sin.close()
     sout.close()
     os.remove(sin.name)
@@ -491,7 +496,7 @@ def guestfs_adjust(path: str, nbd: bool) -> bool:
     return True
 
 
-def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: dict, use_v2v: int, osd: dict) -> str:
+def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: dict, use_v2v: int, osd: dict, trace_cmd: bool) -> str:
     os.makedirs(os.path.dirname(targetpath), exist_ok=True)
     if (qcow_mode <= 1):
         # we need to create a pseudo disk for the virt install command to succeed
@@ -508,11 +513,11 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
             elif (use_v2v == 0):
                 qemu_img_convert(sourcepath, targetpath)
             elif (use_v2v == -1):
-                qemu_nbd_convert(sourcepath, targetpath, True)
+                qemu_nbd_convert(sourcepath, targetpath, True, trace_cmd)
             else:
                 assert(0) # unhandled use_v2v value
         else:
-            qemu_nbd_convert(sourcepath, targetpath, False)
+            qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd)
 
     elif (targetpath != sourcepath):
         try:
@@ -529,7 +534,7 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
     return targetpath
 
 
-def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: int, fidelity: bool,
+def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v: int, fidelity: bool, trace_cmd: bool,
                  xml_name: str, vmx_name: str,
                  name: str, memory: int,
                  cpu: dict,
@@ -638,7 +643,7 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
         device = disk["device"]
         paths: tuple = disk["path"]
         start_time: float = time.perf_counter()
-        path = convert_path(paths[0], paths[1], qcow_mode, datastores, use_v2v, disk["os"])
+        path = convert_path(paths[0], paths[1], qcow_mode, datastores, use_v2v, disk["os"], trace_cmd)
         if (qcow_mode >= 2):
             end_time: float = time.perf_counter();
             elapsed: float = end_time - start_time
@@ -798,6 +803,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
     parser.add_argument('-x', '--experimental', action='store_true', help='use experimental old conversion method (qemu-img)')
     parser.add_argument('-y', '--experimental2', action='store_true', help='use experimental new conversion method (qemu-nbd)')
+    parser.add_argument('-T', '--trace-cmd', action='store_true', help='(debugging) generate a trace.dat of nbdcopy run')
     parser.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
                         help='(can be specified multiple times) translate references starting with RIDS to IDS, then convert to ODS')
     parser.add_argument('-F', '--fidelity', action='store_true', help='configuration fidelity mode. Default is to privilege performance')
@@ -827,6 +833,7 @@ def get_options(argc: int, argv: list) -> tuple:
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
     fidelity: bool = args.fidelity
+    trace_cmd: bool = args.trace_cmd
 
     vmxdir: str = os.path.dirname(os.path.abspath(vmx_name))
     xmldir: str = os.path.dirname(os.path.abspath(xml_name))
@@ -850,8 +857,8 @@ def get_options(argc: int, argv: list) -> tuple:
     qcow_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_qcow2) else 0
     overwrite: bool = args.overwrite
 
-    log.debug("[OPTIONS] vmx_name=%s xml_name=%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s",
-              vmx_name, xml_name, qcow_mode, datastores, use_v2v, overwrite, fidelity)
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s qcow_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s trace_cmd:%s",
+              vmx_name, xml_name, qcow_mode, datastores, use_v2v, overwrite, fidelity, trace_cmd)
 
     if (os.path.exists(xml_name)):
         if (not overwrite):
@@ -859,11 +866,11 @@ def get_options(argc: int, argv: list) -> tuple:
             sys.exit(0)
         log.warning("%s exists, overwriting", xml_name)
 
-    return (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity)
+    return (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity, trace_cmd)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity) = get_options(argc, argv)
+    (vmx_name, xml_name, qcow_mode, datastores, use_v2v, fidelity, trace_cmd) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
@@ -962,7 +969,7 @@ def main(argc: int, argv: list) -> int:
     log.debug("%s", eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version, qcow_mode, datastores, use_v2v, fidelity,
+    virt_install(vinst_version, qcow_mode, datastores, use_v2v, fidelity, trace_cmd,
                  xml_name, vmx_name,
                  name, memory,
                  cpu,
