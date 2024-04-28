@@ -830,7 +830,7 @@ def get_options(argc: int, argv: list) -> tuple:
     elif (args.experimental2):
         use_v2v = -1
     if (args.cache_mode not in cache_modes):
-        log.critical("cache_mode must be cannot specify both --verbose and --quiet at the same time.")
+        log.critical("cache_mode must be one of %s.", cache_modes)
         sys.exit(1)
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
