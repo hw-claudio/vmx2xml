@@ -28,6 +28,10 @@ import time
 log: logging.Logger = logging.getLogger(__name__)
 program_version: str = "0.1"
 
+def numa_restrict_cmd(numa_node: int) -> list:
+    return [ "numactl", "-m", str(numa_node), "-N", str(numa_node), "--" ]
+
+
 def log_disable_nl() -> None:
     global log
     handler: logging.StreamHandler = log.handlers[0]
@@ -63,12 +67,13 @@ def virt_inspector(path: str) -> dict:
     return osd
 
 
-def v2v_img_convert(vmdk: str, qcow: str, trace_cmd: bool) -> None:
+def v2v_img_convert(vmdk: str, qcow: str, trace_cmd: bool, numa_node: int) -> None:
     dirname: str = os.path.dirname(qcow)
     args: list = []
     if (trace_cmd):
         args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-v2v.dat", "-e", "sched" ])
-
+    if (numa_node >= 0):
+        args.extend(numa_restrict_cmd(numa_node))
     args.extend([ "virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", "qcow2", "-os", dirname ])
 
     if (log.level > logging.WARNING):
@@ -118,7 +123,8 @@ def qemu_img_copy(vmdk: str, qcow: str, trace_cmd: bool, cache_mode: str, numa_n
     args: list = []
     if (trace_cmd):
         args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-qemu-img.dat", "-e", "sched" ])
-
+    if (numa_node >= 0):
+        args.extend(numa_restrict_cmd(numa_node))
     args.extend([ "qemu-img", "convert", "-O", "qcow2", "-t", cache_mode, "-T", cache_mode ])
     if (log.getEffectiveLevel() <= logging.WARNING):
         args.append("-p")
@@ -181,6 +187,8 @@ def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int) -> None:
     args: list = []
     if (trace_cmd):
         args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-nbdcopy.dat", "-e", "sched" ])
+    if (numa_node >= 0):
+        args.extend(numa_restrict_cmd(numa_node))
 
     args.extend([ "nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress' ])
     log.debug("%s", args)
@@ -520,7 +528,7 @@ def convert_path(sourcepath: str, targetpath: str, qcow_mode: int, datastores: d
         has_os: bool = True if osd["name"] else False
         if (use_v2v == 1):
             if (has_os):
-                v2v_img_convert(sourcepath, targetpath, trace_cmd)
+                v2v_img_convert(sourcepath, targetpath, trace_cmd, numa_node)
             else:
                 qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode, numa_node)
         elif (use_v2v == 0):
