@@ -637,6 +637,9 @@ def virt_install(vinst_version: float, qcow_mode: int, datastores: dict, use_v2v
     if (sound):
         args.extend(["--sound", f"model={sound}"])
 
+    ### EVENTS SECTION ###
+    args.extend(["--events", "on_crash=restart"])
+
     ### DISKS AND CONTROLLERS SECTION ###
     s: str; model: str; device: str; driver: str; path: str
     if (fidelity):
