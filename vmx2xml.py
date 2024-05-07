@@ -154,11 +154,15 @@ def qemu_img_info(vmdk: str) -> int:
 
 
 def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int) -> None:
-    tmp = qemu_img_create_overlay(sourcepath)
+    src: str = sourcepath
     if (adjust):
+        tmp = qemu_img_create_overlay(sourcepath)
         guestfs_adjust(tmp.name, False)
-    qemu_img_copy(tmp.name, targetpath, trace_cmd, cache_mode, numa_node, parallel)
-    tmp.close()
+        src = tmp.name
+
+    qemu_img_copy(src, targetpath, trace_cmd, cache_mode, numa_node, parallel)
+    if (adjust):
+        tmp.close()
 
 
 def qemu_kill_nbd(pid: int) -> None:
