@@ -788,6 +788,16 @@ def detect_guestfs_adjust_version() -> float:
     return v
 
 
+def detect_qemu_img():
+    args: list = [ "qemu-img", "--version" ]
+    log.debug("%s", args)
+    try:
+        subprocess.run(args, stdout=subprocess.DEVNULL, check=True)
+    except:
+        log.critical("failed to detect qemu-img, not installed?")
+        sys.exit(1)
+
+
 def is_dir(string: str) -> bool:
     try:
         if (os.path.isdir(string)):
@@ -920,6 +930,7 @@ def main(argc: int, argv: list) -> int:
 
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
+    detect_qemu_img()
 
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
     d : defaultdict = defaultdict(str)
