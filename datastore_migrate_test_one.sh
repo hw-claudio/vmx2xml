@@ -1,9 +1,14 @@
 #! /bin/bash
-# Example of a script that test-migrates a single VMX VM.
+# Example of a script that converts a single VMX VM for testing purposes,
+# ie including only the OS disk and not doing any guest adjustments (yet).
+# This is to ensure that the resulting test image can then be boot tested,
+# and in case of a failure we can attempt again the operation, including
+# possibly a modified driver injection method.
+#
 # See datastore_migrate_one.sh for more explanations on the datastore mapping.
 #
-# We convert from the original datastore1 to local storage, without any guest adjustment,
-# then we create an overlay where we do the actual adjustment and test-boot it.
+# After this script, another script will create an overlay where we do the
+# actual guest adjustment, after which we will run the test-boot.
 #
 # Non-OS disks should be ignored (ie not converted).
 #
