@@ -67,6 +67,21 @@ def numa_restrict_cmd(numa_node: int) -> list:
     return [ "numactl", "-m", str(numa_node), "-N", str(numa_node), "--" ]
 
 
+def trace_cmd_start(pre: str, numa_node: int) -> int:
+    args: list = []
+    if (numa_node >= 0):
+        # run trace-cmd on the other non-selected node
+        args.extend(numa_restrict_cmd(0 if (numa_node > 0) else 1))
+    tmp = tempfile.NamedTemporaryFile(delete=False, prefix=pre)
+    args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched" ])
+    log.debug("%s", args)
+
+    pid: int = os.fork()
+    if (pid == 0):
+        os.execvp(args[0], args)
+    return pid
+
+
 def file_ext(raw: bool) -> str:
     return "raw" if (raw) else "qcow2"
 
@@ -75,9 +90,9 @@ def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
     to_file_ext: str = file_ext(raw)
     dirname: str = os.path.dirname(to_file)
     args: list = []
+
     if (trace_cmd):
-        tmp = tempfile.NamedTemporaryFile(delete=False, prefix="trace-v2v.dat-")
-        args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched" ])
+        tpid: int = trace_cmd_start("trace-v2v.dat-", numa_node)
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
     args.extend([ "virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", to_file_ext, "-os", dirname ])
@@ -95,6 +110,9 @@ def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
         log.info("virt-v2v: reports success converting disk %s", from_file)
     else:
         log.warning("virt-v2v: reports failure converting disk %s", from_file)
+
+    if (trace_cmd):
+        os.kill(tpid, 15)
 
     # Now rename to the name we want
     srcnames: list = glob.glob(to_file[0:-len(f".{to_file_ext}")] + "-sd*")
@@ -130,8 +148,7 @@ def qemu_img_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
     to_file_ext: str = file_ext(raw)
     args: list = []
     if (trace_cmd):
-        tmp = tempfile.NamedTemporaryFile(delete=False, prefix="trace-qemu-img.dat-")
-        args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched" ])
+        tpid: int = trace_cmd_start("trace-qemu-img.dat-", numa_node)
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
     args.extend([ "qemu-img", "convert", "-O", to_file_ext, "-t", cache_mode, "-T", cache_mode ])
@@ -143,6 +160,8 @@ def qemu_img_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
 
     log.debug("%s", args)
     p = subprocess.run(args, check=True)
+    if (trace_cmd):
+        os.kill(tpid, 15)
 
 
 def qemu_img_info(from_file: str) -> int:
@@ -174,10 +193,6 @@ def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: 
         tmp.close()
 
 
-def qemu_kill_nbd(pid: int) -> None:
-    os.kill(pid, 15)
-
-
 def qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool) -> tuple:
     tmp = tempfile.NamedTemporaryFile(delete=False)
     args: list = [ "qemu-nbd", f"--cache={cache_mode}", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
@@ -203,8 +218,7 @@ def qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool) -> tuple:
 def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel: int) -> None:
     args: list = []
     if (trace_cmd):
-        tmp = tempfile.NamedTemporaryFile(delete=False, prefix="trace-nbdcopy.dat-")
-        args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched" ])
+        tpid: int = trace_cmd_start("trace-nbdcopy.dat-", numa_node)
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
 
@@ -214,6 +228,8 @@ def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel
     log.debug("%s", args)
 
     p = subprocess.run(args, check=True)
+    if (trace_cmd):
+        os.kill(tpid, 15)
 
 
 def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
@@ -228,8 +244,8 @@ def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: 
     sout.close()
     os.remove(sin.name)
     os.remove(sout.name)
-    qemu_kill_nbd(pidin)
-    qemu_kill_nbd(pidout)
+    os.kill(pidin, 15)
+    os.kill(pidout, 15)
 
 
 # translate string using a passed dictionary
