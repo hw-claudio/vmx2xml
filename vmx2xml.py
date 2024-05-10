@@ -76,7 +76,8 @@ def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
     dirname: str = os.path.dirname(to_file)
     args: list = []
     if (trace_cmd):
-        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-v2v.dat", "-e", "sched" ])
+        tmp = tempfile.NamedTemporaryFile(delete=False, prefix="trace-v2v.dat-")
+        args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched" ])
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
     args.extend([ "virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", to_file_ext, "-os", dirname ])
@@ -129,7 +130,8 @@ def qemu_img_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
     to_file_ext: str = file_ext(raw)
     args: list = []
     if (trace_cmd):
-        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-qemu-img.dat", "-e", "sched" ])
+        tmp = tempfile.NamedTemporaryFile(delete=False, prefix="trace-qemu-img.dat-")
+        args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched" ])
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
     args.extend([ "qemu-img", "convert", "-O", to_file_ext, "-t", cache_mode, "-T", cache_mode ])
@@ -201,7 +203,8 @@ def qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool) -> tuple:
 def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel: int) -> None:
     args: list = []
     if (trace_cmd):
-        args.extend([ "trace-cmd", "record", "-o", "/tmp/trace-nbdcopy.dat", "-e", "sched" ])
+        tmp = tempfile.NamedTemporaryFile(delete=False, prefix="trace-nbdcopy.dat-")
+        args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched" ])
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
 
