@@ -863,7 +863,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-x', '--experimental', action='store_true', help='use experimental old conversion method (qemu-img)')
     parser.add_argument('-y', '--experimental2', action='store_true', help='use experimental new conversion method (qemu-nbd)')
     parser.add_argument('-C', '--cache-mode', action='store', default="none", help=f'{cache_modes} for qemu-nbd and qemu-img convert')
-    parser.add_argument('-T', '--trace-cmd', action='store_true', help='(debugging) generate a trace.dat of nbdcopy run')
+    parser.add_argument('-T', '--trace-cmd', action='store_true', help='generate /tmp/trace-xxx.dat-... profile for image conversions')
     parser.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
                         help='(can be specified multiple times) translate references starting with RIDS to IDS, then convert to ODS')
     parser.add_argument('-F', '--fidelity', action='store_true', help='configuration fidelity mode. Default is to privilege performance')
