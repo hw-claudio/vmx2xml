@@ -193,13 +193,15 @@ def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: 
         tmp.close()
 
 
-def qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool) -> tuple:
+def qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool, readonly: bool) -> tuple:
     tmp = tempfile.NamedTemporaryFile(delete=False)
     args: list = [ "qemu-nbd", f"--cache={cache_mode}", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
     if (raw):
         args.extend(['-f', 'raw'])
     if (overlay):
         args.append("-s")
+    if (readonly):
+        args.append("-r")
     args.append(s)
     log.debug("%s", args)
     pid: int = os.fork()
@@ -233,12 +235,12 @@ def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel
 
 
 def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
-    (sin, pidin) = qemu_nbd_create(sourcepath, adjust, cache_mode, False)
+    (sin, pidin) = qemu_nbd_create(sourcepath, adjust, cache_mode, False, False if (adjust) else True)
     if (adjust):
         guestfs_adjust(sin.name, True)
     vsize: int = qemu_img_info(sourcepath)
     qemu_img_create(targetpath, vsize, raw)
-    (sout, pidout) = qemu_nbd_create(targetpath, False, cache_mode, raw)
+    (sout, pidout) = qemu_nbd_create(targetpath, False, cache_mode, raw, False)
     qemu_nbd_copy(sin.name, sout.name, trace_cmd, numa_node, parallel)
     sin.close()
     sout.close()
