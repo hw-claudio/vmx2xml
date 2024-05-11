@@ -788,7 +788,11 @@ def detect_vinst_version() -> float:
     args: list = [ "virt-install", "--version" ]
 
     log.debug("%s", args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.critical("virt-install NOT FOUND")
+        sys.exit(1)
     (s, _) = p.communicate()
     m = re.match(r"^(\d+\.\d+)", s)
     if not (m):
@@ -810,21 +814,29 @@ def detect_guestfs_adjust_version() -> float:
     args: list = [ "guestfs_adjust.py", "--version" ]
 
     log.debug("%s", args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.critical("guestfs_adjust.py NOT FOUND")
+        sys.exit(1)
     (s, _) = p.communicate()
     m = re.match(r"^(\d+\.\d+)", s)
     if not (m):
-        log.critical("failed to detect guestfs_adjust version: %s", s)
+        log.critical("failed to detect guestfs_adjust.py version: %s", s)
         sys.exit(1)
     v: float = float(m.group(1)) or 0
-    log.info("guestfs_adjust: detected version %s", v)
+    log.info("guestfs_adjust.py: detected version %s", v)
     return v
 
 
 def detect_qemu_img_version() -> float:
     args: list = [ "qemu-img", "--version" ]
     log.debug("%s", args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.critical("qemu-img NOT FOUND")
+        sys.exit(1)
     (s, _) = p.communicate()
     m = re.match(r"^.*version (\d+\.\d+)", s)
     if not (m):
