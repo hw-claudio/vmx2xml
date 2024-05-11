@@ -835,6 +835,24 @@ def detect_qemu_img_version() -> float:
     return v
 
 
+def detect_trace_cmd_version() -> float:
+    args: list = [ "trace-cmd", "-h" ]
+    log.debug("%s", args)
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.info("trace-cmd NOT FOUND, cannot use tracing features")
+        return 0
+    (s, _) = p.communicate()
+    m = re.search(r"^.*version (\d+\.\d+)", s, flags=re.MULTILINE)
+    if not (m):
+        log.info("trace-cmd version not detected, cannot use tracing features")
+        return 0
+    v: float = float(m.group(1)) or 0
+    log.info("trace-cmd: detected version %s", v)
+    return v
+
+
 def is_dir(string: str) -> bool:
     try:
         if (os.path.isdir(string)):
@@ -969,6 +987,10 @@ def main(argc: int, argv: list) -> int:
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
     qemu_img_version: float = detect_qemu_img_version()
+    trace_cmd_version: float = detect_trace_cmd_version()
+    if (trace_cmd and trace_cmd_version < 2.7):
+        log.critical("trace-cmd functionality requested, but trace-cmd >= 2.7 NOT FOUND")
+        sys.exit(1)
 
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
     d : defaultdict = defaultdict(str)
