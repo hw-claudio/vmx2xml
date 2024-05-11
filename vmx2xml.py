@@ -821,7 +821,7 @@ def detect_guestfs_adjust_version() -> float:
     return v
 
 
-def detect_qemu_img() -> float:
+def detect_qemu_img_version() -> float:
     args: list = [ "qemu-img", "--version" ]
     log.debug("%s", args)
     p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
@@ -968,7 +968,7 @@ def main(argc: int, argv: list) -> int:
 
     vinst_version: float = detect_vinst_version()
     adjust_version: float = detect_guestfs_adjust_version()
-    qemu_img_version: float = detect_qemu_img()
+    qemu_img_version: float = detect_qemu_img_version()
 
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
     d : defaultdict = defaultdict(str)
