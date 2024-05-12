@@ -25,6 +25,7 @@ import struct
 import time
 
 from vmx2xml.log import *
+from vmx2xml.numa import *
 
 program_version: str = "0.1"
 
@@ -49,10 +50,6 @@ def virt_inspector(path: str) -> dict:
 
     log.debug("[OS DATA] %s %s", osd["name"], osd["osinfo"])
     return osd
-
-
-def numa_restrict_cmd(numa_node: int) -> list:
-    return [ "numactl", "-m", str(numa_node), "-N", str(numa_node), "--" ]
 
 
 def trace_cmd_start(pre: str, numa_node: int) -> int:
