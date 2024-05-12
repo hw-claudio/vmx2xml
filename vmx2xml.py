@@ -84,6 +84,13 @@ def trace_cmd_start(pre: str, numa_node: int) -> int:
     return pid
 
 
+def wait_child(pid: int) -> None:
+    try:
+        os.waitpid(pid, 0)
+    except:
+        pass
+
+
 def file_ext(raw: bool) -> str:
     return "raw" if (raw) else "qcow2"
 
@@ -115,6 +122,7 @@ def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
 
     if (trace_cmd):
         os.kill(tpid, 2)
+        wait_child(tpid)
 
     # Now rename to the name we want
     srcnames: list = glob.glob(to_file[0:-len(f".{to_file_ext}")] + "-sd*")
@@ -164,6 +172,7 @@ def qemu_img_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
     p = subprocess.run(args, check=True)
     if (trace_cmd):
         os.kill(tpid, 2)
+        wait_child(tpid)
 
 
 def qemu_img_info(from_file: str) -> int:
@@ -234,6 +243,7 @@ def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel
     p = subprocess.run(args, check=True)
     if (trace_cmd):
         os.kill(tpid, 2)
+        wait_child(tpid)
 
 
 def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
