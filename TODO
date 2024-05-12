@@ -25,6 +25,8 @@ exposing the pvticketlocks mechanism
 
 *) install qemu-guest-agent? install spice-vdagent for VNC clipboard?
 
+*) option to cat /sys/devices/system/node/node1/cpumap > /sys/kernel/debug/tracing/tracing_cpumask ?
+
 
 
 
