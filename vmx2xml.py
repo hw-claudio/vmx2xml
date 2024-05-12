@@ -822,6 +822,27 @@ def detect_vinst_version() -> float:
     return v
 
 
+# detect virt-inspector version
+def detect_vinsp_version() -> float:
+    s: str = ""
+    args: list = [ "virt-inspector", "--version" ]
+
+    log.debug("%s", args)
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.critical("virt-inspector NOT FOUND")
+        sys.exit(1)
+    (s, _) = p.communicate()
+    m = re.search(r" (\d+\.\d+)", s)
+    if not (m):
+        log.critical("failed to detect virt-inspector version: %s", s)
+        sys.exit(1)
+    v: float = float(m.group(1)) or 0
+    log.info("virt-inspector: detected version %s", v)
+    return v
+
+
 # detect guestfs_adjust version only considering major.minor
 def detect_guestfs_adjust_version() -> float:
     s: str = ""
@@ -1011,6 +1032,7 @@ def main(argc: int, argv: list) -> int:
      trace_cmd, cache_mode, numa_node, parallel, skip_adjust, skip_extra, raw) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
+    vinsp_version: float = detect_vinsp_version()
     adjust_version: float = detect_guestfs_adjust_version()
     qemu_img_version: float = detect_qemu_img_version()
     trace_cmd_version: float = detect_trace_cmd_version()
