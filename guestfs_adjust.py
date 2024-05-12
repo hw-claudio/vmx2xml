@@ -11,23 +11,11 @@
 import sys
 import os.path
 import argparse
-import logging
 import guestfs
 
-log: logging.Logger = logging.getLogger(__name__)
+from vmx2xml.log import *
+
 program_version: str = "0.1"
-
-def log_disable_nl() -> None:
-    global log
-    handler: logging.StreamHandler = log.handlers[0]
-    handler.terminator = ""
-
-
-def log_enable_nl() -> None:
-    global log
-    handler: logging.StreamHandler = log.handlers[0]
-    handler.terminator = "\n"
-
 
 # Launches libguestfs, and attempts to detect a supported guestOS to adjust.
 # If it finds a supported OS, returns a tuple (GuestFS, rootdev, supported_os),
@@ -291,13 +279,8 @@ def get_options(argc: int, argv: list) -> tuple:
         args.verbose = 2
     if (args.quiet > 2):
         args.quiet = 2
-    loglevel: int = logging.WARNING - (args.verbose * 10) + (args.quiet * 10)
 
-    log.setLevel(loglevel)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(fmt='%(message)s'))
-    log.addHandler(handler)
-
+    log_init(args.verbose, args.quiet)
     filename: str = args.filename
     nbd: str = args.nbd
     log.debug("[OPTIONS] filename=%s nbd=%s", filename, nbd)

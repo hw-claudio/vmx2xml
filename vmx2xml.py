@@ -18,27 +18,15 @@ import argparse
 import glob
 from os.path import join
 from collections import defaultdict
-import logging
 import shutil
 import tempfile
 import filecmp
 import struct
 import time
 
-log: logging.Logger = logging.getLogger(__name__)
+from vmx2xml.log import *
+
 program_version: str = "0.1"
-
-def log_disable_nl() -> None:
-    global log
-    handler: logging.StreamHandler = log.handlers[0]
-    handler.terminator = ""
-
-
-def log_enable_nl() -> None:
-    global log
-    handler: logging.StreamHandler = log.handlers[0]
-    handler.terminator = "\n"
-
 
 def virt_inspector(path: str) -> dict:
     args: list = [ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ]
@@ -976,12 +964,9 @@ def get_options(argc: int, argv: list) -> tuple:
         args.verbose = 2
     if (args.quiet > 2):
         args.quiet = 2
-    loglevel: int = logging.WARNING - (args.verbose * 10) + (args.quiet * 10)
 
-    log.setLevel(loglevel)
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(fmt='%(message)s'))
-    log.addHandler(handler)
+    # initialize logging module
+    log_init(args.verbose, args.quiet)
 
     vmx_name: str = args.filename
     xml_name: str = args.output_xml
