@@ -3,6 +3,8 @@
 # Copyright (c) 2024 SUSE LLC
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
+# Requires virt-xml
+#
 # This tool is used to testboot an OS Disk.
 #
 
@@ -52,6 +54,43 @@ def virsh(params: list, check: bool) -> str:
     return s
 
 
+def detect_virt_xml_version() -> float:
+    s: str = ""
+    args: list = [ "virt-xml", "--version" ]
+
+    log.debug("%s", args)
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.critical("virt-xml NOT FOUND")
+        sys.exit(1)
+    (s, _) = p.communicate()
+    m = re.match(r"^(\d+\.\d+)", s)
+    if not (m):
+        log.critical("failed to detect virt-xml version: %s", s)
+        sys.exit(1)
+    v: float = float(m.group(1)) or 0
+    log.info("virt-xml: detected version %s", v)
+    return v
+
+
+def virt_xml(params: list) -> None:
+    s: str; e: str
+    args: list = [ "virt-xml" ]
+    args.extend(params)
+    log.debug("%s", args)
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.critical("virt-xml NOT FOUND")
+        sys.exit(1)
+    (s, e) = p.communicate()
+    if (p.returncode != 0):
+        log.critical("failure detected in %s: \n%s", args, e)
+        sys.exit(1)
+    return s
+
+
 def get_options(argc: int, argv: list) -> tuple:
     global log
     use_v2v: int = 1
@@ -94,6 +133,7 @@ def main(argc: int, argv: list) -> int:
     (xml_name, use_v2v, skip_adjust, skip_extra) = get_options(argc, argv)
     adjust_version: float = adjust_guestfs_detect_version()
     virsh_version: float = detect_virsh_version()
+    virt_xml_version: float = detect_virt_xml_version()
 
     # check that the file can be opened for reading, close it
     open(xml_name, 'r', encoding="utf-8").close()
