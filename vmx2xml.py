@@ -555,9 +555,8 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: d
 
 def virt_install(vinst_version: float, disk_mode: int, datastores: dict, use_v2v: int, fidelity: bool,
                  trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, skip_adjust: bool, skip_extra: bool, raw: bool,
-                 xml_name: str, vmx_name: str,
-                 name: str, memory: int,
-                 cpu: dict,
+                 xml_name: str, vmx_name: str, displayname: str, annotation: str,
+                 cpu: dict, memory: int,
                  vcpus: int, sockets: int, cores: int, threads: int, vm_affinity: str,
                  iothreads: int,
                  genid: str, sysinfo: str,
@@ -584,8 +583,15 @@ def virt_install(vinst_version: float, disk_mode: int, datastores: dict, use_v2v
         args.extend(["--os-variant", "detect=on,require=off"])
 
     ### MAIN VM INFO SECTION - Fundamental VM Options are set here ###
-    if (name):
-        args.extend(["--name", name])
+    (domainname, n) = re.subn(r"\.xml$", "", os.path.basename(xml_name), count=1, flags=re.IGNORECASE)
+    if (n != 1):
+        log.critical("invalid xml name %s, does not end in .xml", xml_name)
+        sys.exit(1)
+    args.extend(["--name", domainname])
+    if (displayname):
+        args.extend(["--metadata", f"title={displayname}"])
+    if (annotation):
+        args.extend(["--metadata", f"description={annotation}"])
     assert(memory > 0)
     args.extend(["--memory", f"{memory}"])
     assert(cpu["model"])
@@ -930,6 +936,10 @@ def get_options(argc: int, argv: list) -> tuple:
             sys.exit(0)
         log.warning("%s exists, overwriting", xml_name)
 
+    if not (xml_name.endswith(".xml")):
+        log.critical("invalid xml name %s, does not end in .xml", xml_name)
+        sys.exit(1)
+
     return (vmx_name, xml_name, disk_mode, datastores, use_v2v, fidelity,
             trace_cmd, cache_mode, numa_node, parallel, args.skip_adjust, args.skip_extra, args.raw)
 
@@ -952,10 +962,12 @@ def main(argc: int, argv: list) -> int:
     parse_vmx(vmx_file, d)
     vmx_file.close()
 
-    name: str = d["displayname"]
-    if (name):
-        log.debug("[NAME] %s", name)
-
+    displayname: str = d["displayname"]
+    if (displayname):
+        log.debug("[DISPLAYNAME] %s", displayname)
+    annotation: str = d["annotation"]
+    if (annotation):
+        log.debug("[ANNOTATION] %s", annotation)
     memory: int = int(d["memsize"] or 1024)
     if (memory):
         log.debug("[MEMORY] %s", memory)
@@ -1043,9 +1055,8 @@ def main(argc: int, argv: list) -> int:
     # run virt-install to generate the xml
     virt_install(vinst_version, disk_mode, datastores, use_v2v, fidelity,
                  trace_cmd, cache_mode, numa_node, parallel, skip_adjust, skip_extra, raw,
-                 xml_name, vmx_name,
-                 name, memory,
-                 cpu,
+                 xml_name, vmx_name, displayname, annotation,
+                 cpu, memory,
                  vcpus, sockets, cores, threads, vm_affinity,
                  iothreads,
                  genid, sysinfo,
