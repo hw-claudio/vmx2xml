@@ -513,12 +513,9 @@ def find_eths(d: defaultdict, interface: str) -> list:
 
 def guestfs_adjust(path: str, nbd: bool) -> bool:
     args: list = [ "guestfs_adjust.py", "-n" if (nbd) else "-f", path ]
-    v: int = 0; q: int = 0; i: int
+    v: int; q: int; i: int
 
-    if (log.level < logging.WARNING):
-        v = (logging.WARNING - log.level) // 10
-    if (log.level > logging.WARNING):
-        q = (log.level - logging.WARNING) // 10
+    (v, q) = log_get_vq()
     for i in range(v):
         args.append("-v")
     for i in range(q):
