@@ -150,8 +150,9 @@ def remove_disks(domainname: str, extra_disks: list) -> None:
     virt_xml(domainname, args)
 
 
-def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adjust: bool) -> None:
+def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adjust: bool) -> list:
     args: list = []
+    overlays: list = []
     for disk in os_disks:
         (i, source) = disk
         (_, ext) = os.path.splitext(source)
@@ -169,6 +170,8 @@ def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adj
                 adjust_guestfs(tmp.name, False)
         log.info("DISK REF %s", tmp.name)
         virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
+        overlays.append(tmp)
+    return overlays
 
 
 def process_disks(domainname: str, use_v2v: int, skip_adjust: bool) -> None:
@@ -206,7 +209,7 @@ def process_disks(domainname: str, use_v2v: int, skip_adjust: bool) -> None:
         log.critical("no OS disks found, nothing to boot-test")
         sys.exit(1)
 
-    overlay_adjust_disks(domainname, os_disks, use_v2v, skip_adjust)
+    overlays: list = overlay_adjust_disks(domainname, os_disks, use_v2v, skip_adjust)
 
     if (len(extra_disks) >= 1):
         remove_disks(domainname, extra_disks)
