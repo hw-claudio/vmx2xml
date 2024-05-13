@@ -66,6 +66,25 @@ def img_v2v_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
     os.rename(srcnames[0], to_file)
 
 
+# in-place adjustment using virt-v2v-in-place
+def img_v2v_adjust(from_file: str) -> None:
+    args: list = [ "virt-v2v-in-place", "--root=first", "-i", "disk" ]
+
+    if (log.level > logging.WARNING):
+        args.append("--quiet")
+    if (log.level <= logging.DEBUG):
+        args.extend(["--verbose", "-x"])
+    args.append(from_file)
+
+    log.debug("%s", args)
+    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8')
+
+    if (p.returncode == 0):
+        log.info("virt-v2v-in-place: reports success converting disk %s", from_file)
+    else:
+        log.warning("virt-v2v-in-place: reports failure converting disk %s", from_file)
+
+
 # there is no annotation for Tempfile, so return type is unknown
 def img_qemu_create_overlay(from_file: str, bformat: str):
     tmp = tempfile.NamedTemporaryFile()

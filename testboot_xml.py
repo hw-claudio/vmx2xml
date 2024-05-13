@@ -3,17 +3,19 @@
 # Copyright (c) 2024 SUSE LLC
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
-# Requires virt-xml
+# Requires virt-xml and virsh
 #
 # This tool is used to testboot an OS Disk.
-#
 
 import sys
 import os.path
+import re
 import argparse
 
 from vmx2xml.log import *
 from vmx2xml.adjust import *
+from vmx2xml.inspector import *
+from vmx2xml.img import *
 
 program_version: str = "0.1"
 
@@ -74,9 +76,9 @@ def detect_virt_xml_version() -> float:
     return v
 
 
-def virt_xml(params: list) -> None:
+def virt_xml(domain: str, params: list) -> None:
     s: str; e: str
-    args: list = [ "virt-xml" ]
+    args: list = [ "virt-xml", domain ]
     args.extend(params)
     log.debug("%s", args)
     try:
@@ -89,6 +91,20 @@ def virt_xml(params: list) -> None:
         log.critical("failure detected in %s: \n%s", args, e)
         sys.exit(1)
     return s
+
+
+def domain_exists(domainname: str) -> bool:
+    # get all existing domain names
+    out: str = virsh(["list", "--all", "--name"], True)
+    domainname_m = re.search(f"^{domainname}$", out, flags=re.MULTILINE)
+    if (domainname_m):
+        return True
+    return False
+
+
+def domain_obliterate(domainname: str) -> None:
+    out: str = virsh(["destroy", domainname], False)
+    out = virsh(["undefine", domainname], False)
 
 
 def get_options(argc: int, argv: list) -> tuple:
@@ -112,7 +128,6 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-O', '--overwrite', action='store_true', help='if guest is already defined or running,\n'
                         'destroy it and undefine it, then run the boot test.\n')
     parser.add_argument('-x', '--experimental', action='store_true', help='use experimental guest-injection method (adjust_guestfs.py)')
-    parser.add_argument('-X', '--skip-extra', action='store_true', help='ignore any extra non-OS VMDK/qcow2 disks that may be present')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -126,17 +141,110 @@ def get_options(argc: int, argv: list) -> tuple:
 
     if (args.experimental):
         use_v2v = 0
-    return (args.filename, use_v2v, args.skip_adjust, args.skip_extra)
+    return (args.filename, args.overwrite, use_v2v, args.skip_adjust)
+
+
+def remove_disks(domainname: str, extra_disks: list) -> None:
+    args: list = []
+    for i in extra_disks:
+        args.extend(["--remove-device", "--disk", str(i + 1)])
+    virt_xml(domainname, args)
+
+
+def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adjust: bool) -> None:
+    args: list = []
+    for disk in os_disks:
+        (i, source) = disk
+        (_, ext) = os.path.splitext(source)
+        if (ext != ".raw" and ext != ".qcow2"):
+            log.critical("referenced disks need to be .qcow2 or .raw")
+            sys.exit(1)
+        ext = ext[1:]
+        tmp = img_qemu_create_overlay(source, ext)
+        log.info("OVERLAY %s => %s", source, tmp.name)
+        if not (skip_adjust):
+            log.info("ADJUST %s", tmp.name)
+            if (use_v2v == 1):
+                img_v2v_adjust(tmp.name)
+            else:
+                adjust_guestfs(tmp.name, False)
+        log.info("DISK REF %s", tmp.name)
+        virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
+
+
+def process_disks(domainname: str, use_v2v: int, skip_adjust: bool) -> None:
+    list_str: str = virsh(["domblklist", "--details", domainname], True)
+    log.debug(list_str)
+
+    lines: list = list_str.splitlines()
+    lines.pop(0)                #  Target   Source
+    lines.pop(0)                # --------------------------------------
+
+    os_disks: list = []         # list of interesting (i, source) tuples of OS disks to overlay and adjust
+    extra_disks: list = []      # list of non-interesting i indices of extra disks to remove
+
+    for i in range(0, len(lines)):
+        line: str = lines[i]
+        m = re.match(r"^\s*(\S+)\s*(\S+)\s*(\S+)\s*(\S+)\s*$", line)
+        if not (m):
+            log.warning("domblklist line %s not matching expected pattern")
+            continue
+        type_str: str = m.group(1)
+        device: str = m.group(2)
+        target: str = m.group(3)
+        source: str = m.group(4)
+        log.info("DISK type:%s device:%s target:%s source:%s", type_str, device, target, source)
+        if (type_str == "file" and device == "disk" and (source.endswith(".qcow2") or source.endswith(".raw"))):
+            osd: dict = inspector_inspect(source)
+            if (osd["name"]):
+                log.debug("DISK is OS: %s", osd)
+                os_disks.append((i, source))
+                continue
+        log.debug("DISK is an extra, non-OS disk")
+        extra_disks.append(i)   # not interesting, mark it for removal
+
+    if (len(os_disks) < 1):
+        log.critical("no OS disks found, nothing to boot-test")
+        sys.exit(1)
+
+    overlay_adjust_disks(domainname, os_disks, use_v2v, skip_adjust)
+
+    if (len(extra_disks) >= 1):
+        remove_disks(domainname, extra_disks)
+
+    # testboot
+    # set --network ? for the sandbox? how?
+    out: str = virsh(["start", domainname], True)
+    log.debug(out)
 
 
 def main(argc: int, argv: list) -> int:
-    (xml_name, use_v2v, skip_adjust, skip_extra) = get_options(argc, argv)
+    (xml_name, overwrite, use_v2v, skip_adjust) = get_options(argc, argv)
     adjust_version: float = adjust_guestfs_detect_version()
     virsh_version: float = detect_virsh_version()
     virt_xml_version: float = detect_virt_xml_version()
 
-    # check that the file can be opened for reading, close it
+    # check the input file name and whether it can be opened for reading
+    if not (xml_name.endswith(".xml")):
+        log.critical("invalid xml name %s, does not end in .xml", xml_name)
+        sys.exit(1)
     open(xml_name, 'r', encoding="utf-8").close()
+    (domainname, n) = re.subn(r"\.xml$", "", os.path.basename(xml_name), count=1, flags=re.IGNORECASE)
+    if (n != 1):
+        log.critical("invalid xml name %s, does not end in .xml", xml_name)
+        sys.exit(1)
+    if (domain_exists(domainname)):
+        if (overwrite):
+            log.warning("domain %s already defined, overwriting")
+            domain_obliterate(domainname)
+        else:
+            log.warning("domain %s already exists, skipping")
+            sys.exit(0)
+
+    out: str = virsh(["define", xml_name], True)
+    log.debug(out)
+
+    process_disks(domainname, use_v2v, skip_adjust)
     return 0
 
 
