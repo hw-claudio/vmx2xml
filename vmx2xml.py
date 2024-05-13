@@ -28,31 +28,9 @@ from vmx2xml.log import *
 from vmx2xml.numa import *
 from vmx2xml.trace import *
 from vmx2xml.adjust import *
+from vmx2xml.inspector import *
 
 program_version: str = "0.1"
-
-def virt_inspector(path: str) -> dict:
-    args: list = [ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ]
-    osd: dict = { "name": '', "osinfo": '' }
-
-    log.debug("%s", args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
-    (s, _) = p.communicate()
-
-    if (p.returncode != 0):
-        log.error("%s could not be inspected.", path)
-        return osd
-
-    name_m = re.search(r"^\s*<name>(.+)</name>\s*$", s, flags=re.MULTILINE)
-    osinfo_m = re.search(r"\s*<osinfo>(.+)</osinfo>\s*$", s, flags=re.MULTILINE)
-    if (name_m):
-        osd["name"] = name_m.group(1)
-    if (osinfo_m):
-        osd["osinfo"] = osinfo_m.group(1)
-
-    log.debug("[OS DATA] %s %s", osd["name"], osd["osinfo"])
-    return osd
-
 
 def wait_child(pid: int) -> None:
     try:
@@ -423,7 +401,7 @@ def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: di
             # XXX we never use the actual libvirt/qemu default, writeback?
             disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
             if (all(disk["path"]) and disk_mode >= 2 and disk["path"][0].endswith(".vmdk")):
-                disk["os"] = virt_inspector(disk["path"][0])
+                disk["os"] = inspector_inspect(disk["path"][0])
             disks.append(disk)
     return disks
 
@@ -777,27 +755,6 @@ def detect_vinst_version() -> float:
     return v
 
 
-# detect virt-inspector version
-def detect_vinsp_version() -> float:
-    s: str = ""
-    args: list = [ "virt-inspector", "--version" ]
-
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("virt-inspector NOT FOUND")
-        sys.exit(1)
-    (s, _) = p.communicate()
-    m = re.search(r" (\d+\.\d+)", s)
-    if not (m):
-        log.critical("failed to detect virt-inspector version: %s", s)
-        sys.exit(1)
-    v: float = float(m.group(1)) or 0
-    log.info("virt-inspector: detected version %s", v)
-    return v
-
-
 def detect_qemu_img_version() -> float:
     args: list = [ "qemu-img", "--version" ]
     log.debug("%s", args)
@@ -949,7 +906,7 @@ def main(argc: int, argv: list) -> int:
      trace_cmd, cache_mode, numa_node, parallel, skip_adjust, skip_extra, raw) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
-    vinsp_version: float = detect_vinsp_version()
+    vinsp_version: float = inspector_detect_version()
     adjust_version: float = adjust_guestfs_detect_version()
     qemu_img_version: float = detect_qemu_img_version()
     trace_cmd_version: float = trace_cmd_detect_version()
