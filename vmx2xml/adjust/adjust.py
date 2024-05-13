@@ -1,3 +1,10 @@
+#! /usr/bin/env python3
+#
+# Copyright (c) 2024 SUSE LLC
+# Written by Claudio Fontana <claudio.fontana@suse.com>
+#
+# Experimental guest adjustment submodule
+
 import sys
 import os
 import re
