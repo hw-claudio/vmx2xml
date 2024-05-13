@@ -81,9 +81,9 @@ def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
 
 
 # there is no annotation for Tempfile, so return type is unknown
-def qemu_img_create_overlay(from_file: str):
+def qemu_img_create_overlay(from_file: str, bformat: str):
     tmp = tempfile.NamedTemporaryFile()
-    args: list = ["qemu-img", "create", "-b", from_file, '-F', 'vmdk', '-f', 'qcow2']
+    args: list = ["qemu-img", "create", "-b", from_file, '-F', bformat, '-f', 'qcow2']
     if (log.level > logging.DEBUG):
         args.append("-q")
     args.append(tmp.name)
@@ -143,7 +143,7 @@ def qemu_img_info(from_file: str) -> int:
 def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
     src: str = sourcepath
     if (adjust):
-        tmp = qemu_img_create_overlay(sourcepath)
+        tmp = qemu_img_create_overlay(sourcepath, "vmdk")
         adjust_guestfs(tmp.name, False)
         src = tmp.name
 
