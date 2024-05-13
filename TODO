@@ -2,6 +2,8 @@
 
 implement testboot_xml.py fully from the sketch.
 
+Can use separate guest injection with:
+virt-v2v-in-place --root=first -i disk /154-RAID0/datastore-libvirt/15sp6bios/15sp6bios.qcow2
 
 === UNSOLVED QUESTIONS ===
 
