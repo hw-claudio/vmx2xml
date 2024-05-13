@@ -1,3 +1,8 @@
+=== NEXT STEP ===
+
+implement testboot_xml.py fully from the sketch.
+
+
 === UNSOLVED QUESTIONS ===
 
 *) How to deal with multiple OS disks in the same VM?
