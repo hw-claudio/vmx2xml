@@ -4,7 +4,7 @@
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
 # Currently requires virt-install 2.2 and recommends 4.0
-# also requires qemu-img, guestfs_adjust.
+# also requires qemu-img, adjust_guestfs.py
 #
 # This tool is mostly used to configure the xml so that it more closely matches
 # the configuration pre-conversion.
@@ -165,7 +165,7 @@ def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: 
     src: str = sourcepath
     if (adjust):
         tmp = qemu_img_create_overlay(sourcepath)
-        guestfs_adjust(tmp.name, False)
+        adjust_guestfs(tmp.name, False)
         src = tmp.name
 
     qemu_img_copy(src, targetpath, trace_cmd, cache_mode, numa_node, parallel, raw)
@@ -218,7 +218,7 @@ def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel
 def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
     (sin, pidin) = qemu_nbd_create(sourcepath, adjust, cache_mode, False, False if (adjust) else True)
     if (adjust):
-        guestfs_adjust(sin.name, True)
+        adjust_guestfs(sin.name, True)
     vsize: int = qemu_img_info(sourcepath)
     qemu_img_create(targetpath, vsize, raw)
     (sout, pidout) = qemu_nbd_create(targetpath, False, cache_mode, raw, False)
@@ -511,8 +511,8 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     })
 #     return translate(translator, s);
 
-def guestfs_adjust(path: str, nbd: bool) -> bool:
-    args: list = [ "guestfs_adjust.py", "-n" if (nbd) else "-f", path ]
+def adjust_guestfs(path: str, nbd: bool) -> bool:
+    args: list = [ "adjust_guestfs.py", "-n" if (nbd) else "-f", path ]
     v: int; q: int; i: int
 
     (v, q) = log_get_vq()
@@ -809,24 +809,24 @@ def detect_vinsp_version() -> float:
     return v
 
 
-# detect guestfs_adjust version only considering major.minor
-def detect_guestfs_adjust_version() -> float:
+# detect adjust_guestfs.py version only considering major.minor
+def adjust_guestfs_detect_version() -> float:
     s: str = ""
-    args: list = [ "guestfs_adjust.py", "--version" ]
+    args: list = [ "adjust_guestfs.py", "--version" ]
 
     log.debug("%s", args)
     try:
         p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
     except:
-        log.critical("guestfs_adjust.py NOT FOUND")
+        log.critical("adjust_guestfs.py NOT FOUND")
         sys.exit(1)
     (s, _) = p.communicate()
     m = re.match(r"^(\d+\.\d+)", s)
     if not (m):
-        log.critical("failed to detect guestfs_adjust.py version: %s", s)
+        log.critical("failed to detect adjust_guestfs.py version: %s", s)
         sys.exit(1)
     v: float = float(m.group(1)) or 0
-    log.info("guestfs_adjust.py: detected version %s", v)
+    log.info("adjust_guestfs.py: detected version %s", v)
     return v
 
 
@@ -978,7 +978,7 @@ def main(argc: int, argv: list) -> int:
 
     vinst_version: float = detect_vinst_version()
     vinsp_version: float = detect_vinsp_version()
-    adjust_version: float = detect_guestfs_adjust_version()
+    adjust_version: float = adjust_guestfs_detect_version()
     qemu_img_version: float = detect_qemu_img_version()
     trace_cmd_version: float = trace_cmd_detect_version()
     if (trace_cmd and trace_cmd_version < 2.7):

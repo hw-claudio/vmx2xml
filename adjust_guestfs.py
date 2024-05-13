@@ -232,7 +232,7 @@ def guestfs_win(g: guestfs.GuestFS, root: str) -> bool:
     return False
 
 
-def guestfs_adjust(path: str, nbd: bool) -> bool:
+def adjust_guestfs(path: str, nbd: bool) -> bool:
     g: guestfs.GuestFS; root: str; os_type: str
     (g, root, os_type) = guestfs_launch(path, nbd)
     if (not g):
@@ -253,7 +253,7 @@ def guestfs_adjust(path: str, nbd: bool) -> bool:
 def get_options(argc: int, argv: list) -> tuple:
     global log
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
-        prog='guestfs_adjust.py',
+        prog='adjust_guestfs.py',
         description="does the minimal adjustments to get a guest image to run on KVM\n",
         epilog="requires libguestfs, including libguestfs-winsupport"
     )
@@ -292,9 +292,9 @@ def main(argc: int, argv: list) -> int:
     rv: bool
 
     if (filename):
-        rv = guestfs_adjust(filename, False)
+        rv = adjust_guestfs(filename, False)
     else:
-        rv = guestfs_adjust(nbd, True)
+        rv = adjust_guestfs(nbd, True)
 
     if (rv):
         log.warning("guest adjustment successful.")

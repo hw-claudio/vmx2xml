@@ -41,7 +41,7 @@ in order to update and fine tune the xml conversion itself, without the costly o
 
 ------------
 
-WHAT THE guestfs_adjust.py SCRIPT DOES
+WHAT THE adjust_guestfs.py SCRIPT DOES
 
 This is an experimental script that can be triggered instead of virt-v2v by using special option (-x) in the vmx2xml tool.
 
