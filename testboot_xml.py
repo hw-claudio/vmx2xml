@@ -90,7 +90,6 @@ def virt_xml(domain: str, params: list) -> None:
     if (p.returncode != 0):
         log.critical("failure detected in %s: \n%s", args, e)
         sys.exit(1)
-    return s
 
 
 def domain_exists(domainname: str) -> bool:
