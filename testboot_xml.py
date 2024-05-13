@@ -237,10 +237,10 @@ def main(argc: int, argv: list) -> int:
         sys.exit(1)
     if (domain_exists(domainname)):
         if (overwrite):
-            log.warning("domain %s already defined, overwriting")
+            log.warning("domain %s already defined, overwriting", domainname)
             domain_obliterate(domainname)
         else:
-            log.warning("domain %s already exists, skipping")
+            log.warning("domain %s already exists, skipping", domainname)
             sys.exit(0)
 
     out: str = virsh(["define", xml_name], True)
