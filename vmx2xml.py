@@ -32,19 +32,19 @@ from vmx2xml.inspector import *
 
 program_version: str = "0.1"
 
-def wait_child(pid: int) -> None:
+def img_wait_child(pid: int) -> None:
     try:
         os.waitpid(pid, 0)
     except:
         pass
 
 
-def file_ext(raw: bool) -> str:
+def img_file_ext(raw: bool) -> str:
     return "raw" if (raw) else "qcow2"
 
 
-def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: int, raw: bool) -> None:
-    to_file_ext: str = file_ext(raw)
+def img_v2v_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: int, raw: bool) -> None:
+    to_file_ext: str = img_file_ext(raw)
     dirname: str = os.path.dirname(to_file)
     args: list = []
 
@@ -70,7 +70,7 @@ def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
 
     if (trace_cmd):
         os.kill(tpid, 2)
-        wait_child(tpid)
+        img_wait_child(tpid)
 
     # Now rename to the name we want
     srcnames: list = glob.glob(to_file[0:-len(f".{to_file_ext}")] + "-sd*")
@@ -81,7 +81,7 @@ def v2v_img_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
 
 
 # there is no annotation for Tempfile, so return type is unknown
-def qemu_img_create_overlay(from_file: str, bformat: str):
+def img_qemu_create_overlay(from_file: str, bformat: str):
     tmp = tempfile.NamedTemporaryFile()
     args: list = ["qemu-img", "create", "-b", from_file, '-F', bformat, '-f', 'qcow2']
     if (log.level > logging.DEBUG):
@@ -92,8 +92,8 @@ def qemu_img_create_overlay(from_file: str, bformat: str):
     return tmp
 
 
-def qemu_img_create(to_file: str, vsize: int, raw: bool) -> None:
-    to_file_ext: str = file_ext(raw)
+def img_qemu_create(to_file: str, vsize: int, raw: bool) -> None:
+    to_file_ext: str = img_file_ext(raw)
     args: list = ["qemu-img", "create", "-f", to_file_ext]
     if (log.level > logging.DEBUG):
         args.append("-q")
@@ -102,8 +102,8 @@ def qemu_img_create(to_file: str, vsize: int, raw: bool) -> None:
     p = subprocess.run(args, stdout=sys.stderr, check=True)
 
 
-def qemu_img_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
-    to_file_ext: str = file_ext(raw)
+def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
+    to_file_ext: str = img_file_ext(raw)
     args: list = []
     if (trace_cmd):
         tpid: int = trace_cmd_start("trace-qemu-img.dat-", numa_node)
@@ -120,10 +120,10 @@ def qemu_img_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
     p = subprocess.run(args, check=True)
     if (trace_cmd):
         os.kill(tpid, 2)
-        wait_child(tpid)
+        img_wait_child(tpid)
 
 
-def qemu_img_info(from_file: str) -> int:
+def img_qemu_info(from_file: str) -> int:
     args: list = ["qemu-img", "info", "-U", from_file]
 
     log.debug("%s", args)
@@ -140,19 +140,19 @@ def qemu_img_info(from_file: str) -> int:
     return int(vsize_m.group(1))
 
 
-def qemu_img_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
+def img_qemu_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
     src: str = sourcepath
     if (adjust):
-        tmp = qemu_img_create_overlay(sourcepath, "vmdk")
+        tmp = img_qemu_create_overlay(sourcepath, "vmdk")
         adjust_guestfs(tmp.name, False)
         src = tmp.name
 
-    qemu_img_copy(src, targetpath, trace_cmd, cache_mode, numa_node, parallel, raw)
+    img_qemu_copy(src, targetpath, trace_cmd, cache_mode, numa_node, parallel, raw)
     if (adjust):
         tmp.close()
 
 
-def qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool, readonly: bool) -> tuple:
+def img_qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool, readonly: bool) -> tuple:
     tmp = tempfile.NamedTemporaryFile(delete=False)
     args: list = [ "qemu-nbd", f"--cache={cache_mode}", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
     if (raw):
@@ -176,7 +176,7 @@ def qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool, readonly:
     return (tmp, pid)
 
 
-def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel: int) -> None:
+def img_qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel: int) -> None:
     args: list = []
     if (trace_cmd):
         tpid: int = trace_cmd_start("trace-nbdcopy.dat-", numa_node)
@@ -191,17 +191,17 @@ def qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, parallel
     p = subprocess.run(args, check=True)
     if (trace_cmd):
         os.kill(tpid, 2)
-        wait_child(tpid)
+        img_wait_child(tpid)
 
 
-def qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
-    (sin, pidin) = qemu_nbd_create(sourcepath, adjust, cache_mode, False, False if (adjust) else True)
+def img_qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
+    (sin, pidin) = img_qemu_nbd_create(sourcepath, adjust, cache_mode, False, False if (adjust) else True)
     if (adjust):
         adjust_guestfs(sin.name, True)
-    vsize: int = qemu_img_info(sourcepath)
-    qemu_img_create(targetpath, vsize, raw)
-    (sout, pidout) = qemu_nbd_create(targetpath, False, cache_mode, raw, False)
-    qemu_nbd_copy(sin.name, sout.name, trace_cmd, numa_node, parallel)
+    vsize: int = img_qemu_info(sourcepath)
+    img_qemu_create(targetpath, vsize, raw)
+    (sout, pidout) = img_qemu_nbd_create(targetpath, False, cache_mode, raw, False)
+    img_qemu_nbd_copy(sin.name, sout.name, trace_cmd, numa_node, parallel)
     sin.close()
     sout.close()
     os.remove(sin.name)
@@ -273,7 +273,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
         sys.exit(1)
 
     if (translate_disk):
-        to_file_ext: str = file_ext(raw)
+        to_file_ext: str = img_file_ext(raw)
         (match, is_vmdk) = re.subn(r"\.vmdk$", f".{to_file_ext}", paths[1], count=1, flags=re.IGNORECASE)
         if (is_vmdk == 1):
             paths[1] = match
@@ -506,13 +506,13 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: d
         has_os: bool = True if osd["name"] else False
         if (use_v2v == 1):
             if (has_os and not skip_adjust):
-                v2v_img_convert(sourcepath, targetpath, trace_cmd, numa_node, raw)
+                img_v2v_convert(sourcepath, targetpath, trace_cmd, numa_node, raw)
             else:
-                qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode, numa_node, parallel, raw)
+                img_qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode, numa_node, parallel, raw)
         elif (use_v2v == 0):
-            qemu_img_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
         elif (use_v2v == -1):
-            qemu_nbd_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_nbd_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
         else:
             assert(0) # unhandled use_v2v value
 
