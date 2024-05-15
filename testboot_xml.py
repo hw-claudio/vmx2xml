@@ -17,6 +17,7 @@ from vmx2xml.log import *
 from vmx2xml.adjust import *
 from vmx2xml.inspector import *
 from vmx2xml.img import *
+from vmx2xml.stopwatch import *
 
 program_version: str = "0.1"
 
@@ -262,8 +263,10 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
     macs = find_macs(domainname)
     log.debug("looking for MACs: %s", macs)
 
-    for i in range(10):
-        time.sleep(5)
+    stopwatch_start()
+
+    while (stopwatch_elapsed() < timeout):
+        time.sleep(1)
         if (testboot_net(macs)):
             result = True
             break
