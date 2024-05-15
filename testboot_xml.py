@@ -11,6 +11,7 @@ import sys
 import os.path
 import re
 import argparse
+import time
 
 from vmx2xml.log import *
 from vmx2xml.adjust import *
@@ -90,6 +91,22 @@ def virt_xml(domain: str, params: list) -> None:
     if (p.returncode != 0):
         log.critical("failure detected in %s: \n%s", args, e)
         sys.exit(1)
+
+
+def ip_neigh_show() -> str:
+    s: str; e: str
+    args: list = [ "ip", "neigh", "show" ]
+    log.debug("%s", args)
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    except:
+        log.critical("ip NOT FOUND")
+        sys.exit(1)
+    (s, e) = p.communicate()
+    if (p.returncode != 0):
+        log.critical("failure detected in %s: \n%s", args, e)
+        sys.exit(1)
+    return s
 
 
 def domain_exists(domainname: str) -> bool:
@@ -174,7 +191,26 @@ def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adj
     return overlays
 
 
-def process_disks(domainname: str, use_v2v: int, skip_adjust: bool) -> None:
+def testboot_net(macs: list) -> bool:
+    out: str = ip_neigh_show()
+    for mac in macs:
+        m = re.search("^.*{mac}.*$", out, flags=re.MULTILINE)
+        if (m):
+            log.info("found VM MAC: %s", m.group(0))
+            return True
+    return False
+
+
+def find_macs(domainname: str) -> list:
+    out: str = virsh(["dumpxml", domainname], True)
+    macs = re.findall(r"^.*mac address.*(\w\w:\w\w:\w\w:\w\w:\w\w:\w\w).*$", out, flags=re.MULTILINE)
+    if (len(macs) < 1):
+        log.critical("fatal: could not find mac address for domain %s", domainname)
+        sys.exit(1)
+    return macs
+
+
+def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool) -> bool:
     list_str: str = virsh(["domblklist", "--details", domainname], True)
     log.debug(list_str)
 
@@ -214,10 +250,23 @@ def process_disks(domainname: str, use_v2v: int, skip_adjust: bool) -> None:
     if (len(extra_disks) >= 1):
         remove_disks(domainname, extra_disks)
 
-    # testboot
+    # start the domain
     # set --network ? for the sandbox? how?
     out: str = virsh(["start", domainname], True)
     log.debug(out)
+
+    result: bool = False
+    macs = find_macs(domainname)
+    log.debug("looking for MACs: %s", macs)
+
+    for i in range(10):
+        time.sleep(5)
+        if (testboot_net(macs)):
+            result = True
+            break
+    virsh(["destroy", domainname], False)
+    virsh(["undefine", domainname], False)
+    return result
 
 
 def main(argc: int, argv: list) -> int:
@@ -245,9 +294,12 @@ def main(argc: int, argv: list) -> int:
 
     out: str = virsh(["define", xml_name], True)
     log.debug(out)
-
-    process_disks(domainname, use_v2v, skip_adjust)
-    return 0
+    if (testboot_domain(domainname, use_v2v, skip_adjust)):
+        log.info("domain %s testboot report: SUCCESS")
+        return 0
+    else:
+        log.warning("domain %s testboot report: FAILURE")
+        return 2                # use 2 to distinguish from a runtime script error
 
 
 sys.exit(main(len(sys.argv), sys.argv))
