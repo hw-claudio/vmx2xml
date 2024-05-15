@@ -197,6 +197,9 @@ def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adj
 
 def testboot_net(macs: list) -> bool:
     out: str = ip_neigh_show()
+    log.debug("%s", out)
+
+    log.info("looking for VM MACs: %s", macs)
     for mac in macs:
         m = re.search("^.*{mac}.*$", out, flags=re.MULTILINE)
         if (m):
@@ -261,10 +264,8 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
 
     result: bool = False
     macs = find_macs(domainname)
-    log.debug("looking for MACs: %s", macs)
 
     stopwatch_start()
-
     while (stopwatch_elapsed() < timeout):
         time.sleep(1)
         if (testboot_net(macs)):
