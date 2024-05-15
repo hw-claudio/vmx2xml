@@ -144,6 +144,8 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-O', '--overwrite', action='store_true', help='if guest is already defined or running,\n'
                         'destroy it and undefine it, then run the boot test.\n')
     parser.add_argument('-x', '--experimental', action='store_true', help='use experimental guest-injection method (adjust_guestfs.py)')
+    parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
+                        help='timeout to detect IP of a started VM, after which the boot is considered a failure')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -157,7 +159,8 @@ def get_options(argc: int, argv: list) -> tuple:
 
     if (args.experimental):
         use_v2v = 0
-    return (args.filename, args.overwrite, use_v2v, args.skip_adjust)
+    timeout: int = int(args.timeout)
+    return (args.filename, args.overwrite, use_v2v, args.skip_adjust, timeout)
 
 
 def remove_disks(domainname: str, extra_disks: list) -> None:
@@ -210,7 +213,7 @@ def find_macs(domainname: str) -> list:
     return macs
 
 
-def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool) -> bool:
+def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: int) -> bool:
     list_str: str = virsh(["domblklist", "--details", domainname], True)
     log.debug(list_str)
 
@@ -270,7 +273,7 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool) -> bool:
 
 
 def main(argc: int, argv: list) -> int:
-    (xml_name, overwrite, use_v2v, skip_adjust) = get_options(argc, argv)
+    (xml_name, overwrite, use_v2v, skip_adjust, timeout) = get_options(argc, argv)
     adjust_version: float = adjust_guestfs_detect_version()
     virsh_version: float = detect_virsh_version()
     virt_xml_version: float = detect_virt_xml_version()
@@ -294,7 +297,7 @@ def main(argc: int, argv: list) -> int:
 
     out: str = virsh(["define", xml_name], True)
     log.debug(out)
-    if (testboot_domain(domainname, use_v2v, skip_adjust)):
+    if (testboot_domain(domainname, use_v2v, skip_adjust, timeout)):
         log.info("domain %s testboot report: SUCCESS")
         return 0
     else:
