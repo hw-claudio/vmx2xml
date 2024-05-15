@@ -302,10 +302,10 @@ def main(argc: int, argv: list) -> int:
     out: str = virsh(["define", xml_name], True)
     log.debug(out)
     if (testboot_domain(domainname, use_v2v, skip_adjust, timeout)):
-        log.info("domain %s testboot report: SUCCESS")
+        log.info("domain %s testboot report: SUCCESS", domainname)
         return 0
     else:
-        log.warning("domain %s testboot report: FAILURE")
+        log.warning("domain %s testboot report: FAILURE", domainname)
         return 2                # use 2 to distinguish from a runtime script error
 
 
