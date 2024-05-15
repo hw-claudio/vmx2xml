@@ -232,7 +232,7 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
         line: str = lines[i]
         m = re.match(r"^\s*(\S+)\s*(\S+)\s*(\S+)\s*(\S+)\s*$", line)
         if not (m):
-            log.warning("domblklist line %s not matching expected pattern")
+            log.warning("domblklist line %s not matching expected pattern", line)
             continue
         type_str: str = m.group(1)
         device: str = m.group(2)
