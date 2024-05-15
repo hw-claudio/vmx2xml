@@ -201,7 +201,7 @@ def testboot_net(macs: list) -> bool:
 
     log.info("looking for VM MACs: %s", macs)
     for mac in macs:
-        m = re.search("^.*{mac}.*$", out, flags=re.MULTILINE)
+        m = re.search(f"^.*{mac}.*$", out, flags=re.MULTILINE)
         if (m):
             log.info("found VM MAC: %s", m.group(0))
             return True
