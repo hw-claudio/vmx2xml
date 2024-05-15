@@ -146,7 +146,7 @@ def get_options(argc: int, argv: list) -> tuple:
                         'destroy it and undefine it, then run the boot test.\n')
     parser.add_argument('-x', '--experimental', action='store_true', help='use experimental guest-injection method (adjust_guestfs.py)')
     parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
-                        help='timeout to detect IP of a started VM, after which the boot is considered a failure')
+                        help='timeout to detect a boot success. Use 0 to never timeout (for debugging)')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -266,7 +266,7 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
     macs = find_macs(domainname)
 
     stopwatch_start()
-    while (stopwatch_elapsed() < timeout):
+    while (timeout <= 0 or stopwatch_elapsed() < timeout):
         time.sleep(1)
         if (testboot_net(macs)):
             result = True
