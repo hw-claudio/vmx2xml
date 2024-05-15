@@ -20,7 +20,6 @@ from collections import defaultdict
 import shutil
 import filecmp
 import struct
-import time
 
 from vmx2xml.log import *
 from vmx2xml.numa import *
@@ -28,6 +27,7 @@ from vmx2xml.trace import *
 from vmx2xml.adjust import *
 from vmx2xml.inspector import *
 from vmx2xml.img import *
+from vmx2xml.stopwatch import *
 
 program_version: str = "0.1"
 
@@ -474,12 +474,12 @@ def virt_install(vinst_version: float, disk_mode: int, datastores: dict, use_v2v
         if (skip_extra and not (disk["os"]["name"])):
             log.info("skipping extra non-OS disk %s", paths[0])
             continue
-        start_time: float = time.perf_counter()
+        stopwatch_start()
         path = convert_path(paths[0], paths[1], disk_mode, datastores, use_v2v, disk["os"],
                             trace_cmd, cache_mode, numa_node, parallel, skip_adjust, raw)
         if (disk_mode >= 2):
             end_time: float = time.perf_counter();
-            elapsed: float = end_time - start_time
+            elapsed: float = stopwatch_elapsed()
             if (elapsed > 0.0):
                 targetstat = os.stat(path)
                 targetsize = targetstat.st_blocks * 512 // (1024 * 1024)
