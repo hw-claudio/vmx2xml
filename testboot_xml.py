@@ -224,6 +224,8 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
     lines: list = list_str.splitlines()
     lines.pop(0)                #  Target   Source
     lines.pop(0)                # --------------------------------------
+    if (lines[-1] == ""):
+        lines.pop()             # the last line of the output seems to be empty. If that is the case, remove it.
 
     os_disks: list = []         # list of interesting (i, source) tuples of OS disks to overlay and adjust
     extra_disks: list = []      # list of non-interesting i indices of extra disks to remove
