@@ -92,6 +92,7 @@ def virt_xml(domain: str, params: list) -> None:
     if (p.returncode != 0):
         log.critical("failure detected in %s: \n%s", args, e)
         sys.exit(1)
+    log.debug("%s", s)
 
 
 def ip_neigh_show() -> str:
@@ -107,6 +108,7 @@ def ip_neigh_show() -> str:
     if (p.returncode != 0):
         log.critical("failure detected in %s: \n%s", args, e)
         sys.exit(1)
+    log.debug("%s", s)
     return s
 
 
@@ -120,8 +122,8 @@ def domain_exists(domainname: str) -> bool:
 
 
 def domain_obliterate(domainname: str) -> None:
-    out: str = virsh(["destroy", domainname], False)
-    out = virsh(["undefine", domainname], False)
+    virsh(["destroy", domainname], False)
+    virsh(["undefine", domainname], False)
 
 
 def get_options(argc: int, argv: list) -> tuple:
@@ -178,7 +180,7 @@ def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adj
         (i, source) = disk
         (_, ext) = os.path.splitext(source)
         if (ext != ".raw" and ext != ".qcow2"):
-            log.critical("referenced disks need to be .qcow2 or .raw")
+            log.critical("%s: referenced disks need to be .qcow2 or .raw", domainname)
             sys.exit(1)
         ext = ext[1:]
         tmp = img_qemu_create_overlay(source, ext)
@@ -212,15 +214,13 @@ def find_macs(domainname: str) -> list:
     out: str = virsh(["dumpxml", domainname], True)
     macs = re.findall(r"^.*mac address.*(\w\w:\w\w:\w\w:\w\w:\w\w:\w\w).*$", out, flags=re.MULTILINE)
     if (len(macs) < 1):
-        log.critical("fatal: could not find mac address for domain %s", domainname)
+        log.critical("%s: could not parse mac address from %s", domainname, out)
         sys.exit(1)
     return macs
 
 
 def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: int) -> bool:
     list_str: str = virsh(["domblklist", "--details", domainname], True)
-    log.debug(list_str)
-
     lines: list = list_str.splitlines()
     lines.pop(0)                #  Target   Source
     lines.pop(0)                # --------------------------------------
@@ -234,7 +234,7 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
         line: str = lines[i]
         m = re.match(r"^\s*(\S+)\s*(\S+)\s*(\S+)\s*(\S+)\s*$", line)
         if not (m):
-            log.warning("domblklist line %s not matching expected pattern", line)
+            log.warning("%s: domblklist line '%s' not matching expected pattern", domainname, line)
             continue
         type_str: str = m.group(1)
         device: str = m.group(2)
@@ -251,7 +251,7 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
         extra_disks.append(i)   # not interesting, mark it for removal
 
     if (len(os_disks) < 1):
-        log.critical("no OS disks found, nothing to boot-test")
+        log.critical("%s: no OS disks found, nothing to boot-test", domainname)
         sys.exit(1)
 
     overlays: list = overlay_adjust_disks(domainname, os_disks, use_v2v, skip_adjust)
@@ -301,8 +301,7 @@ def main(argc: int, argv: list) -> int:
             log.warning("domain %s already exists, skipping", domainname)
             sys.exit(0)
 
-    out: str = virsh(["define", xml_name], True)
-    log.debug(out)
+    virsh(["define", xml_name], True)
     if (testboot_domain(domainname, use_v2v, skip_adjust, timeout)):
         log.info("domain %s testboot report: SUCCESS", domainname)
         return 0
