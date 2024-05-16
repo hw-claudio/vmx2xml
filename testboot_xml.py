@@ -299,6 +299,7 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
         time.sleep(1)
         if (testboot_net(domainname, macs)):
             result = True
+            log.info("%s: network activity detected after %s seconds", domainname, stopwatch_elapsed())
             break
     virsh(["destroy", domainname], False)
     virsh(["undefine", domainname], False)
