@@ -48,12 +48,12 @@ def virsh(params: list, check: bool) -> str:
     log.debug("%s", args)
     try:
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("virsh NOT FOUND")
+    except Exception as exp:
+        log.critical("virsh: exception running command: %s: \n%s", args, exp)
         sys.exit(1)
     (s, e) = p.communicate()
     if (p.returncode != 0 and check):
-        log.critical("failure detected in %s: \n%s", args, e)
+        log.critical("virsh: failure detected in command: %s: \n%s", args, e)
         sys.exit(1)
     return s
 
