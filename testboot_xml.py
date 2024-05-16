@@ -197,15 +197,38 @@ def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adj
     return overlays
 
 
-def testboot_net(macs: list) -> bool:
-    out: str = ip_neigh_show()
-    log.debug("%s", out)
+# get (rx, tx) counters
+def testboot_net_get_rx_tx(domainname, mac) -> tuple:
+    rx: int = -1; tx: int = -1
+    out: str = virsh(["domifstat", domainname, mac], True)
+    m = re.search(r"^.*rx_packets (\d+)\s*$", out, flags=re.MULTILINE)
+    if (not m):
+        log.critical("%s: failed to parse rx_packets from domifstat output %s", domainname, out)
+        sys.exit(1)
+    rx = int(m.group(1))
+    m = re.search(r"^.*tx_packets (\d+)\s*$", out, flags=re.MULTILINE)
+    if (not m):
+        log.critical("%s: failed to parse tx_packets from domifstat output %s", domainname, out)
+        sys.exit(1)
+    tx = int(m.group(1))
+    return (rx, tx)
 
-    log.info("looking for VM MACs: %s", macs)
+
+# check that either the tx, or the rx counters are zero when we start
+# ie the VM is not generating any traffic
+def testboot_net_is_zero(domainname: str, macs: list) -> bool:
     for mac in macs:
-        m = re.search(f"^.*{mac}.*$", out, flags=re.MULTILINE)
-        if (m):
-            log.info("found VM MAC: %s", m.group(0))
+        (rx, tx) = testboot_net_get_rx_tx(domainname, mac)
+        if (rx != 0 and tx != 0):
+            return False
+    return True
+
+
+def testboot_net(domainname: str, macs: list) -> bool:
+    for mac in macs:
+        (rx, tx) = testboot_net_get_rx_tx(domainname, mac)
+        # test for successful network activity (both tx and rx packets) on any interface
+        if (rx > 0 and tx > 0):
             return True
     return False
 
@@ -259,18 +282,22 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
     if (len(extra_disks) >= 1):
         remove_disks(domainname, extra_disks)
 
-    # start the domain
-    # set --network ? for the sandbox? how?
-    out: str = virsh(["start", domainname], True)
-    log.debug(out)
+    # start the domain.
+    # TODO: add a --network option for the sandbox
+    virsh(["start", domainname, "--paused"], True)
 
     result: bool = False
     macs = find_macs(domainname)
+    # to avoid the race between virsh start and when we check for zero, we start --paused"
+    if not (testboot_net_is_zero(domainname, macs)):
+        log.critical("%s: net interface tx, rx are not zero at boot time", domainname)
+        sys.exit(1)
+    virsh(["resume", domainname], True)
 
     stopwatch_start()
     while (timeout <= 0 or stopwatch_elapsed() < timeout):
         time.sleep(1)
-        if (testboot_net(macs)):
+        if (testboot_net(domainname, macs)):
             result = True
             break
     virsh(["destroy", domainname], False)
