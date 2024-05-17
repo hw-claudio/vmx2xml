@@ -604,6 +604,46 @@ def is_dir(string: str) -> bool:
     return False
 
 
+def help_datastores() -> None:
+    print("HELP DATASTORES (-d, --datastore RIDS,IDS=ODS)\n\n"
+          "By default the directory containing the input VMX and its parent are added to the input datastores,\n"
+          "and the directory containing the output XML and its parent are added to the output datastores.\n"
+          "This covers the simplest case, where a VM VMDK disks are all contained in the same directory as the .vmx file,\n"
+          "and referenced ISO installation images are present in the parent directory.\n\n"
+          "For VMs with more disks, potentially spread across datastores, we need to know how to map them to a target datastore.\n"
+          "Also, the input .vmx file will contain references to the disks that use a VMWare vmfs path that might be different\n"
+          "from the local path under which those input disks are reachable on this libvirt conversion host.\n\n"
+          "Option -d adds such a mapping, from .vmx Reference to an Input Datastore prefix (RIDS),\n"
+          "to a locally reachable Input Datastore prefix (IDS),\n"
+          "to a locally reachable and final Output Datastore prefix (ODS).\n"
+          "To add further datastore mapping provide multiple -d options.\n\n"
+          "EXAMPLE\n\n"
+          "-d /vmfs/volumes/datastore2/,/share/datastore2/=/share/libvirt-datastore2/\n\n"
+          "...\n\n"
+          "All references in the VMX file to disk paths starting with '/vmfs/volumes/datastore2/' will be replaced with\n"
+          "'/share/datastore2/' to be able to find the input disk files on this host.\n\n"
+          "In the output XML file, the disks matching this pattern will be translated, copied, converted to /share/libvirt-datastore2/\n\n"
+          "SHORT FORMS\n\n"
+          "The ',' input reference translation can be omitted if VMWare and this host see /vmfs/volumes/datastore2/ as the same path:\n"
+          "-d /vmfs/volumes/datastore2/=/vmfs/volumes/libvirt-isos/\n\n"
+          "The '=' output translation can also be omitted when input datastore is the same as the output:\n"
+          "-d /vmfs/volumes/isos,/share/isos/\n\n"
+          "There is no translation of the output path to output xml reference, so ensure the output datastore path is final.\n\n"
+          "The simplest scenario is where all input volumes can be reached via /vmfs/volumes/,\n"
+          "and need to be translated and converted to the same path prefix:\n"
+          "-d /vmfs/volumes/=/share/libvirt-volumes/\n\n")
+    sys.exit(0)
+
+
+def help_conversion() -> None:
+    print("HELP CONVERSION\n\n"
+          "By default the Disk Conversion uses virt-v2v to adjust the guestfs for running on KVM,\n"
+          "which includes injecting the virtio drivers among a number of other changes.\n"
+          "virt-v2v is also used by default to convert the VMDK to .qcow2 or .raw,\n"
+          "In this mode of operation, other EXPERIMENTAL ADVANCED OPTIONS are not going to be available.\n\n")
+    sys.exit(0)
+
+
 def get_options(argc: int, argv: list) -> tuple:
     global log
     cache_modes: list = [ "none", "writeback", "unsafe", "directsync", "writethrough" ]
@@ -613,46 +653,50 @@ def get_options(argc: int, argv: list) -> tuple:
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n"
         "and optionally translates and converts datastores.\n",
         usage="%(prog)s [options]\n"
-        "\n"
-        "INPUT DATASTORES: by default the directory containing the input VMX and its parent are used as the input datastore.\n"
-        "OUTPUT DATASTORES: by default the directory containing the output XML and its parent is used as the output datastore.\n\n"
-        "To add further datastores provide multiple -d options, for example:\n\n"
-        "-d /vmfs/volumes/datastore2/,/share/volumes/datastore2/=/share/libvirt-datastore2/\n"
-        "...\n\n"
-        "All references in the VMX file to paths starting with '/vmfs/volumes/datastore2/' will be translated to\n"
-        "'/share/volumes/datastore2', assuming the path is reachable on this host.\n\n"
-        "The file will then be copied or converted to /share/libvirt-datastore2/\n\n"
-        "The ',' input reference translation could be omitted if this host sees /vmfs/volumes/datastore2/ as the same path:\n"
-        "-d /vmfs/volumes/datastore2/=/vmfs/volumes/libvirt-isos/\n"
-        "The '=' output translation can also be omitted when input datastore is the same as the output:\n"
-        "-d /vmfs/volumes/isos,/share/volumes/isos/\n\n"
-        "There is no translation of the output path to output xml reference, so ensure the output datastore path is final.\n\n"
-        "The simplest scenario is where all volumes can be reached via /vmfs/volumes/, and need to be translated to the same path:\n\n"
-        "-d /vmfs/volumes/=/vmfs/libvirt-volumes/\n\n"
     )
-    parser.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
-    parser.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
-    parser.add_argument('-V', '--version', action='version', version=program_version)
-    parser.add_argument('-o', '--output-xml', action='store', help='output libvirt XML file', required=True)
-    parser.add_argument('-f', '--filename', metavar="VMXFILE", action='store', required=True,
-                        help='the VMX description file to be converted. Its directory is added to input datastores')
-    parser.add_argument('-t', '--translate-disks', action='store_true', help='translate path references from .vmdk to .qcow2 or .raw')
-    parser.add_argument('-c', '--convert-disks', action='store_true', help='convert and move disk contents across datastores (implies -t)')
-    parser.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
-    parser.add_argument('-x', '--experimental', action='store_true', help='use experimental old conversion method (qemu-img)')
-    parser.add_argument('-y', '--experimental2', action='store_true', help='use experimental new conversion method (qemu-nbd)')
-    parser.add_argument('-C', '--cache-mode', action='store', default="none", help=f'{cache_modes} for qemu-nbd and qemu-img convert')
-    parser.add_argument('-T', '--trace-cmd', action='store_true', help='generate /tmp/trace-xxx.dat-... profile for image conversions')
-    parser.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
-                        help='(can be specified multiple times) translate references starting with RIDS to IDS, then convert to ODS')
-    parser.add_argument('-F', '--fidelity', action='store_true', help='configuration fidelity mode. Default is to privilege performance')
-    parser.add_argument('-N', '--numa-node', action='store', type=int, default=-1, help='restrict execution (mem, cpu) to NUMA node')
-    parser.add_argument('-p', '--parallel', action='store', type=int, default=-1, help='specify threads/connections/coroutines')
-    parser.add_argument('-a', '--skip-adjust', action='store_true', help='skip guest adjustments to run on KVM')
-    parser.add_argument('-X', '--skip-extra', action='store_true', help='skip extra non-OS VMDK/qcow2 disks')
-    parser.add_argument('-r', '--raw', action='store_true', help='generate RAW disk images instead of QCOW2')
+    parser.add_argument('--help-datastores', action='store_true', help='display additional help text about datastore mappings')
+    parser.add_argument('--help-conversion', action='store_true', help='display additional help text about disk conversions')
+
+    inout = parser.add_argument_group('INPUT OUTPUT OPTIONS', 'main input and output for the program (REQUIRED)')
+    inout.add_argument('-o', '--output-xml', action='store', required=True,
+                       help='output libvirt XML file. Its directory is added to output datastores')
+    inout.add_argument('-i', '--input-vmx', '-f', '--filename', metavar="VMXFILE", action='store', required=True,
+                       help='the VMX description file to be converted. Its directory is added to input datastores')
+
+    general = parser.add_argument_group('GENERAL OPTIONS', 'verbosity control, version display')
+    general.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
+    general.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
+    general.add_argument('-V', '--version', action='version', version=program_version)
+    general.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
+
+    vmxt = parser.add_argument_group('VMX TRANSLATION OPTIONS', 'adjust how we translate VMWare .vmx to libvirt .xml')
+    vmxt.add_argument('-F', '--fidelity', action='store_true',
+                      help='generate an XML closer to the original VMX. Applies sched.cpu.affinity and explicitly adds a controller and disk hierarchy matching the VMX')
+    vmxt.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
+                      help='replace references starting with RIDS to IDS for finding the input disks,\n'
+                      'and translate those input disk prefixes to output datastore prefix ODS.\n'
+                      'Can be specified multiple times. Also see --help-datastores')
+
+    diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx file')
+    diskmode.add_argument('-t', '--translate-disks', action='store_true', help='just translate references from .vmdk to .qcow2 or .raw')
+    diskmode.add_argument('-c', '--convert-disks', action='store_true', help='translate but also convert disk contents across datastores')
+    diskmode.add_argument('-X', '--skip-extra', action='store_true', help='skip extra non-OS VMDK/qcow2 disks. Useful to test boot only.')
+
+    convmode = parser.add_argument_group('VMDK DISK CONVERSION OPTIONS', 'how to convert the VMDK disks, see also --help-conversion')
+    convmode.add_argument('-r', '--raw', action='store_true', help='generate .raw references and disks instead of the default .qcow2')
+    convmode.add_argument('-x', '--experimental', action='store_true', help='use qemu-img to convert the disks')
+    convmode.add_argument('-y', '--experimental2', action='store_true', help='use qemu-nbd and nbdcopy to convert the disks')
+    convmode.add_argument('-p', '--parallel', action='store', type=int, default=-1, help='specify nr of threads/connections/coroutines')
+    convmode.add_argument('-C', '--cache-mode', action='store', default="none", help=f'{cache_modes} for qemu-nbd and qemu-img convert')
+    convmode.add_argument('-N', '--numa-node', action='store', type=int, default=-1, help='restrict execution (mem, cpu) to NUMA node')
+    convmode.add_argument('-T', '--trace-cmd', action='store_true', help='generate /tmp/trace-xxx.dat-... profile for image conversions')
+    convmode.add_argument('-a', '--skip-adjust', action='store_true', help='skip adjustments to the guestfs. For testing purposes.')
 
     args: argparse.Namespace = parser.parse_args()
+    if (args.help_datastores):
+        help_datastores()
+    if (args.help_conversion):
+        help_conversion()
     if (args.experimental and args.experimental2):
         log.critical("cannot specify both -x and -y at the same time.")
         sys.exit(1)
@@ -674,7 +718,7 @@ def get_options(argc: int, argv: list) -> tuple:
     # initialize logging module
     log_init(args.verbose, args.quiet)
 
-    vmx_name: str = args.filename
+    vmx_name: str = args.input_vmx
     xml_name: str = args.output_xml
     fidelity: bool = args.fidelity
     trace_cmd: bool = args.trace_cmd
