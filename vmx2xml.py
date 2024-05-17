@@ -637,10 +637,23 @@ def help_datastores() -> None:
 
 def help_conversion() -> None:
     print("HELP CONVERSION\n\n"
-          "By default the Disk Conversion uses virt-v2v to adjust the guestfs for running on KVM,\n"
-          "which includes injecting the virtio drivers among a number of other changes.\n"
-          "virt-v2v is also used by default to convert the VMDK to .qcow2 or .raw,\n"
-          "In this mode of operation, other EXPERIMENTAL ADVANCED OPTIONS are not going to be available.\n\n")
+          "By default virt-v2v is used to convert the VMDK to .qcow2 or .raw,\n"
+          "which also includes many adjustments to the guestfs for running on KVM.\n"
+          "In this mode of operation, no advanced options will be available,\n"
+          "as virt-v2v does not offer any control over the parameters it uses internally.\n\n"
+          "VMDK EXPERIMENTAL AND ADVANCED OPTIONS\n\n"
+          "For more control over the conversion operation, you can choose:\n"
+          "-x which uses qemu-img convert,\n"
+          "-y which uses qemu-nbd and nbdcopy.\n\n"
+          "When either -x or -y are selected, all the VMDK ADVANCED OPTIONS can be used\n"
+          "to fine tune the conversion procedure.\n\n"
+          "GUESTFS ADJUSTMENT\n\n"
+          "The changes to the VM guest filesystem to run on KVM are done by default using\n"
+          "virt-v2v and the virt-v2v-in-place commands.\n"
+          "For experimental modes, one can choose the following alternative methods:\n"
+          "-a which instructs the program to not perform any adjustments at all. This is used for tests.\n"
+          "-A which uses adjust_guestfs.py to do a minimal adjustment,\n"
+          "   just rebuilding the initrd with virtio drivers and trimming the filesystems.\n\n")
     sys.exit(0)
 
 
@@ -686,11 +699,14 @@ def get_options(argc: int, argv: list) -> tuple:
     convmode.add_argument('-r', '--raw', action='store_true', help='generate .raw references and disks instead of the default .qcow2')
     convmode.add_argument('-x', '--experimental', action='store_true', help='use qemu-img to convert the disks')
     convmode.add_argument('-y', '--experimental2', action='store_true', help='use qemu-nbd and nbdcopy to convert the disks')
-    convmode.add_argument('-p', '--parallel', action='store', type=int, default=-1, help='specify nr of threads/connections/coroutines')
-    convmode.add_argument('-C', '--cache-mode', action='store', default="none", help=f'{cache_modes} for qemu-nbd and qemu-img convert')
-    convmode.add_argument('-N', '--numa-node', action='store', type=int, default=-1, help='restrict execution (mem, cpu) to NUMA node')
-    convmode.add_argument('-T', '--trace-cmd', action='store_true', help='generate /tmp/trace-xxx.dat-... profile for image conversions')
-    convmode.add_argument('-a', '--skip-adjust', action='store_true', help='skip adjustments to the guestfs. For testing purposes.')
+
+    advanced = parser.add_argument_group('VMDK ADVANCED OPTIONS', 'for -x, -y modes only')
+    advanced.add_argument('-p', '--parallel', action='store', type=int, default=-1, help='specify nr of threads/connections/coroutines')
+    advanced.add_argument('-C', '--cache-mode', action='store', default="none", help=f'{cache_modes} for qemu-nbd and qemu-img convert')
+    advanced.add_argument('-N', '--numa-node', action='store', type=int, default=-1, help='restrict execution (mem, cpu) to NUMA node')
+    advanced.add_argument('-T', '--trace-cmd', action='store_true', help='generate /tmp/trace-xxx.dat-... profile for image conversions')
+    advanced.add_argument('-a', '--skip-adjust', action='store_true', help='skip adjustments to the guestfs. For testing purposes.')
+    advanced.add_argument('-A', '--x-adjust', action='store_true', help='experimental minimal guest adjustments.')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.help_datastores):
