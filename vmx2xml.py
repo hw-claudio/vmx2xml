@@ -702,7 +702,7 @@ def get_options(argc: int, argv: list) -> tuple:
 
     advanced = parser.add_argument_group('VMDK ADVANCED OPTIONS', 'for -x, -y modes only')
     advanced.add_argument('-p', '--parallel', action='store', type=int, default=-1, help='specify nr of threads/connections/coroutines')
-    advanced.add_argument('-C', '--cache-mode', action='store', default="none", help=f'{cache_modes} for qemu-nbd and qemu-img convert')
+    advanced.add_argument('-C', '--cache-mode', action='store', default="none", choices=cache_modes, help='img cache mode during conversions')
     advanced.add_argument('-N', '--numa-node', action='store', type=int, default=-1, help='restrict execution (mem, cpu) to NUMA node')
     advanced.add_argument('-T', '--trace-cmd', action='store_true', help='generate /tmp/trace-xxx.dat-... profile for image conversions')
     advanced.add_argument('-a', '--skip-adjust', action='store_true', help='skip adjustments to the guestfs. For testing purposes.')
@@ -720,9 +720,6 @@ def get_options(argc: int, argv: list) -> tuple:
         use_v2v = 0
     elif (args.experimental2):
         use_v2v = -1
-    if (args.cache_mode not in cache_modes):
-        log.critical("cache_mode must be one of %s.", cache_modes)
-        sys.exit(1)
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
