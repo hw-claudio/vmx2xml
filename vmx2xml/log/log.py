@@ -6,18 +6,19 @@
 # Logging module
 
 import logging
+import typing
 
 log: logging.Logger = logging.getLogger(__name__)
 
 def log_disable_nl() -> None:
     global log
-    handler: logging.StreamHandler = log.handlers[0]
+    handler: logging.StreamHandler = typing.cast(logging.StreamHandler, log.handlers[0])
     handler.terminator = ""
 
 
 def log_enable_nl() -> None:
     global log
-    handler: logging.StreamHandler = log.handlers[0]
+    handler: logging.StreamHandler = typing.cast(logging.StreamHandler, log.handlers[0])
     handler.terminator = "\n"
 
 
