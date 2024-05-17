@@ -369,8 +369,7 @@ def virt_install(vinst_version: float, disk_mode: int, datastores: dict, use_v2v
     args: list = [ "virt-install", "--print-xml", "--dry-run", "--noautoconsole", "--check", "all=off" ]
     args.extend(["--virt-type", "kvm"])
 
-    # for Windows 2012, "PC" is necessary to boot, with legacy BIOS, and "fidelity" mode MUST be used
-    # otherwise the OS will detect the hardware change and refuse to start.
+    # for Windows 2012, "PC" is necessary to boot, with legacy BIOS.
     args.extend(["--machine", "q35" if (uefi) else "pc"])
 
     # Starting with virt-install 4.0.0 providing osinfo is REQUIRED which breaks scripts,
