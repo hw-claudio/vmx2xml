@@ -313,7 +313,7 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     return translate(translator, s);
 
 
-def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: dict, conv_mode: int, osd: dict,
+def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: dict, conv_mode: str, osd: dict,
                  trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, skip_adjust: bool, raw: bool) -> str:
     os.makedirs(os.path.dirname(targetpath), exist_ok=True)
     if (disk_mode <= 1):
@@ -326,14 +326,14 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: d
     assert(disk_mode >= 2)
     if (sourcepath.endswith(".vmdk")):
         has_os: bool = True if osd["name"] else False
-        if (conv_mode == 1):
+        if (conv_mode == "v2v"):
             if (has_os and not skip_adjust):
                 img_v2v_convert(sourcepath, targetpath, trace_cmd, numa_node, raw)
             else:
                 img_qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode, numa_node, parallel, raw)
-        elif (conv_mode == 0):
+        elif (conv_mode == "x"):
             img_qemu_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
-        elif (conv_mode == -1):
+        elif (conv_mode == "y"):
             img_qemu_nbd_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
         else:
             assert(0) # unhandled conv_mode value
@@ -353,7 +353,7 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: d
     return targetpath
 
 
-def virt_install(vinst_version: float, disk_mode: int, datastores: dict, conv_mode: int, fidelity: bool,
+def virt_install(vinst_version: float, disk_mode: int, datastores: dict, conv_mode: str, fidelity: bool,
                  trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, skip_adjust: bool, skip_extra: bool, raw: bool,
                  xml_name: str, vmx_name: str, displayname: str, annotation: str,
                  cpu: dict, memory: int,
@@ -660,7 +660,8 @@ def help_conversion() -> None:
 def get_options(argc: int, argv: list) -> tuple:
     global log
     cache_modes: list = [ "none", "writeback", "unsafe", "directsync", "writethrough" ]
-    conv_mode: int = 1
+    conv_modes: list = [ "v2v", "x", "y" ]
+    conv_mode: str = "v2v"
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n"
@@ -717,9 +718,9 @@ def get_options(argc: int, argv: list) -> tuple:
         log.critical("cannot specify both -x and -y at the same time.")
         sys.exit(1)
     if (args.experimental):
-        conv_mode = 0
+        conv_mode = "x"
     elif (args.experimental2):
-        conv_mode = -1
+        conv_mode = "y"
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
