@@ -297,10 +297,10 @@ def main(argc: int, argv: list) -> int:
         rv = adjust_guestfs(nbd, True)
 
     if (rv):
-        log.warning("guest adjustment successful.")
+        log.warning("adjust_guestfs.py: guest adjustment successful.")
         return 0
     else:
-        log.warning("guest adjustment reports failure.")
+        log.warning("adjust_guestfs.py: guest adjustment FAILURE!")
         return 1
 
 

@@ -325,16 +325,23 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, raw: bool, da
     # CONVERSION / MOVE asked
     assert(disk_mode >= 2)
     if (sourcepath.endswith(".vmdk")):
-        has_os: bool = True if osd["name"] else False
+        has_os: bool
+        if (osd["name"]):
+            has_os = True
+        else:
+            # we cannot adjust a disk that has no OS, and we cannot directly call v2v on it.
+            # We use "y" as the closest replacement for "v2v" disk mode in this case.
+            has_os = False
+            adj_mode = "none"
+            if (conv_mode == "v2v"):
+                conv_mode = "y"
+
         if (conv_mode == "v2v"):
-            if (has_os and adj_mode != "none"):
-                img_v2v_convert(sourcepath, targetpath, trace_cmd, numa_node, raw)
-            else:
-                img_qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_v2v_convert(sourcepath, targetpath, trace_cmd, numa_node, raw)
         elif (conv_mode == "x"):
-            img_qemu_convert(sourcepath, targetpath, has_os and adj_mode != "none", trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_convert(sourcepath, targetpath, adj_mode, trace_cmd, cache_mode, numa_node, parallel, raw)
         elif (conv_mode == "y"):
-            img_qemu_nbd_convert(sourcepath, targetpath, has_os and adj_mode != "none", trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_nbd_convert(sourcepath, targetpath, adj_mode, trace_cmd, cache_mode, numa_node, parallel, raw)
         else:
             assert(0) # unhandled conv_mode value
 
@@ -665,7 +672,7 @@ def get_options(argc: int, argv: list) -> tuple:
     conv_modes: list = [ "v2v", "x", "y" ]
     conv_mode: str = "v2v"
     adj_modes: list = [ "none", "v2v", "x" ]
-    adj_mode: str = "x"
+    adj_mode: str = "v2v"
 
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',

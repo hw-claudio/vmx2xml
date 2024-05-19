@@ -12,7 +12,24 @@ import subprocess
 
 from vmx2xml.log import *
 
-def adjust_guestfs(path: str, nbd: bool) -> bool:
+
+# in-place adjustment using virt-v2v-in-place, returns True on success.
+def adjust_guestfs_v2v(from_file: str) -> bool:
+    args: list = [ "virt-v2v-in-place", "--root=first", "-i", "disk" ]
+
+    if (log.level > logging.WARNING):
+        args.append("--quiet")
+    if (log.level <= logging.DEBUG):
+        args.extend(["--verbose", "-x"])
+    args.append(from_file)
+
+    log.debug("%s", args)
+    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8')
+    return (p.returncode == 0)
+
+
+# adjust using the experimental adjust_guestfs.py. Returns True on success.
+def adjust_guestfs_py(path: str, nbd: bool) -> bool:
     args: list = [ "adjust_guestfs.py", "-n" if (nbd) else "-f", path ]
     v: int; q: int; i: int
 
@@ -29,6 +46,25 @@ def adjust_guestfs(path: str, nbd: bool) -> bool:
     if (p.returncode != 0):
         return False
     return True
+
+
+def adjust_guestfs(path: str, nbd: bool, adj_mode: str) -> bool:
+    if (adj_mode == "none"):
+        log.warning('adjust_guestfs: unexpected call with adjustment mode "none"')
+        return False
+    rv: bool
+    if (adj_mode == "v2v"):
+        rv = adjust_guestfs_v2v(path)
+    elif (adj_mode == "x"):
+        rv = adjust_guestfs_py(path, nbd)
+    else:
+        assert(0)               # unsupported adj_mode
+
+    if (rv):
+        log.info("adjust_guestfs: success adjusting disk %s", path)
+    else:
+        log.warning("adjust_guestfs: failure adjusting disk %s", path)
+    return rv
 
 
 def adjust_guestfs_detect_version() -> float:

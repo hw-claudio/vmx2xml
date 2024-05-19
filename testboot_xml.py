@@ -14,9 +14,9 @@ import argparse
 import time
 
 from vmx2xml.log import *
+from vmx2xml.img import *
 from vmx2xml.adjust import *
 from vmx2xml.inspector import *
-from vmx2xml.img import *
 from vmx2xml.stopwatch import *
 
 program_version: str = "0.1"
@@ -188,9 +188,7 @@ def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adj
         if not (skip_adjust):
             log.info("ADJUST %s", tmp.name)
             if (use_v2v == 1):
-                img_v2v_adjust(tmp.name)
-            else:
-                adjust_guestfs(tmp.name, False)
+                adjust_guestfs(tmp.name, False, "v2v" if (use_v2v == 1) else "x")
         log.info("DISK REF %s", tmp.name)
         virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
         overlays.append(tmp)

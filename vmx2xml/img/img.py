@@ -66,25 +66,6 @@ def img_v2v_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
     os.rename(srcnames[0], to_file)
 
 
-# in-place adjustment using virt-v2v-in-place
-def img_v2v_adjust(from_file: str) -> None:
-    args: list = [ "virt-v2v-in-place", "--root=first", "-i", "disk" ]
-
-    if (log.level > logging.WARNING):
-        args.append("--quiet")
-    if (log.level <= logging.DEBUG):
-        args.extend(["--verbose", "-x"])
-    args.append(from_file)
-
-    log.debug("%s", args)
-    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8')
-
-    if (p.returncode == 0):
-        log.info("virt-v2v-in-place: reports success converting disk %s", from_file)
-    else:
-        log.warning("virt-v2v-in-place: reports failure converting disk %s", from_file)
-
-
 # there is no annotation for Tempfile, so return type is unknown
 def img_qemu_create_overlay(from_file: str, bformat: str):
     tmp = tempfile.NamedTemporaryFile()
@@ -145,15 +126,15 @@ def img_qemu_info(from_file: str) -> int:
     return int(vsize_m.group(1))
 
 
-def img_qemu_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
+def img_qemu_convert(sourcepath: str, targetpath: str, adj_mode: str, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
     src: str = sourcepath
-    if (adjust):
+    if (adj_mode != "none"):
         tmp = img_qemu_create_overlay(sourcepath, "vmdk")
-        adjust_guestfs(tmp.name, False)
+        adjust_guestfs(tmp.name, False, adj_mode)
         src = tmp.name
 
     img_qemu_copy(src, targetpath, trace_cmd, cache_mode, numa_node, parallel, raw)
-    if (adjust):
+    if (adj_mode != "none"):
         tmp.close()
 
 
@@ -199,10 +180,10 @@ def img_qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, para
         img_wait_child(tpid)
 
 
-def img_qemu_nbd_convert(sourcepath: str, targetpath: str, adjust: bool, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
-    (sin, pidin) = img_qemu_nbd_create(sourcepath, adjust, cache_mode, False, False if (adjust) else True)
-    if (adjust):
-        adjust_guestfs(sin.name, True)
+def img_qemu_nbd_convert(sourcepath: str, targetpath: str, adj_mode: str, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
+    (sin, pidin) = img_qemu_nbd_create(sourcepath, adj_mode != "none", cache_mode, False, adj_mode == "none")
+    if (adj_mode != "none"):
+        adjust_guestfs(sin.name, True, adj_mode)
     vsize: int = img_qemu_info(sourcepath)
     img_qemu_create(targetpath, vsize, raw)
     (sout, pidout) = img_qemu_nbd_create(targetpath, False, cache_mode, raw, False)
