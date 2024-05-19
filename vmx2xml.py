@@ -313,8 +313,8 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     return translate(translator, s);
 
 
-def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: dict, conv_mode: str, osd: dict,
-                 trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, skip_adjust: bool, raw: bool) -> str:
+def convert_path(sourcepath: str, targetpath: str, disk_mode: int, raw: bool, datastores: dict, conv_mode: str, adj_mode: str,
+                 osd: dict, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int) -> str:
     os.makedirs(os.path.dirname(targetpath), exist_ok=True)
     if (disk_mode <= 1):
         # we need to create a pseudo disk for the virt install command to succeed
@@ -327,14 +327,14 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: d
     if (sourcepath.endswith(".vmdk")):
         has_os: bool = True if osd["name"] else False
         if (conv_mode == "v2v"):
-            if (has_os and not skip_adjust):
+            if (has_os and adj_mode != "none"):
                 img_v2v_convert(sourcepath, targetpath, trace_cmd, numa_node, raw)
             else:
                 img_qemu_nbd_convert(sourcepath, targetpath, False, trace_cmd, cache_mode, numa_node, parallel, raw)
         elif (conv_mode == "x"):
-            img_qemu_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_convert(sourcepath, targetpath, has_os and adj_mode != "none", trace_cmd, cache_mode, numa_node, parallel, raw)
         elif (conv_mode == "y"):
-            img_qemu_nbd_convert(sourcepath, targetpath, has_os and not skip_adjust, trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_nbd_convert(sourcepath, targetpath, has_os and adj_mode != "none", trace_cmd, cache_mode, numa_node, parallel, raw)
         else:
             assert(0) # unhandled conv_mode value
 
@@ -353,9 +353,11 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, datastores: d
     return targetpath
 
 
-def virt_install(vinst_version: float, disk_mode: int, datastores: dict, conv_mode: str, fidelity: bool,
-                 trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, skip_adjust: bool, skip_extra: bool, raw: bool,
-                 xml_name: str, vmx_name: str, displayname: str, annotation: str,
+def virt_install(vinst_version: float,
+                 vmx_name: str, xml_name: str, fidelity: bool,
+                 disk_mode: int, raw: bool, skip_extra: bool, datastores: dict, conv_mode: str, adj_mode: str,
+                 trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int,
+                 displayname: str, annotation: str,
                  cpu: dict, memory: int,
                  vcpus: int, sockets: int, cores: int, threads: int, vm_affinity: str,
                  iothreads: int,
@@ -474,8 +476,8 @@ def virt_install(vinst_version: float, disk_mode: int, datastores: dict, conv_mo
             log.info("skipping extra non-OS disk %s", paths[0])
             continue
         stopwatch_start()
-        path = convert_path(paths[0], paths[1], disk_mode, datastores, conv_mode, disk["os"],
-                            trace_cmd, cache_mode, numa_node, parallel, skip_adjust, raw)
+        path = convert_path(paths[0], paths[1], disk_mode, raw, datastores, conv_mode, adj_mode, disk["os"],
+                            trace_cmd, cache_mode, numa_node, parallel)
         if (disk_mode >= 2):
             end_time: float = time.perf_counter();
             elapsed: float = stopwatch_elapsed()
@@ -662,6 +664,9 @@ def get_options(argc: int, argv: list) -> tuple:
     cache_modes: list = [ "none", "writeback", "unsafe", "directsync", "writethrough" ]
     conv_modes: list = [ "v2v", "x", "y" ]
     conv_mode: str = "v2v"
+    adj_modes: list = [ "none", "v2v", "x" ]
+    adj_mode: str = "x"
+
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
         description="converts a VMX Virtual Machine definition into a libvirt XML domain file\n"
@@ -694,10 +699,10 @@ def get_options(argc: int, argv: list) -> tuple:
     diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx file')
     diskmode.add_argument('-t', '--translate-disks', action='store_true', help='just translate references from .vmdk to .qcow2 or .raw')
     diskmode.add_argument('-c', '--convert-disks', action='store_true', help='translate but also convert disk contents across datastores')
+    diskmode.add_argument('-r', '--raw', action='store_true', help='generate .raw references and disks instead of the default .qcow2')
     diskmode.add_argument('-X', '--skip-extra', action='store_true', help='skip extra non-OS VMDK/qcow2 disks. Useful to test boot only.')
 
     convmode = parser.add_argument_group('VMDK DISK CONVERSION OPTIONS', 'how to convert the VMDK disks, see also --help-conversion')
-    convmode.add_argument('-r', '--raw', action='store_true', help='generate .raw references and disks instead of the default .qcow2')
     convmode.add_argument('-x', '--experimental', action='store_true', help='use qemu-img to convert the disks')
     convmode.add_argument('-y', '--experimental2', action='store_true', help='use qemu-nbd and nbdcopy to convert the disks')
 
@@ -717,10 +722,17 @@ def get_options(argc: int, argv: list) -> tuple:
     if (args.experimental and args.experimental2):
         log.critical("cannot specify both -x and -y at the same time.")
         sys.exit(1)
+    if (args.skip_adjust and args.x_adjust):
+        log.critical("cannot specify both -a and -A at the same time.")
+        sys.exit(1)
     if (args.experimental):
         conv_mode = "x"
     elif (args.experimental2):
         conv_mode = "y"
+    if (args.skip_adjust):
+        adj_mode = "none"
+    elif (args.x_adjust):
+        adj_mode = "x"
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
@@ -761,10 +773,12 @@ def get_options(argc: int, argv: list) -> tuple:
     disk_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_disks) else 0
     overwrite: bool = args.overwrite
 
-    log.debug("[OPTIONS] vmx_name=%s xml_name=%s disk_mode:%s datastores:%s usev2v:%s overwrite:%s fidelity:%s "
-              "trace_cmd:%s cache_mode:%s numa_node:%s parallel:%s skip_adjust:%s skip_extra:%s raw:%s",
-              vmx_name, xml_name, disk_mode, datastores, conv_mode, overwrite, fidelity,
-              trace_cmd, cache_mode, numa_node, parallel, args.skip_adjust, args.skip_extra, args.raw)
+    log.debug("[OPTIONS] vmx_name=%s xml_name=%s overwrite:%s fidelity:%s "
+              "disk_mode:%s raw:%s skip_extra:%s datastores:%s conv_mode:%s adj_mode:%s"
+              "trace_cmd:%s cache_mode:%s numa_node:%s parallel:%s",
+              vmx_name, xml_name, overwrite, fidelity,
+              disk_mode, args.raw, args.skip_extra, datastores, conv_mode, adj_mode,
+              trace_cmd, cache_mode, numa_node, parallel)
 
     if (os.path.exists(xml_name)):
         if (not overwrite):
@@ -776,13 +790,14 @@ def get_options(argc: int, argv: list) -> tuple:
         log.critical("invalid xml name %s, does not end in .xml", xml_name)
         sys.exit(1)
 
-    return (vmx_name, xml_name, disk_mode, datastores, conv_mode, fidelity,
-            trace_cmd, cache_mode, numa_node, parallel, args.skip_adjust, args.skip_extra, args.raw)
+    return (vmx_name, xml_name, fidelity,
+            disk_mode, args.raw, args.skip_extra, datastores, conv_mode, adj_mode,
+            trace_cmd, cache_mode, numa_node, parallel)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, disk_mode, datastores, conv_mode, fidelity,
-     trace_cmd, cache_mode, numa_node, parallel, skip_adjust, skip_extra, raw) = get_options(argc, argv)
+    (vmx_name, xml_name, fidelity, disk_mode, raw, skip_extra, datastores, conv_mode, adj_mode,
+     trace_cmd, cache_mode, numa_node, parallel) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
     vinsp_version: float = inspector_detect_version()
@@ -889,9 +904,10 @@ def main(argc: int, argv: list) -> int:
     log.debug("%s", eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version, disk_mode, datastores, conv_mode, fidelity,
-                 trace_cmd, cache_mode, numa_node, parallel, skip_adjust, skip_extra, raw,
-                 xml_name, vmx_name, displayname, annotation,
+    virt_install(vinst_version,
+                 vmx_name, xml_name, fidelity, disk_mode, raw, skip_extra, datastores, conv_mode, adj_mode,
+                 trace_cmd, cache_mode, numa_node, parallel,
+                 displayname, annotation,
                  cpu, memory,
                  vcpus, sockets, cores, threads, vm_affinity,
                  iothreads,
