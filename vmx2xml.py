@@ -28,6 +28,7 @@ from vmx2xml.adjust import *
 from vmx2xml.inspector import *
 from vmx2xml.img import *
 from vmx2xml.stopwatch import *
+from vmx2xml.detectv import *
 
 program_version: str = "0.1"
 
@@ -590,46 +591,17 @@ def virt_install(vinst_version: float,
 
 # detect virt-install version only considering major.minor
 def detect_vinst_version() -> float:
-    s: str = ""
-    args: list = [ "virt-install", "--version" ]
-
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("virt-install NOT FOUND")
-        sys.exit(1)
-    (s, _) = p.communicate()
-    m = re.match(r"^(\d+\.\d+)", s)
-    if not (m):
-        log.critical("failed to detect virt-install version: %s", s)
-        sys.exit(1)
-    v: float = float(m.group(1)) or 0
+    v: float = detectv([ "virt-install", "--version" ], r"^(\d+\.\d+)", True)
     if (v < 2.2):
         log.critical("virt-install version >= 2.2.0 is required for this command to work")
         sys.exit(1)
     if (v < 4.0):
         log.warning("virt-install version >= 4.0.0 is recommended for best results")
-    log.info("virt-install: detected version %s", v)
     return v
 
 
 def detect_qemu_img_version() -> float:
-    args: list = [ "qemu-img", "--version" ]
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("qemu-img NOT FOUND")
-        sys.exit(1)
-    (s, _) = p.communicate()
-    m = re.match(r"^.*version (\d+\.\d+)", s)
-    if not (m):
-        log.critical("failed to detect qemu-img version: %s", s)
-        sys.exit(1)
-    v: float = float(m.group(1)) or 0
-    log.info("qemu-img: detected version %s", v)
-    return v
+    return detectv([ "qemu-img", "--version" ], r"^.*version (\d+\.\d+)", True)
 
 
 def is_dir(string: str) -> bool:
