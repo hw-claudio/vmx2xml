@@ -755,6 +755,17 @@ def get_options(argc: int, argv: list) -> tuple:
     advanced.add_argument('-A', '--x-adjust', action='store_true', help='experimental minimal guest adjustments.')
 
     args: argparse.Namespace = parser.parse_args()
+    if (args.verbose and args.quiet):
+        log.critical("cannot specify both --verbose and --quiet at the same time.")
+        sys.exit(1)
+    if (args.verbose > 2):
+        args.verbose = 2
+    if (args.quiet > 2):
+        args.quiet = 2
+
+    # initialize logging module
+    log_init(args.verbose, args.quiet)
+
     if (args.help_datastores):
         help_datastores()
     if (args.help_conversion):
@@ -778,16 +789,6 @@ def get_options(argc: int, argv: list) -> tuple:
         adj_mode = "none"
     elif (args.x_adjust):
         adj_mode = "x"
-    if (args.verbose and args.quiet):
-        log.critical("cannot specify both --verbose and --quiet at the same time.")
-        sys.exit(1)
-    if (args.verbose > 2):
-        args.verbose = 2
-    if (args.quiet > 2):
-        args.quiet = 2
-
-    # initialize logging module
-    log_init(args.verbose, args.quiet)
 
     vmx_name: str = args.input_vmx
     xml_name: str = args.output_xml
