@@ -15,7 +15,7 @@ import guestfs
 
 from vmx2xml.log import *
 
-program_version: str = "0.1"
+program_version: str = "0.2"
 
 # Launches libguestfs, and attempts to detect a supported guestOS to adjust.
 # If it finds a supported OS, returns a tuple (GuestFS, rootdev, supported_os),
@@ -218,21 +218,23 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     return False
 
 
-def guestfs_lin(g: guestfs.GuestFS, root: str) -> bool:
+def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool) -> bool:
     if not (guestfs_lin_mount_all(g, root)):
         return False
-    if not (guestfs_lin_update_initrd(g)):
-        return False
-    if not (guestfs_lin_trim_all(g)):
-        return False
+    if (drivers):
+        if not (guestfs_lin_update_initrd(g)):
+            return False
+    if (trim):
+        if not (guestfs_lin_trim_all(g)):
+            return False
     return True
 
 
-def guestfs_win(g: guestfs.GuestFS, root: str) -> bool:
+def guestfs_win(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool) -> bool:
     return False
 
 
-def adjust_guestfs(path: str, nbd: bool) -> bool:
+def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool) -> bool:
     g: guestfs.GuestFS; root: str; os_type: str
     (g, root, os_type) = guestfs_launch(path, nbd)
     if (not g):
@@ -241,9 +243,9 @@ def adjust_guestfs(path: str, nbd: bool) -> bool:
         return False
     rv: bool
     if (os_type == "linux"):
-        rv = guestfs_lin(g, root)
+        rv = guestfs_lin(g, root, drivers, trim)
     elif (os_type == "windows"):
-        rv = guestfs_win(g, root)
+        rv = guestfs_win(g, root, drivers, trim)
     else:
         rv = False # supported OS must be handled before reaching here
     g.close()
@@ -264,37 +266,43 @@ def get_options(argc: int, argv: list) -> tuple:
                         help='the guest image to be converted')
     parser.add_argument('-n', '--nbd', metavar="NAMEDSOCKET", action='store',
                         help='an NBD socket to use instead of filename')
+    parser.add_argument('-d', '--drivers', action='store_true', help='install virtio drivers')
+    parser.add_argument('-t', '--trim', action='store_true', help='trim guest filesystems')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
+    if (args.verbose > 2):
+        args.verbose = 2
+    if (args.quiet > 2):
+        args.quiet = 2
+    log_init(args.verbose, args.quiet)
+
     if (not args.filename) and (not args.nbd):
         log.critical("specify either -f, --filename or -n, --nbd.")
         sys.exit(1)
     if (args.filename and args.nbd):
         log.critical("cannot specify both -f, --filename and -n, --nbd at the same time.")
         sys.exit(1)
-    if (args.verbose > 2):
-        args.verbose = 2
-    if (args.quiet > 2):
-        args.quiet = 2
+    if (not args.drivers and not args.trim):
+        log.warning("no action specified, nothing to do.")
+        sys.exit(0)
 
-    log_init(args.verbose, args.quiet)
     filename: str = args.filename
     nbd: str = args.nbd
-    log.debug("[OPTIONS] filename=%s nbd=%s", filename, nbd)
-    return (filename, nbd)
+    log.debug("[OPTIONS] filename=%s nbd=%s drivers=%s trim=%s", filename, nbd, args.drivers, args.trim)
+    return (filename, nbd, args.drivers, args.trim)
 
 
 def main(argc: int, argv: list) -> int:
-    (filename, nbd) = get_options(argc, argv)
+    (filename, nbd, drivers, trim) = get_options(argc, argv)
     rv: bool
 
     if (filename):
-        rv = adjust_guestfs(filename, False)
+        rv = adjust_guestfs(filename, False, drivers, trim)
     else:
-        rv = adjust_guestfs(nbd, True)
+        rv = adjust_guestfs(nbd, True, drivers, trim)
 
     if (rv):
         log.warning("adjust_guestfs.py: guest adjustment successful.")

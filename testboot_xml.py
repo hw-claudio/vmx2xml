@@ -133,7 +133,9 @@ def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list
         log.info("OVERLAY %s => %s", source, tmp.name)
         if (adj_mode != "none"):
             log.info("ADJUST %s", tmp.name)
-            adjust_guestfs(tmp.name, False, adj_mode)
+            # we only need to inject the drivers here, no need to trim the image as we run it directly
+            adj_actions = { "drivers": True, "trim": False }
+            adjust_guestfs(tmp.name, False, adj_mode, adj_actions)
         log.info("DISK REF %s", tmp.name)
         virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
         overlays.append(tmp)
