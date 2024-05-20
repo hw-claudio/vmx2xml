@@ -3,7 +3,7 @@
 # Copyright (c) 2024 SUSE LLC
 # Written by Claudio Fontana <claudio.fontana@suse.com>
 #
-# command version detection submodule
+# command execution and version detection submodule
 
 import sys
 import re
@@ -20,7 +20,7 @@ def detectv_failed(arg: str, check: bool, e: str) -> float:
     return 0
 
 
-def detectv(args: list, r: str, check: bool) -> float:
+def runcmd_detectv(args: list, r: str, check: bool) -> float:
     s: str = ""
     log.debug("%s", args)
     try:
@@ -36,3 +36,20 @@ def detectv(args: list, r: str, check: bool) -> float:
         return detectv_failed(args[0], check, "parse version")
     log.info("%s: detected version %s", args[0], v)
     return v
+
+
+def runcmd(args: list, check: bool) -> str:
+    log.debug("%s", args)
+    try:
+        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
+    except Exception as exp:
+        log.critical("%s: exception running command %s: \n%s", args[0], args, exp)
+        sys.exit(1)
+    (s, e) = p.communicate()
+    if (p.returncode != 0):
+        if (check):
+            log.critical("%s: failure detected in command %s: \n%s", args[0], args, e)
+            sys.exit(1)
+        log.warning("%s: failure detected in command %s: \n%s", args[0], args, e)
+        return ""
+    return s

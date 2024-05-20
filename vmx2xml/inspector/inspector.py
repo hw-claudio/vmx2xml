@@ -10,17 +10,13 @@ import re
 import subprocess
 
 from vmx2xml.log import *
-from vmx2xml.detectv import *
+from vmx2xml.runcmd import *
 
 def inspector_inspect(path: str) -> dict:
-    args: list = [ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ]
+    s: str = runcmd([ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ], False)
     osd: dict = { "name": '', "osinfo": '' }
 
-    log.debug("%s", args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, encoding='utf-8')
-    (s, _) = p.communicate()
-
-    if (p.returncode != 0):
+    if (not s):
         log.error("%s could not be inspected.", path)
         return osd
 
@@ -36,4 +32,4 @@ def inspector_inspect(path: str) -> dict:
 
 
 def inspector_detect_version() -> float:
-    return detectv([ "virt-inspector", "--version" ], r" (\d+\.\d+)", True)
+    return runcmd_detectv([ "virt-inspector", "--version" ], r" (\d+\.\d+)", True)

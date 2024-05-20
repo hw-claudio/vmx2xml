@@ -28,7 +28,7 @@ from vmx2xml.adjust import *
 from vmx2xml.inspector import *
 from vmx2xml.img import *
 from vmx2xml.stopwatch import *
-from vmx2xml.detectv import *
+from vmx2xml.runcmd import *
 
 program_version: str = "0.1"
 
@@ -591,7 +591,7 @@ def virt_install(vinst_version: float,
 
 # detect virt-install version only considering major.minor
 def detect_vinst_version() -> float:
-    v: float = detectv([ "virt-install", "--version" ], r"^(\d+\.\d+)", True)
+    v: float = runcmd_detectv([ "virt-install", "--version" ], r"^(\d+\.\d+)", True)
     if (v < 2.2):
         log.critical("virt-install version >= 2.2.0 is required for this command to work")
         sys.exit(1)
@@ -601,7 +601,7 @@ def detect_vinst_version() -> float:
 
 
 def detect_qemu_img_version() -> float:
-    return detectv([ "qemu-img", "--version" ], r"^.*version (\d+\.\d+)", True)
+    return runcmd_detectv([ "qemu-img", "--version" ], r"^.*version (\d+\.\d+)", True)
 
 
 def is_dir(string: str) -> bool:

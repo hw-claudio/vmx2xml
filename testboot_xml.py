@@ -18,71 +18,32 @@ from vmx2xml.img import *
 from vmx2xml.adjust import *
 from vmx2xml.inspector import *
 from vmx2xml.stopwatch import *
-from vmx2xml.detectv import *
+from vmx2xml.runcmd import *
 
 program_version: str = "0.1"
 
 def detect_virsh_version() -> float:
-    return detectv([ "virsh", "--version" ], r"^(\d+\.\d+)", True)
+    return runcmd_detectv([ "virsh", "--version" ], r"^(\d+\.\d+)", True)
 
 
 def detect_virt_xml_version() -> float:
-    return detectv([ "virt-xml", "--version" ], r"^(\d+\.\d+)", True)
+    return runcmd_detectv([ "virt-xml", "--version" ], r"^(\d+\.\d+)", True)
 
 
 def detect_arping_version() -> float:
-    return detectv([ "arping", "-V" ], r"^arping.*(\d+)$", True)
+    return runcmd_detectv([ "arping", "-V" ], r"^arping.*(\d+)$", True)
 
 
 def virsh(params: list, check: bool) -> str:
-    s: str; e: str
     args: list = [ "virsh" ]
     args.extend(params)
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-    except Exception as exp:
-        log.critical("virsh: exception running command: %s: \n%s", args, exp)
-        sys.exit(1)
-    (s, e) = p.communicate()
-    if (p.returncode != 0 and check):
-        log.critical("virsh: failure detected in command: %s: \n%s", args, e)
-        sys.exit(1)
-    return s
+    return runcmd(args, check)
 
 
 def virt_xml(domain: str, params: list) -> None:
-    s: str; e: str
-    args: list = [ "virt-xml", domain ]
+    args: list = [ "virt-xml" ]
     args.extend(params)
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("virt-xml NOT FOUND")
-        sys.exit(1)
-    (s, e) = p.communicate()
-    if (p.returncode != 0):
-        log.critical("failure detected in %s: \n%s", args, e)
-        sys.exit(1)
-    log.debug("%s", s)
-
-
-def ip_neigh_show() -> str:
-    s: str; e: str
-    args: list = [ "ip", "neigh", "show" ]
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("ip NOT FOUND")
-        sys.exit(1)
-    (s, e) = p.communicate()
-    if (p.returncode != 0):
-        log.critical("failure detected in %s: \n%s", args, e)
-        sys.exit(1)
-    log.debug("%s", s)
-    return s
+    runcmd(args, True)
 
 
 def domain_exists(domainname: str) -> bool:

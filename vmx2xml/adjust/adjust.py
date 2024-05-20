@@ -11,7 +11,7 @@ import re
 import subprocess
 
 from vmx2xml.log import *
-from vmx2xml.detectv import *
+from vmx2xml.runcmd import *
 
 
 # in-place adjustment using virt-v2v-in-place, returns True on success.
@@ -69,4 +69,4 @@ def adjust_guestfs(path: str, nbd: bool, adj_mode: str) -> bool:
 
 
 def adjust_guestfs_detect_version() -> float:
-    return detectv([ "adjust_guestfs.py", "--version" ], r"^(\d+\.\d+)", True)
+    return runcmd_detectv([ "adjust_guestfs.py", "--version" ], r"^(\d+\.\d+)", True)

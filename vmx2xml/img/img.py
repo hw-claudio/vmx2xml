@@ -17,6 +17,8 @@ from vmx2xml.log import *
 from vmx2xml.numa import *
 from vmx2xml.trace import *
 from vmx2xml.adjust import *
+from vmx2xml.runcmd import *
+
 
 def img_wait_child(pid: int) -> None:
     try:
@@ -110,14 +112,7 @@ def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
 
 
 def img_qemu_info(from_file: str) -> int:
-    args: list = ["qemu-img", "info", "-U", from_file]
-
-    log.debug("%s", args)
-    p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    (s, _) = p.communicate()
-    if (p.returncode != 0):
-        log.critical("qemu-img info command failed!")
-        sys.exit(1)
+    s: str = runcmd([ "qemu-img", "info", "-U", from_file ], True)
     # sorry, human output is way easier to parse than the json file.
     vsize_m = re.search(r"^virtual size:.*\((\d+) bytes\)", s, flags=re.MULTILINE)
     if (not vsize_m):
