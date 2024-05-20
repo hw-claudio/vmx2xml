@@ -10,6 +10,7 @@ import re
 import subprocess
 
 from vmx2xml.log import *
+from vmx2xml.detectv import *
 
 def inspector_inspect(path: str) -> dict:
     args: list = [ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ]
@@ -35,20 +36,4 @@ def inspector_inspect(path: str) -> dict:
 
 
 def inspector_detect_version() -> float:
-    s: str = ""
-    args: list = [ "virt-inspector", "--version" ]
-
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("virt-inspector NOT FOUND")
-        sys.exit(1)
-    (s, _) = p.communicate()
-    m = re.search(r" (\d+\.\d+)", s)
-    if not (m):
-        log.critical("failed to detect virt-inspector version: %s", s)
-        sys.exit(1)
-    v: float = float(m.group(1)) or 0
-    log.info("virt-inspector: detected version %s", v)
-    return v
+    return detectv([ "virt-inspector", "--version" ], r" (\d+\.\d+)", True)
