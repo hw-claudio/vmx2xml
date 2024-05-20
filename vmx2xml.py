@@ -643,6 +643,15 @@ def help_datastores() -> None:
     sys.exit(0)
 
 
+def help_networks() -> None:
+    print('HELP NETWORKS (-n, --network INET=ONET)\n\n'
+          'By default all ethernet connection types (".connectionType") found in the input VMX are translated as follows:\n'
+          ' - "bridged" or "vmnet0" => "bridge" libvirt interface, with the first bridge name detected on the host, as per virt-install.\n'
+          ' - "hostonly" or "vmnet1" => "network=isolated"\n'
+          ' - "nat" or "vmnet8" => "network=default"\n\n')
+    sys.exit(0)
+
+
 def help_conversion() -> None:
     print("HELP CONVERSION\n\n"
           "By default virt-v2v is used to convert the VMDK to .qcow2 or .raw,\n"
@@ -681,6 +690,7 @@ def get_options(argc: int, argv: list) -> tuple:
         usage="%(prog)s [options]\n"
     )
     parser.add_argument('--help-datastores', action='store_true', help='display additional help text about datastore mappings')
+    parser.add_argument('--help-networks', action='store_true', help='display additional help text about network mappings')
     parser.add_argument('--help-conversion', action='store_true', help='display additional help text about disk conversions')
 
     inout = parser.add_argument_group('INPUT OUTPUT OPTIONS', 'main input and output for the program (REQUIRED)')
@@ -702,7 +712,8 @@ def get_options(argc: int, argv: list) -> tuple:
                       help='replace references starting with RIDS to IDS for finding the input disks,\n'
                       'and translate those input disk prefixes to output datastore prefix ODS.\n'
                       'Can be specified multiple times. Also see --help-datastores')
-
+    vmxt.add_argument('-n', '--network', metavar="INET=ONET", action='append',
+                      help='replace references to VMX network name INET to network ONET. Can be specified multiple times. Also see --help-networks')
     diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx file')
     diskmode.add_argument('-t', '--translate-disks', action='store_true', help='just translate references from .vmdk to .qcow2 or .raw')
     diskmode.add_argument('-c', '--convert-disks', action='store_true', help='translate but also convert disk contents across datastores')
@@ -726,6 +737,8 @@ def get_options(argc: int, argv: list) -> tuple:
         help_datastores()
     if (args.help_conversion):
         help_conversion()
+    if (args.help_networks):
+        help_networks()
     if (args.experimental and args.experimental2):
         log.critical("cannot specify both -x and -y at the same time.")
         sys.exit(1)
