@@ -694,9 +694,9 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('--help-conversion', action='store_true', help='display additional help text about disk conversions')
 
     inout = parser.add_argument_group('INPUT OUTPUT OPTIONS', 'main input and output for the program (REQUIRED)')
-    inout.add_argument('-o', '--output-xml', action='store', required=True,
+    inout.add_argument('-o', '--output-xml', action='store',
                        help='output libvirt XML file. Its directory is added to output datastores')
-    inout.add_argument('-i', '--input-vmx', '-f', '--filename', metavar="VMXFILE", action='store', required=True,
+    inout.add_argument('-i', '--input-vmx', '-f', '--filename', metavar="VMXFILE", action='store',
                        help='the VMX description file to be converted. Its directory is added to input datastores')
 
     general = parser.add_argument_group('GENERAL OPTIONS', 'verbosity control, version display')
@@ -739,6 +739,9 @@ def get_options(argc: int, argv: list) -> tuple:
         help_conversion()
     if (args.help_networks):
         help_networks()
+    if ((not args.input_vmx) or (not args.output_xml)):
+        log.critical("must specify (REQUIRED) arguments -o/--output-xml AND -i,--input-vmx")
+        sys.exit(1)
     if (args.experimental and args.experimental2):
         log.critical("cannot specify both -x and -y at the same time.")
         sys.exit(1)
