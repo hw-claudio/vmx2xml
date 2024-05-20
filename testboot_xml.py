@@ -18,27 +18,16 @@ from vmx2xml.img import *
 from vmx2xml.adjust import *
 from vmx2xml.inspector import *
 from vmx2xml.stopwatch import *
+from vmx2xml.detectv import *
 
 program_version: str = "0.1"
 
 def detect_virsh_version() -> float:
-    s: str = ""
-    args: list = [ "virsh", "--version" ]
+    return detectv([ "virsh", "--version" ], r"^(\d+\.\d+)", True)
 
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("virsh NOT FOUND")
-        sys.exit(1)
-    (s, _) = p.communicate()
-    m = re.match(r"^(\d+\.\d+)", s)
-    if not (m):
-        log.critical("failed to detect virsh version: %s", s)
-        sys.exit(1)
-    v: float = float(m.group(1)) or 0
-    log.info("virsh: detected version %s", v)
-    return v
+
+def detect_virt_xml_version() -> float:
+    return detectv([ "virt-xml", "--version" ], r"^(\d+\.\d+)", True)
 
 
 def virsh(params: list, check: bool) -> str:
@@ -56,26 +45,6 @@ def virsh(params: list, check: bool) -> str:
         log.critical("virsh: failure detected in command: %s: \n%s", args, e)
         sys.exit(1)
     return s
-
-
-def detect_virt_xml_version() -> float:
-    s: str = ""
-    args: list = [ "virt-xml", "--version" ]
-
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.critical("virt-xml NOT FOUND")
-        sys.exit(1)
-    (s, _) = p.communicate()
-    m = re.match(r"^(\d+\.\d+)", s)
-    if not (m):
-        log.critical("failed to detect virt-xml version: %s", s)
-        sys.exit(1)
-    v: float = float(m.group(1)) or 0
-    log.info("virt-xml: detected version %s", v)
-    return v
 
 
 def virt_xml(domain: str, params: list) -> None:
