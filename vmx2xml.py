@@ -255,15 +255,26 @@ def translate_eth_model(model: str) -> str:
     return translate(translator, model)
 
 
+def parse_eth_type(eth_type: str) -> str:
+    translator: defaultdict = defaultdict(str, {
+        "": "",
+        "bridged": "bridged",
+        "vmnet0": "bridged",
+        "hostonly": "hostonly",
+        "vmnet1": "hostonly",
+        "nat": "nat",
+        "vmnet8": "nat",
+    })
+    return translate(translator, eth_type)
+
+
+# default type mapping
 def translate_eth_type(eth_type: str) -> str:
     translator: defaultdict = defaultdict(str, {
         "": "",
         "bridged": "bridge",
-        "vmnet0": "bridge",
         "hostonly": "network=isolated",
-        "vmnet1": "network=isolated",
         "nat": "network=default",
-        "vmnet8": "network=default",
     })
     return translate(translator, eth_type)
 
@@ -278,17 +289,36 @@ def translate_eth_address_type(addr_type: str) -> str:
     return translate(translator, addr_type)
 
 
-def find_eths(d: defaultdict, interface: str) -> list:
+def find_eths(d: defaultdict, interface: str, networks: dict) -> list:
     eths: list = []
     for x in range(10):
         if not (parse_boolean(d[f"{interface}{x}.present"])):
             continue
         eth: defaultdict = defaultdict(str)
         s: str = f"{interface}{x}"
-        eth["x"] = str(x) # XXX unused XXX
-        eth["type"] = translate_eth_type(d[s + ".connectiontype"])
+        eth["x"] = str(x) # XXX unused index XXX
+        eth_type: str = parse_eth_type(d[s + ".connectiontype"])
+        eth_name: str = d[s + ".networkname"]
+        onet: str = ""
+
+        if (eth_name and len(networks["name"]) > 0):
+            if (eth_name in networks["name"]):
+                onet = networks["name"][eth_name]
+            elif (networks["name"]["*"]):
+                onet = networks["name"]["*"]
+        if (onet == "" and len(networks["type"]) > 0):
+            if (eth_type in networks["type"]):
+                onet = networks["type"][eth_type]
+            elif (networks["type"]["*"]):
+                onet = networks["type"]["*"]
+        if (onet == "" and eth_type):
+            onet = translate_eth_type(eth_type)
+        if (onet == ""):
+            log.warning("%s: no meaningful network mapping found, defaulting to bridge.", s)
+            onet = "bridge"
+
+        eth["type"] = onet
         eth["model"] = translate_eth_model(d[s + ".virtualdev"])
-        eth["name"] = d[s + ".networkname"] # XXX unused XXX
         addr_type: str = translate_eth_address_type(d[s + ".addresstype"])
         if (addr_type):
             eth["mac"] = d[s + addr_type]
@@ -644,11 +674,31 @@ def help_datastores() -> None:
 
 
 def help_networks() -> None:
-    print('HELP NETWORKS (-n, --network INET=ONET)\n\n'
-          'By default all ethernet connection types (".connectionType") found in the input VMX are translated as follows:\n'
-          ' - "bridged" or "vmnet0" => "bridge" libvirt interface, with the first bridge name detected on the host, as per virt-install.\n'
-          ' - "hostonly" or "vmnet1" => "network=isolated"\n'
-          ' - "nat" or "vmnet8" => "network=default"\n\n')
+    print('HELP NETWORKS (-n, --network [type:|name:]INET=ONET)\n\n'
+          'CONNECTION NAME MAPPINGS\n'
+          '========================\n\n'
+          'There are no default name mappings.\n'
+          'You can specify them using the name: prefix and specifying a virt-install network type after the first = sign.\n'
+          'The use of the name: prefix is optional. For example:\n'
+          '-n name:ABCDEF01QP1208=network=mynat\n'
+          '-n myvmnetwork=bridge=br1\n'
+          '...\n\n'
+          'CONNECTION TYPE MAPPINGS\n'
+          '========================\n\n'
+          'If there is no specific name mapping for an input network, the program will attempt to translate the network\n'
+          'using its type, by supplying the type: prefix and specifying a virt-install network type after the first = sign.\n'
+          'The use of the type: prefix is MANDATORY. For example:\n'
+          '-n type:bridged=bridge=br0\n'
+          '-n type:hostonly=bridge=br1\n'
+          '-n type:nat=network=mynat\n'
+          '...\n\n'
+          'FALLBACK MAPPINGS\n'
+          '========================\n\n'
+          'If no mappings are available for type input network, the program performs a type-based automatic mapping as follows:\n'
+          ' - "bridged" or "vmnet0" => "bridge" interface, with the first bridge name detected on the host, as per virt-install.\n'
+          ' - "hostonly" or "vmnet1" => "network=isolated", which needs to be already defined on the host\n'
+          ' - "nat" or "vmnet8" => "network=default", which needs to be already defined on the host\n\n'
+          )
     sys.exit(0)
 
 
@@ -712,8 +762,8 @@ def get_options(argc: int, argv: list) -> tuple:
                       help='replace references starting with RIDS to IDS for finding the input disks,\n'
                       'and translate those input disk prefixes to output datastore prefix ODS.\n'
                       'Can be specified multiple times. Also see --help-datastores')
-    vmxt.add_argument('-n', '--network', metavar="INET=ONET", action='append',
-                      help='replace references to VMX network name INET to network ONET. Can be specified multiple times. Also see --help-networks')
+    vmxt.add_argument('-n', '--network', metavar="[type:|name:]INET=ONET", action='append',
+                      help='replace references INET into network ONET. Can be specified multiple times. Also see --help-networks')
     diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx file')
     diskmode.add_argument('-t', '--translate-disks', action='store_true', help='just translate references from .vmdk to .qcow2 or .raw')
     diskmode.add_argument('-c', '--convert-disks', action='store_true', help='translate but also convert disk contents across datastores')
@@ -793,14 +843,27 @@ def get_options(argc: int, argv: list) -> tuple:
                 targetpath = sourcepath
             datastores[ref] = (sourcepath, targetpath)
 
+    networks: defaultdict = defaultdict(str, { "name" : {}, "type" : {} })
+    if (args.network):
+        for i in range(0, len(args.network)):
+            (inet, match_eq, onet) = args.network[i].partition("=")
+            (prefix, match_cl, netinet) = inet.partition(":")
+            if (not match_cl):
+                prefix = "name"
+                netinet = inet
+            if (prefix != "name" and prefix != "type"):
+                log.critical(f'invalid network map prefix "{prefix}"')
+                sys.exit(1)
+            networks[prefix][netinet] = onet
+
     disk_mode: str = "convert" if (args.convert_disks) else "translate" if (args.translate_disks) else "none"
     overwrite: bool = args.overwrite
 
     log.debug("[OPTIONS] vmx_name=%s xml_name=%s overwrite:%s fidelity:%s "
-              "disk_mode:%s raw:%s skip_extra:%s datastores:%s conv_mode:%s adj_mode:%s"
+              "disk_mode:%s raw:%s skip_extra:%s datastores:%s networks:%s conv_mode:%s adj_mode:%s"
               "trace_cmd:%s cache_mode:%s numa_node:%s parallel:%s",
               vmx_name, xml_name, overwrite, fidelity,
-              disk_mode, args.raw, args.skip_extra, datastores, conv_mode, adj_mode,
+              disk_mode, args.raw, args.skip_extra, datastores, networks, conv_mode, adj_mode,
               trace_cmd, cache_mode, numa_node, parallel)
 
     if (os.path.exists(xml_name)):
@@ -814,12 +877,13 @@ def get_options(argc: int, argv: list) -> tuple:
         sys.exit(1)
 
     return (vmx_name, xml_name, fidelity,
-            disk_mode, args.raw, args.skip_extra, datastores, conv_mode, adj_mode,
+            disk_mode, args.raw, args.skip_extra, datastores, networks, conv_mode, adj_mode,
             trace_cmd, cache_mode, numa_node, parallel)
 
 
 def main(argc: int, argv: list) -> int:
-    (vmx_name, xml_name, fidelity, disk_mode, raw, skip_extra, datastores, conv_mode, adj_mode,
+    (vmx_name, xml_name, fidelity,
+     disk_mode, raw, skip_extra, datastores, networks, conv_mode, adj_mode,
      trace_cmd, cache_mode, numa_node, parallel) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
@@ -919,7 +983,7 @@ def main(argc: int, argv: list) -> int:
     for i in range(2):
         floppys[i] = parse_filename_ref(d[f"floppy{i}.filename"], datastores, disk_mode != "none", raw)
 
-    eths: list = find_eths(d, "ethernet")
+    eths: list = find_eths(d, "ethernet", networks)
 
     log.debug("%s", disk_ctrls)
     log.debug("%s", disks)
