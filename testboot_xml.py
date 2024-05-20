@@ -30,6 +30,10 @@ def detect_virt_xml_version() -> float:
     return detectv([ "virt-xml", "--version" ], r"^(\d+\.\d+)", True)
 
 
+def detect_arping_version() -> float:
+    return detectv([ "arping", "-V" ], r"^arping.*(\d+)$", True)
+
+
 def virsh(params: list, check: bool) -> str:
     s: str; e: str
     args: list = [ "virsh" ]
