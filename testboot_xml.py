@@ -97,7 +97,8 @@ def domain_obliterate(domainname: str) -> None:
 
 def get_options(argc: int, argv: list) -> tuple:
     global log
-    use_v2v: int = 1
+    adj_modes: list = [ "none", "v2v", "x" ]
+    adj_mode: str = "v2v"
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='testboot-xml.py',
         usage="%(prog)s [options]\n\n"
@@ -109,13 +110,12 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
     parser.add_argument('-V', '--version', action='version', version=program_version)
-
+    parser.add_argument('-O', '--overwrite', action='store_true', help='if guest is already defined or running,\n'
+                        'destroy it and undefine it, then run the boot test.\n')
     parser.add_argument('-f', '--filename', metavar="XMLFILE", action='store', required=True,
                         help='the libvirt XML with the VM definition to test.')
     parser.add_argument('-a', '--skip-adjust', action='store_true', help='skip guest adjustments to run on KVM')
-    parser.add_argument('-O', '--overwrite', action='store_true', help='if guest is already defined or running,\n'
-                        'destroy it and undefine it, then run the boot test.\n')
-    parser.add_argument('-x', '--experimental', action='store_true', help='use experimental guest-injection method (adjust_guestfs.py)')
+    parser.add_argument('-A', '--x-adjust', action='store_true', help='experimental minimal guest adjustments.')
     parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
                         help='timeout to detect a boot success. Use 0 to never timeout (for debugging)')
 
@@ -127,12 +127,19 @@ def get_options(argc: int, argv: list) -> tuple:
         args.verbose = 2
     if (args.quiet > 2):
         args.quiet = 2
+
     log_init(args.verbose, args.quiet)
 
-    if (args.experimental):
-        use_v2v = 0
+    if (args.x_adjust and args.skip_adjust):
+        log.critical("cannot specify both --skip-adjust and --x-adjust at the same time.")
+        sys.exit(1)
+    if (args.x_adjust):
+        adj_mode = "x"
+    elif (args.skip_adjust):
+        adj_mode = "none"
+
     timeout: int = int(args.timeout)
-    return (args.filename, args.overwrite, use_v2v, args.skip_adjust, timeout)
+    return (args.filename, args.overwrite, adj_mode, timeout)
 
 
 def remove_disks(domainname: str, extra_disks: list) -> None:
@@ -142,7 +149,7 @@ def remove_disks(domainname: str, extra_disks: list) -> None:
     virt_xml(domainname, args)
 
 
-def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adjust: bool) -> list:
+def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list:
     args: list = []
     overlays: list = []
     for disk in os_disks:
@@ -154,10 +161,9 @@ def overlay_adjust_disks(domainname: str, os_disks: list, use_v2v: int, skip_adj
         ext = ext[1:]
         tmp = img_qemu_create_overlay(source, ext)
         log.info("OVERLAY %s => %s", source, tmp.name)
-        if not (skip_adjust):
+        if (adj_mode != "none"):
             log.info("ADJUST %s", tmp.name)
-            if (use_v2v == 1):
-                adjust_guestfs(tmp.name, False, "v2v" if (use_v2v == 1) else "x")
+            adjust_guestfs(tmp.name, False, adj_mode)
         log.info("DISK REF %s", tmp.name)
         virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
         overlays.append(tmp)
@@ -209,7 +215,7 @@ def find_macs(domainname: str) -> list:
     return macs
 
 
-def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: int) -> bool:
+def testboot_domain(domainname: str, adj_mode: str, timeout: int) -> bool:
     list_str: str = virsh(["domblklist", "--details", domainname], True)
     lines: list = list_str.splitlines()
     lines.pop(0)                #  Target   Source
@@ -244,7 +250,9 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
         log.critical("%s: no OS disks found, nothing to boot-test", domainname)
         sys.exit(1)
 
-    overlays: list = overlay_adjust_disks(domainname, os_disks, use_v2v, skip_adjust)
+    # XXX the overlays variable appears unused but there is a catch!
+    # It needs to be here in this scope, so that the temporary files are not deleted before we run the test!
+    overlays: list = overlay_adjust_disks(domainname, os_disks, adj_mode)
 
     if (len(extra_disks) >= 1):
         remove_disks(domainname, extra_disks)
@@ -274,7 +282,7 @@ def testboot_domain(domainname: str, use_v2v: int, skip_adjust: bool, timeout: i
 
 
 def main(argc: int, argv: list) -> int:
-    (xml_name, overwrite, use_v2v, skip_adjust, timeout) = get_options(argc, argv)
+    (xml_name, overwrite, adj_mode, timeout) = get_options(argc, argv)
     adjust_version: float = adjust_guestfs_detect_version()
     virsh_version: float = detect_virsh_version()
     virt_xml_version: float = detect_virt_xml_version()
@@ -297,7 +305,7 @@ def main(argc: int, argv: list) -> int:
             sys.exit(0)
 
     virsh(["define", xml_name], True)
-    if (testboot_domain(domainname, use_v2v, skip_adjust, timeout)):
+    if (testboot_domain(domainname, adj_mode, timeout)):
         log.info("domain %s testboot report: SUCCESS", domainname)
         return 0
     else:
