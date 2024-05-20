@@ -13,6 +13,7 @@ import tempfile
 
 from vmx2xml.log import *
 from vmx2xml.numa import *
+from vmx2xml.detectv import *
 
 def trace_cmd_start(pre: str, numa_node: int) -> int:
     args: list = []
@@ -32,21 +33,8 @@ def trace_cmd_start(pre: str, numa_node: int) -> int:
 
 
 def trace_cmd_detect_version() -> float:
-    args: list = [ "trace-cmd", "-h" ]
-    log.debug("%s", args)
-    try:
-        p = subprocess.Popen(args, stdout=subprocess.PIPE, encoding='utf-8')
-    except:
-        log.info("trace-cmd NOT FOUND, cannot use tracing features")
-        return 0
-    (s, _) = p.communicate()
-    m = re.search(r"^.*version (\d+\.\d+)", s, flags=re.MULTILINE)
-    if not (m):
-        log.info("trace-cmd version not detected, cannot use tracing features")
-        return 0
-    v: float = float(m.group(1)) or 0
-    log.info("trace-cmd: detected version %s", v)
+    v: float = detectv([ "trace-cmd", "-h" ], r"^.*version (\d+\.\d+)", True)
     if (v < 2.7):
-        log.critical("trace-cmd functionality requested, but trace-cmd >= 2.7 NOT FOUND")
+        log.critical("trace-cmd >= 2.7 required")
         sys.exit(1)
     return v
