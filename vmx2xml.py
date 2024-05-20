@@ -199,7 +199,7 @@ def find_disk_controllers(d: defaultdict, interface: str) -> dict:
     return controllers
 
 
-def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: dict, disk_mode: int, raw: bool) -> list:
+def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: dict, disk_mode: str, raw: bool) -> list:
     disks: list = []
     for x in range(4):
         if (x not in controllers) and (interface != "ide"):  # IDE does not show explicit controllers entries
@@ -217,12 +217,12 @@ def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: di
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
-            disk["path"] = parse_filename_ref(d[f"{interface}{x}:{y}.filename"], datastores, disk_mode >= 1, raw)
+            disk["path"] = parse_filename_ref(d[f"{interface}{x}:{y}.filename"], datastores, disk_mode != "none", raw)
             #disk["driver"] = "block" if (disk["path"].startswith("/dev/")) else "file"
             disk["driver"] = "file"
             # XXX we never use the actual libvirt/qemu default, writeback?
             disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
-            if (all(disk["path"]) and disk_mode >= 2 and disk["path"][0].endswith(".vmdk")):
+            if (all(disk["path"]) and disk_mode == "convert" and disk["path"][0].endswith(".vmdk")):
                 disk["os"] = inspector_inspect(disk["path"][0])
             disks.append(disk)
     return disks
@@ -313,17 +313,17 @@ def find_eths(d: defaultdict, interface: str) -> list:
 #     return translate(translator, s);
 
 
-def convert_path(sourcepath: str, targetpath: str, disk_mode: int, raw: bool, datastores: dict, conv_mode: str, adj_mode: str,
+def convert_path(sourcepath: str, targetpath: str, disk_mode: str, raw: bool, datastores: dict, conv_mode: str, adj_mode: str,
                  osd: dict, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int) -> str:
     os.makedirs(os.path.dirname(targetpath), exist_ok=True)
-    if (disk_mode <= 1):
+    if (disk_mode != "convert"):
         # we need to create a pseudo disk for the virt install command to succeed
         if (not os.path.exists(targetpath)):
             open(targetpath, 'a').close()
         return targetpath
 
     # CONVERSION / MOVE asked
-    assert(disk_mode >= 2)
+    assert(disk_mode == "convert")
     if (sourcepath.endswith(".vmdk")):
         has_os: bool
         if (osd["name"]):
@@ -362,7 +362,7 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: int, raw: bool, da
 
 def virt_install(vinst_version: float,
                  vmx_name: str, xml_name: str, fidelity: bool,
-                 disk_mode: int, raw: bool, skip_extra: bool, datastores: dict, conv_mode: str, adj_mode: str,
+                 disk_mode: str, raw: bool, skip_extra: bool, datastores: dict, conv_mode: str, adj_mode: str,
                  trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int,
                  displayname: str, annotation: str,
                  cpu: dict, memory: int,
@@ -485,8 +485,7 @@ def virt_install(vinst_version: float,
         stopwatch_start()
         path = convert_path(paths[0], paths[1], disk_mode, raw, datastores, conv_mode, adj_mode, disk["os"],
                             trace_cmd, cache_mode, numa_node, parallel)
-        if (disk_mode >= 2):
-            end_time: float = time.perf_counter();
+        if (disk_mode == "convert"):
             elapsed: float = stopwatch_elapsed()
             if (elapsed > 0.0):
                 targetstat = os.stat(path)
@@ -669,6 +668,7 @@ def help_conversion() -> None:
 def get_options(argc: int, argv: list) -> tuple:
     global log
     cache_modes: list = [ "none", "writeback", "unsafe", "directsync", "writethrough" ]
+    disk_modes: list = [ "none", "translate", "convert" ]
     conv_modes: list = [ "v2v", "x", "y" ]
     conv_mode: str = "v2v"
     adj_modes: list = [ "none", "v2v", "x" ]
@@ -777,7 +777,7 @@ def get_options(argc: int, argv: list) -> tuple:
                 targetpath = sourcepath
             datastores[ref] = (sourcepath, targetpath)
 
-    disk_mode: int = 2 if (args.convert_disks) else 1 if (args.translate_disks) else 0
+    disk_mode: str = "convert" if (args.convert_disks) else "translate" if (args.translate_disks) else "none"
     overwrite: bool = args.overwrite
 
     log.debug("[OPTIONS] vmx_name=%s xml_name=%s overwrite:%s fidelity:%s "
@@ -873,7 +873,7 @@ def main(argc: int, argv: list) -> int:
             else:
                 uefi += ",firmware.feature0.name=secure-boot,firmware.feature0.enabled=no"
 
-    nvram: list = parse_filename_ref(d["nvram"], datastores, (disk_mode >= 1), raw)
+    nvram: list = parse_filename_ref(d["nvram"], datastores, (disk_mode != "none"), raw)
     if (uefi):
         log.debug("[UEFI] %s", uefi)
 
@@ -901,7 +901,7 @@ def main(argc: int, argv: list) -> int:
 
     floppys: list = [ [None, None], [None, None] ]
     for i in range(2):
-        floppys[i] = parse_filename_ref(d[f"floppy{i}.filename"], datastores, disk_mode >= 1, raw)
+        floppys[i] = parse_filename_ref(d[f"floppy{i}.filename"], datastores, disk_mode != "none", raw)
 
     eths: list = find_eths(d, "ethernet")
 
