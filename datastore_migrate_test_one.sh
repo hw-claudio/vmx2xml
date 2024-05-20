@@ -39,3 +39,10 @@ XML=/vm_images/local/15sp6bios/15sp6bios.xml
 
 echo "datastore_migrate_test_one.sh: test-converting $VMX to $XML ..."
 vmx2xml.py -o ${XML} -f ${VMX} -d ${VMIMAGES} -d ${DS_MAP12} -d ${DS_MAP3} -c -O -a -X ${*}
+
+echo "datastore_migrate_test_one.sh: testbooting $XML ..."
+if testboot_xml.py -f ${XML} -t 60 ; then
+    echo "SUCCESS"
+else
+    echo "FAILURE"
+fi
