@@ -260,8 +260,8 @@ def translate_eth_type(eth_type: str) -> str:
         "": "",
         "bridged": "bridge",
         "vmnet0": "bridge",
-        "hostonly": "user",
-        "vmnet1": "user",
+        "hostonly": "network=isolated",
+        "vmnet1": "network=isolated",
         "nat": "network=default",
         "vmnet8": "network=default",
     })
