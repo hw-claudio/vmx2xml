@@ -1,0 +1,9 @@
+<network>
+<name>isolated</name>
+  <bridge name='virbr-iso0'/>
+  <ip address='192.168.2.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.2.2' end='192.168.2.254'/>
+    </dhcp>
+  </ip>
+</network>
