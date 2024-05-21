@@ -5,8 +5,6 @@
 #
 # This tool adjust the guest to run on KVM.
 # It is a simplified version of the virt-v2v convert_linux and convert_windows
-# parts, containing only the fundamentals and working in place without overlays
-# for performance reasons, something that is broken on virt-v2v.
 
 import sys
 import os.path
@@ -59,7 +57,7 @@ def get_initrd_prg(g: guestfs.GuestFS, prg: str) -> str:
     return ""
 
 
-def guestfs_lin_mount_all(g: guestfs.GuestFS, root: str) -> bool:
+def guestfs_mount_all(g: guestfs.GuestFS, root: str) -> bool:
     # mount the root directory and get all mountpoints
     try:
         g.mount(root, "/")
@@ -80,7 +78,7 @@ def guestfs_lin_mount_all(g: guestfs.GuestFS, root: str) -> bool:
     return True
 
 
-def guestfs_lin_trim_all(g: guestfs.GuestFS) -> bool:
+def guestfs_trim_all(g: guestfs.GuestFS) -> bool:
     # mount all the filesystems and trim them
     try:
         filesystems: dict = g.list_filesystems()
@@ -219,19 +217,24 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
 
 
 def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool) -> bool:
-    if not (guestfs_lin_mount_all(g, root)):
+    if not (guestfs_mount_all(g, root)):
         return False
     if (drivers):
         if not (guestfs_lin_update_initrd(g)):
             return False
     if (trim):
-        if not (guestfs_lin_trim_all(g)):
+        if not (guestfs_trim_all(g)):
             return False
     return True
 
 
 def guestfs_win(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool) -> bool:
-    return False
+    if not (guestfs_mount_all(g, root)):
+        return False
+    if (trim):
+        if not (guestfs_trim_all(g)):
+            return False
+    return True
 
 
 def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool) -> bool:
