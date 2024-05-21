@@ -57,7 +57,7 @@ def domain_exists(domainname: str) -> bool:
 
 def domain_obliterate(domainname: str) -> None:
     virsh(["destroy", domainname], False)
-    virsh(["undefine", domainname], False)
+    virsh(["undefine", "--nvram", domainname], False)
 
 
 def get_options(argc: int, argv: list) -> tuple:
@@ -289,8 +289,7 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool) 
             log.info("%s: network activity detected after %s seconds", domainname, stopwatch_elapsed())
             break
         time.sleep(1)
-    virsh(["destroy", domainname], False)
-    virsh(["undefine", domainname], False)
+    domain_obliterate(domainname)
     return result
 
 
