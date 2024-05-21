@@ -55,6 +55,7 @@ def adjust_guestfs(path: str, nbd: bool, adj_mode: str, adj_actions: dict) -> bo
     if (adj_mode == "none"):
         log.warning('adjust_guestfs: unexpected call with adjustment mode "none"')
         return False
+    log.info("adjust_guestfs: starting guest adjustment with method %s, actions %s", adj_mode, adj_actions)
     rv: bool
     if (adj_mode == "v2v"):
         rv = adjust_guestfs_v2v(path)
