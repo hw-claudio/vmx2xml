@@ -41,7 +41,7 @@ def virsh(params: list, check: bool) -> str:
 
 
 def virt_xml(domain: str, params: list) -> None:
-    args: list = [ "virt-xml" ]
+    args: list = [ "virt-xml", domain ]
     args.extend(params)
     runcmd(args, True)
 
@@ -81,7 +81,7 @@ def get_options(argc: int, argv: list) -> tuple:
                         help='the libvirt XML with the VM definition to test.')
     parser.add_argument('-a', '--skip-adjust', action='store_true', help='skip guest adjustments to run on KVM')
     parser.add_argument('-A', '--x-adjust', action='store_true', help='experimental minimal guest adjustments.')
-    parser.add_argument('-2', '--layer-2', action='store_true', help='perform only a layer 2 net transmission test.')
+    parser.add_argument('-2', '--layer2', action='store_true', help='perform only a layer 2 net transmission test.')
     parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
                         help='timeout to detect a boot success. Use 0 to never timeout (for debugging)')
 
@@ -105,7 +105,7 @@ def get_options(argc: int, argv: list) -> tuple:
         adj_mode = "none"
 
     timeout: int = int(args.timeout)
-    return (args.filename, args.overwrite, adj_mode, timeout, args.layer_2)
+    return (args.filename, args.overwrite, adj_mode, timeout, args.layer2)
 
 
 def remove_disks(domainname: str, extra_disks: list) -> None:
@@ -181,7 +181,7 @@ def testboot_net_layer2(domainname: str, macs: list) -> bool:
 def testboot_net_get_ip(domainname: str, mac: str) -> str:
     s: str = virsh([ "net-dhcp-leases", "isolated", mac ], True)
     # 2024-05-20 14:59:08  52:54:00:8c:25:ef ipv4 192.168.2.94/24 xxx
-    m = re.search(fr"^.*{mac}.*(\d+\.\d+\.\d+\.\d+).*$", s, flags=re.MULTILINE | re.IGNORECASE)
+    m = re.search(fr"^.*{mac}.*\s(\d+\.\d+\.\d+\.\d+).*$", s, flags=re.MULTILINE | re.IGNORECASE)
     if not (m):
         return ""
     return m.group(1)
@@ -191,7 +191,7 @@ def testboot_net_arping(domainname: str, ip: str, mac: str) -> bool:
     # send two ARP pings, wait at most two seconds total,
     # exit as soon as a reply is received on success.
     # Unicast reply from 192.168.2.94 [52:54:00:8C:25:EF]  1.244ms
-    s: str = runcmd(["arping", "-c", "2", "-w", "2", "-f"], False)
+    s: str = runcmd(["arping", "-c", "2", "-w", "2", "-f", ip], False)
     if (not s):
         return False
 
@@ -209,8 +209,8 @@ def testboot_net_layer3(domainname: str, macs: list) -> bool:
     return False
 
 
-def testboot_net(domainname: str, macs: list, layer_2: bool) -> bool:
-    if (layer_2):
+def testboot_net(domainname: str, macs: list, layer2: bool) -> bool:
+    if (layer2):
         return testboot_net_layer2(domainname, macs)
     else:
         return testboot_net_layer3(domainname, macs)
@@ -257,7 +257,7 @@ def find_disks(domainname: str) -> tuple:
     return (os_disks, extra_disks)
 
 
-def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer_2: bool) -> bool:
+def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool) -> bool:
     (os_disks, extra_disks) = find_disks(domainname)
 
     if (len(os_disks) < 1):
@@ -284,7 +284,7 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer_2: bool)
 
     stopwatch_start()
     while (timeout <= 0 or stopwatch_elapsed() < timeout):
-        if (testboot_net(domainname, macs, layer_2)):
+        if (testboot_net(domainname, macs, layer2)):
             result = True
             log.info("%s: network activity detected after %s seconds", domainname, stopwatch_elapsed())
             break
@@ -295,7 +295,7 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer_2: bool)
 
 
 def main(argc: int, argv: list) -> int:
-    (xml_name, overwrite, adj_mode, timeout, layer_2) = get_options(argc, argv)
+    (xml_name, overwrite, adj_mode, timeout, layer2) = get_options(argc, argv)
     adjust_version: float = adjust_guestfs_detect_version()
     virsh_version: float = detect_virsh_version()
     virt_xml_version: float = detect_virt_xml_version()
@@ -319,7 +319,7 @@ def main(argc: int, argv: list) -> int:
             sys.exit(0)
 
     virsh(["define", xml_name], True)
-    if (testboot_domain(domainname, adj_mode, timeout, layer_2)):
+    if (testboot_domain(domainname, adj_mode, timeout, layer2)):
         log.info("domain %s testboot report: SUCCESS", domainname)
         return 0
     else:
