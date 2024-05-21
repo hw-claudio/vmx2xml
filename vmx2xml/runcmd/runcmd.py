@@ -39,17 +39,20 @@ def runcmd_detectv(args: list, r: str, check: bool) -> float:
 
 
 def runcmd(args: list, check: bool) -> str:
+    exp_str: str
     log.debug("%s", args)
     try:
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding='utf-8')
     except Exception as exp:
-        log.critical("%s: exception running command %s: \n%s", args[0], args, exp)
+        exp_str = re.sub("\s", " ", str(exp), count=0, flags=0)
+        log.critical("%s: exception running command %s: %s", args[0], args, exp_str)
         sys.exit(1)
     (s, e) = p.communicate()
     if (p.returncode != 0):
+        exp_str = re.sub("\s", " ", e, count=0, flags=0)
         if (check):
-            log.critical("%s: failure detected in command %s: \n%s", args[0], args, e)
+            log.critical("%s: failure detected in command %s: %s", args[0], args, exp_str)
             sys.exit(1)
-        log.warning("%s: failure detected in command %s: \n%s", args[0], args, e)
+        log.warning("%s: failure detected in command %s: %s", args[0], args, exp_str)
         return ""
     return s

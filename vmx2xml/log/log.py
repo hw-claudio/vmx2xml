@@ -27,7 +27,7 @@ def log_init(verbose: int, quiet: int) -> None:
     loglevel: int = logging.WARNING - (verbose * 10) + (quiet * 10)
     log.setLevel(loglevel)
     handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(fmt='%(message)s'))
+    handler.setFormatter(logging.Formatter(fmt='%(levelname)s: %(message)s'))
     log.addHandler(handler)
 
 

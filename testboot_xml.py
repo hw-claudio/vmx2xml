@@ -130,13 +130,13 @@ def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list
             sys.exit(1)
         ext = ext[1:]
         tmp = img_qemu_create_overlay(source, ext)
-        log.info("OVERLAY %s => %s", source, tmp.name)
+        log.info("[OVERLAY] %s => %s", source, tmp.name)
         if (adj_mode != "none"):
-            log.info("ADJUST %s", tmp.name)
+            log.info("[ADJUST] %s", tmp.name)
             # we only need to inject the drivers here, no need to trim the image as we run it directly
             adj_actions = { "drivers": True, "trim": False }
             adjust_guestfs(tmp.name, False, adj_mode, adj_actions)
-        log.info("DISK REF %s", tmp.name)
+        log.info("[DISK] REF %s", tmp.name)
         virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
         overlays.append(tmp)
     return overlays
@@ -245,14 +245,14 @@ def find_disks(domainname: str) -> tuple:
         device: str = m.group(2)
         target: str = m.group(3)
         source: str = m.group(4)
-        log.info("DISK type:%s device:%s target:%s source:%s", type_str, device, target, source)
+        log.info("[DISK] type:%s device:%s target:%s source:%s", type_str, device, target, source)
         if (type_str == "file" and device == "disk" and (source.endswith(".qcow2") or source.endswith(".raw"))):
             osd: dict = inspector_inspect(source)
             if (osd["name"]):
-                log.debug("DISK is OS: %s", osd)
+                log.debug("[DISK] is OS: %s", osd)
                 os_disks.append((i, source))
                 continue
-        log.debug("DISK is an extra, non-OS disk")
+        log.debug("[DISK] is an extra, non-OS disk")
         extra_disks.append(i)   # not interesting, mark it for removal
     return (os_disks, extra_disks)
 
