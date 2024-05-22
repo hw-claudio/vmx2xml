@@ -84,6 +84,7 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-2', '--layer2', action='store_true', help='perform only a layer 2 net transmission test.')
     parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
                         help='timeout to detect a boot success. Use 0 to never timeout (for debugging)')
+    parser.add_argument('-k', '--keep', action='store_true', help='keep running after testboot success (debug only)')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -105,7 +106,7 @@ def get_options(argc: int, argv: list) -> tuple:
         adj_mode = "none"
 
     timeout: int = int(args.timeout)
-    return (args.filename, args.overwrite, adj_mode, timeout, args.layer2)
+    return (args.filename, args.overwrite, adj_mode, timeout, args.layer2, args.keep)
 
 
 def remove_disks(domainname: str, extra_disks: list) -> None:
@@ -289,12 +290,11 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool) 
             log.info("%s: network activity detected after %s seconds", domainname, stopwatch_elapsed())
             break
         time.sleep(1)
-    domain_obliterate(domainname)
     return result
 
 
 def main(argc: int, argv: list) -> int:
-    (xml_name, overwrite, adj_mode, timeout, layer2) = get_options(argc, argv)
+    (xml_name, overwrite, adj_mode, timeout, layer2, keep_running) = get_options(argc, argv)
     adjust_version: float = adjust_guestfs_detect_version()
     virsh_version: float = detect_virsh_version()
     virt_xml_version: float = detect_virt_xml_version()
@@ -320,6 +320,9 @@ def main(argc: int, argv: list) -> int:
     virsh(["define", xml_name], True)
     if (testboot_domain(domainname, adj_mode, timeout, layer2)):
         log.info("domain %s testboot report: SUCCESS", domainname)
+        while (keep_running):
+            time.sleep(60)
+        domain_obliterate(domainname)
         return 0
     else:
         log.warning("domain %s testboot report: FAILURE", domainname)
