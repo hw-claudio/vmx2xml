@@ -45,7 +45,7 @@ def img_v2v_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
     if (log.level > logging.WARNING):
         args.append("--quiet")
     if (log.level <= logging.DEBUG):
-        args.extend(["--verbose", "-x"])
+        args.append("-x")
     args.append(from_file)
 
     log.debug("%s", args)

@@ -58,7 +58,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
     log.info("[DISK] %s => ", basename)
 
     if (s.startswith("/vmfs/devices")):
-        log.error("VM references a local device, this cannot work! Ignoring.")
+        log.error("       VM references a local device, this cannot work! Ignoring.")
         return [None, None]
 
     # find the file referenced by the vmx in the locally reachable filesystem
@@ -66,7 +66,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
 
     # a relative path is relative to the VM directory
     if not (os.path.isabs(s)):
-        log.info("looking in datastore '.' %s", datastores["."])
+        log.debug("       looking in datastore '.' %s", datastores["."])
         paths = find_file_ref(basename, datastores["."][0], datastores["."], False)
     if (not all(paths)):
         dirname: str = os.path.dirname(s)
@@ -74,23 +74,23 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
             # skip special datastores that are considered before and after this loop.
             if (ref == "." or ref == ".."):
                 continue
-            log.info("looking in datastore %s", datastores[ref])
+            log.debug("       looking in datastore %s", datastores[ref])
             sourcedir = datastores[ref][0]
-            log.debug(f're.subn("^{ref}", "{sourcedir}", {dirname}, count=1')
+            log.debug(f'       re.subn("^{ref}", "{sourcedir}", {dirname}, count=1')
             (match, n) = re.subn(f"^{ref}", sourcedir, dirname, count=1)
             if (n == 1):
-                log.debug('[MATCH] %s', match)
+                log.debug('       [MATCH] %s', match)
                 paths = find_file_ref(basename, match, datastores[ref], True)
                 break
             else:
-                log.debug('[NO MATCH]')
+                log.debug('       [NO MATCH]')
 
     # last fallback is to check this datastore
     if (not all (paths)):
-        log.info("looking in datastore '..' %s", datastores[".."])
+        log.debug("       looking in datastore '..' %s", datastores[".."])
         paths = find_file_ref(basename, datastores[".."][0], datastores[".."], False)
     if (not all (paths)):
-        log.critical("\n%s NOT FOUND, datastores %s", basename, datastores)
+        log.critical("       NOT FOUND, datastores %s", basename, datastores)
         sys.exit(1)
 
     if (translate_disk):
@@ -145,9 +145,9 @@ def find_file_ref(name: str, match: str, datastore: tuple, recurse: bool) -> lis
         sourcefile = walk_find(sourcepath, name)
     if (not sourcefile):
         return [ None, None ]
-    log.debug("find_file_ref sourcefile %s sourcepath %s pathname %s", sourcefile, sourcepath, pathname)
+    log.debug("       find_file_ref sourcefile %s sourcepath %s pathname %s", sourcefile, sourcepath, pathname)
     targetfile: str = os.path.join(datastore[1], os.path.relpath(sourcefile, datastore[0]))
-    log.debug("find_file_ref targetfile %s", targetfile)
+    log.debug("       find_file_ref targetfile %s", targetfile)
     return [ sourcefile, targetfile ]
 
 
@@ -222,7 +222,9 @@ def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: di
             # XXX we never use the actual libvirt/qemu default, writeback?
             disk["cache"] = "writethrough" if (parse_boolean(d[f"{interface}{x}:{y}.writethrough"])) else "none"
             if (all(disk["path"]) and disk_mode == "convert" and disk["path"][0].endswith(".vmdk")):
+                log.info("[INSPECT] %s", os.path.basename(disk["path"][0]))
                 disk["os"] = inspector_inspect(disk["path"][0])
+                log.info("          %s", disk["os"])
             disks.append(disk)
     return disks
 

@@ -308,7 +308,7 @@ def main(argc: int, argv: list) -> int:
         rv = adjust_guestfs(nbd, True, drivers, trim)
 
     if (rv):
-        log.warning("adjust_guestfs.py: guest adjustment successful.")
+        log.info("adjust_guestfs.py: guest adjustment successful.")
         return 0
     else:
         log.warning("adjust_guestfs.py: guest adjustment FAILURE!")

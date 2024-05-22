@@ -21,7 +21,7 @@ def adjust_guestfs_v2v(from_file: str) -> bool:
     if (log.level > logging.WARNING):
         args.append("--quiet")
     if (log.level <= logging.DEBUG):
-        args.extend(["--verbose", "-x"])
+        args.append("-x")
     args.append(from_file)
 
     log.debug("%s", args)
