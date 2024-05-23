@@ -9,6 +9,9 @@
 import os
 import glob
 import gi
+
+from vmx2xml.log import *
+
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
@@ -64,6 +67,14 @@ def tree_store_init() -> Gtk.TreeStore:
     return s
 
 
+def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
+    for row in t:
+        if (s == row[0]):
+            log.warning("%s already present in the tree", s)
+            return row
+    return None
+
+
 def tree_store_add_walk(t: Gtk.TreeStore, folder: str) -> None:
     for (root, dirs, files) in os.walk(folder, topdown=True):
         vms: int = 0; count: int = 0
@@ -73,7 +84,8 @@ def tree_store_add_walk(t: Gtk.TreeStore, folder: str) -> None:
             if (count >= 1):
                 vms += count
         if (vms >= 1):
-            t.append(None, [root, str(vms) + " VMs", "None"])
+            if not (tree_store_search(t, root)):
+                t.append(None, [root, str(vms) + " VMs", "None"])
             del dirs
             del root
             continue
@@ -278,6 +290,8 @@ class MainWindow(Gtk.Window):
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
+
+log_init(1, 0)
 
 w = MainWindow()
 w.set_interactive_debugging(debug)
