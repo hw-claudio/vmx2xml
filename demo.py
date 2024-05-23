@@ -41,6 +41,13 @@ def get_folder_size_str(f: str) -> str:
     return ""
 
 
+def get_folder_avail_str(f: str) -> str:
+    size_str: str = runcmd(["df", "-h", "--output=avail", f], True)
+    size_str = size_str.strip()
+    lines = size_str.splitlines()
+    return lines[1]             # skip the header line
+
+
 def arrow_init() -> Gtk.Frame:
     f: Gtk.Frame = Gtk.Frame()
     f.set_shadow_type(0)
@@ -75,7 +82,7 @@ def vm_entry_init() -> Gtk.Entry:
 
 
 def tree_store_init() -> Gtk.TreeStore:
-    s: Gtk.TreeStore = Gtk.TreeStore(str, str, str, str)
+    s: Gtk.TreeStore = Gtk.TreeStore(str, str, str, str, str)
     return s
 
 
@@ -87,15 +94,20 @@ def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
     return None
 
 
-def tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
+def tree_store_src_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
     size_str: str = get_folder_size_str(root)
-    iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "None", root])
+    iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "None", root, ""])
     for vm in vms:
         size_str = get_folder_size_str(os.path.dirname(vm["path"]))
-        t.append(iter, [vm["name"], size_str, "None", vm["path"]])
+        t.append(iter, [vm["name"], size_str, "None", vm["path"], ""])
 
 
-def tree_store_walk(t: Gtk.TreeStore, folder: str) -> None:
+def tree_store_tgt_add(t: Gtk.TreeStore, root: str) -> None:
+    avail_str: str = get_folder_avail_str(root)
+    t.append(None, [os.path.basename(root), avail_str, "", root, ""])
+
+
+def tree_store_src_walk(t: Gtk.TreeStore, folder: str) -> None:
     for (root, dirs, files) in os.walk(folder, topdown=True):
         vms: list = []; i: int = 0
         for this in dirs:
@@ -106,13 +118,36 @@ def tree_store_walk(t: Gtk.TreeStore, folder: str) -> None:
 
         if (len(vms) >= 1):
             if not (tree_store_search(t, root)):
-                tree_store_add(t, root, vms)
+                tree_store_src_add(t, root, vms)
             del root
             continue
 
 
+def tree_view_src_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = tree_store_src
+    ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
+    ds_chooser.set_create_folders(True)
+    ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
+    ds_chooser.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,)
+    response = ds_chooser.run()
+
+    if (response == Gtk.ResponseType.OK):
+        f: str = ds_chooser.get_filename()
+        if not (tree_store_search(t, f)):
+            tree_store_tgt_add(tree_store_tgt, f)
+        iter: Gtk.TreeIter = t.get_iter(p)
+        t[iter][2] = os.path.basename(f)
+        t[iter][4] = f
+    ds_chooser.destroy()
+
+
+def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    if (view == tree_view_src):
+        return tree_view_src_row_activated(view, p, c)
+
+
 def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.TreeView:
-    t: Gtk.TreeView = Gtk.TreeView(model=s)
+    view: Gtk.TreeView = Gtk.TreeView(model=s)
     renderer: Gtk.CellRendererText = Gtk.CellRendererText()
     column: Gtk.TreeViewColumn = Gtk.TreeViewColumn(first, renderer, text=0)
     column.set_min_width(256)
@@ -120,7 +155,7 @@ def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.
     column.set_fixed_width(256)
     column.set_resizable(False)
     column.set_sizing(2)
-    t.append_column(column)
+    view.append_column(column)
 
     column = Gtk.TreeViewColumn(second, renderer, text=1)
     column.set_resizable(False)
@@ -128,7 +163,7 @@ def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.
     column.set_max_width(48)
     column.set_fixed_width(48)
     column.set_sizing(2)
-    t.append_column(column)
+    view.append_column(column)
 
     column = Gtk.TreeViewColumn(third, renderer, text=2)
     column.set_resizable(False)
@@ -136,8 +171,10 @@ def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.
     column.set_max_width(92)
     column.set_fixed_width(92)
     column.set_sizing(2)
-    t.append_column(column)
-    return t
+    view.append_column(column)
+
+    view.connect("row-activated", tree_view_row_activated)
+    return view
 
 
 def vm_find_clicked(widget: Gtk.Widget):
@@ -148,7 +185,7 @@ def vm_find_clicked(widget: Gtk.Widget):
     response = vm_chooser.run()
 
     if (response == Gtk.ResponseType.OK):
-        tree_store_walk(tree_store_src, vm_chooser.get_filename())
+        tree_store_src_walk(tree_store_src, vm_chooser.get_filename())
     vm_chooser.destroy()
 
 
@@ -298,7 +335,7 @@ class MainWindow(Gtk.Window):
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tree_store_tgt = tree_store_init()
-        tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "%", "Conversion Result")
+        tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "Avail", "%")
         layout_tgt.pack_start(tree_view_tgt, True, True, 0)
 
         # layout_button_tgt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
