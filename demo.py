@@ -26,6 +26,11 @@ tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_test: Gtk.B
 tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView; button_tgt: Gtk.Button
 
 
+def arrow_init() -> Gtk.Image:
+    i: Gtk.Image = Gtk.Image.new_from_file("art/arrow_dark_t.png")
+    return i
+
+
 def header_suse_init() -> Gtk.Image:
     i: Gtk.Image = Gtk.Image.new_from_file("art/suse-logo-small-h.png")
     return i
@@ -184,55 +189,62 @@ class MainWindow(Gtk.Window):
         layout_find_int.pack_start(vm_find, False, False, 0)
 
 
-        # LAYOUT DS (Source Datastore, Layout Middle, Target Datastore)
+        # LAYOUT DS (Source Datastore, Layout Test, Target Datastore)
         layout_ds = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         layout.pack_start(layout_ds, True, True, 0)
 
         layout_src = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_src, True, True, 0)
 
-        label_src = ds_label_init("Source Datastore")
+        arrow_src = arrow_init()
+        layout_ds.pack_start(arrow_src, False, False, 0)
+
+        label_src = ds_label_init("Source Datastores")
         layout_src.pack_start(label_src, False, False, 0)
         tree_store_src = tree_store_init()
         tree_view_src = tree_view_init(tree_store_src, "Name", "Size", "Mapping")
         layout_src.pack_start(tree_view_src, True, True, 0)
 
-        layout_button_src = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
-        layout_src.pack_start(layout_button_src, False, False, 0)
-        button_src = button_src_init()
-        layout_button_src.pack_start(button_src, True, False, 0)
+        # DISABLE BUTTONS, TRY ARROWS
+        # layout_button_src = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        # layout_src.pack_start(layout_button_src, False, False, 0)
+        # button_src = button_src_init()
+        # layout_button_src.pack_start(button_src, True, False, 0)
 
-        # LAYOUT MIDDLE (Entry+Find, Test)
-        layout_mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_ds.pack_start(layout_mid, True, True, 0)
+        # LAYOUT TEST
+        layout_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
+        layout_ds.pack_start(layout_test, True, True, 0)
+
+        arrow_test = arrow_init()
+        layout_ds.pack_start(arrow_test, False, False, 0)
 
         label_test = ds_label_init("Boot Test")
-        layout_mid.pack_start(label_test, False, False, 0)
+        layout_test.pack_start(label_test, False, False, 0)
 
         tree_store_test = tree_store_init()
         tree_view_test = tree_view_init(tree_store_test, "VM Name", "%", "Test Result")
-        layout_mid.pack_start(tree_view_test, True, True, 0)
+        layout_test.pack_start(tree_view_test, True, True, 0)
 
-        layout_button_test = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
-        layout_mid.pack_start(layout_button_test, False, False, 0)
-        button_test = button_test_init()
-        layout_button_test.pack_start(button_test, True, False, 0)
+        # layout_button_test = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        # layout_test.pack_start(layout_button_test, False, False, 0)
+        # button_test = button_test_init()
+        # layout_button_test.pack_start(button_test, True, False, 0)
 
         # LAYOUT DATASTORES (cont)
         layout_tgt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_tgt, True, True, 0)
 
-        label_tgt = ds_label_init("Target Datastore")
+        label_tgt = ds_label_init("Target Datastores")
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tree_store_tgt = tree_store_init()
         tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "%", "Conversion Result")
         layout_tgt.pack_start(tree_view_tgt, True, True, 0)
 
-        layout_button_tgt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
-        layout_tgt.pack_start(layout_button_tgt, False, False, 0)
-        button_tgt = button_tgt_init()
-        layout_button_tgt.pack_start(button_tgt, True, False, 0)
+        # layout_button_tgt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        # layout_tgt.pack_start(layout_button_tgt, False, False, 0)
+        # button_tgt = button_tgt_init()
+        # layout_button_tgt.pack_start(button_tgt, True, False, 0)
 
         self.add(layout)
         self.set_default_size(800, 600)
