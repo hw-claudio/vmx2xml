@@ -18,15 +18,12 @@ spacing_min: int = 4
 spacing_v: int = 48
 spacing_h: int = 48
 
-header_suse: Gtk.Image
-header_title: Gtk.Label
-header_kvm: Gtk.Image
-vm_entry: Gtk.Entry
-vm_find: Gtk.Button
-tree_store_src: Gtk.TreeStore
-tree_view_src: Gtk.TreeView
-tree_store_tgt: Gtk.TreeStore
-tree_view_tgt: Gtk.TreeView
+header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
+vm_entry: Gtk.Entry; vm_find: Gtk.Button
+
+tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; button_src: Gtk.Button
+tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_test: Gtk.Button
+tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView; button_tgt: Gtk.Button
 
 
 def header_suse_init() -> Gtk.Image:
@@ -103,29 +100,57 @@ def vm_find_clicked(widget: Gtk.Widget):
 
 
 def vm_find_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button(label="Find")
+    b: Gtk.Button = Gtk.Button("Find")
     b.connect("clicked", vm_find_clicked)
     return b
 
 
 def ds_label_init(text: str) -> Gtk.Label:
-    l: Gtk.Label = Gtk.Label(label=text)
+    l: Gtk.Label = Gtk.Label(text)
     c = l.get_style_context()
     c.add_class("ds_label");
     return l
 
 
+def button_src_clicked(widget: Gtk.Widget):
+    print("clicked.")
+
+
+def button_src_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button("Start Test!")
+    b.connect("clicked", button_src_clicked)
+    return b
+
+
+def button_test_clicked(widget: Gtk.Widget):
+    print("clicked.")
+
+
+def button_test_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button("Start Conversion!")
+    b.connect("clicked", button_test_clicked)
+    return b
+
+
+def button_tgt_clicked(widget: Gtk.Widget):
+    tree_store_src.clear()
+    tree_store_tgt.clear()
+    tree_store_test.clear()
+
+
+def button_tgt_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button("Reset")
+    b.connect("clicked", button_tgt_clicked)
+    return b
+
+
 class MainWindow(Gtk.Window):
     def __init__(self):
-        global vm_entry
-        global vm_find
-        global header_suse
-        global header_title
-        global header_kvm
-        global tree_store_src
-        global tree_view_src
-        global tree_store_tgt
-        global tree_view_tgt
+        global header_suse, header_title, header_kvm
+        global vm_entry, vm_find
+        global tree_store_src, tree_view_src, button_src
+        global tree_store_test, tree_view_test, button_test
+        global tree_store_tgt, tree_view_tgt, button_tgt
 
         super().__init__(title="Convert to KVM!")
         self.set_border_width(border)
@@ -157,6 +182,8 @@ class MainWindow(Gtk.Window):
         tree_store_src = tree_store_init()
         tree_view_src = tree_view_init(tree_store_src, "Name", "Size", "Mapping")
         layout_src.pack_start(tree_view_src, True, True, 0)
+        button_src = button_src_init()
+        layout_src.pack_start(button_src, False, False, 0)
 
         # LAYOUT MIDDLE (Entry+Find, Test)
         layout_mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
@@ -168,7 +195,6 @@ class MainWindow(Gtk.Window):
 
         vm_entry = vm_entry_init()
         layout_find.pack_start(vm_entry, False, False, 0)
-
         vm_find = vm_find_init()
         layout_find.pack_start(vm_find, False, False, 0)
 
@@ -178,6 +204,9 @@ class MainWindow(Gtk.Window):
         tree_store_test = tree_store_init()
         tree_view_test = tree_view_init(tree_store_test, "VM Name", "Progress", "Test Result")
         layout_mid.pack_start(tree_view_test, True, True, 0)
+
+        button_test = button_test_init()
+        layout_mid.pack_start(button_test, False, False, 0)
 
         # LAYOUT DATASTORES (cont)
         layout_tgt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
@@ -192,6 +221,9 @@ class MainWindow(Gtk.Window):
         tree_store_tgt = tree_store_init()
         tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "Size", "Progress")
         layout_tgt.pack_start(tree_view_tgt, True, True, 0)
+
+        button_tgt = button_tgt_init()
+        layout_tgt.pack_start(button_tgt, False, False, 0)
 
         self.add(layout)
         self.set_default_size(800, 600)
