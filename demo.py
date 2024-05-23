@@ -44,7 +44,7 @@ def header_suse_init() -> Gtk.Image:
 
 
 def header_title_init() -> Gtk.Label:
-    l: Gtk.Label = Gtk.Label("Convert to KVM!")
+    l: Gtk.Label = Gtk.Label(label="Convert to KVM!")
     c = l.get_style_context()
     c.add_class("title");
     return l
@@ -144,7 +144,7 @@ def vm_find_clicked(widget: Gtk.Widget):
 
 
 def vm_find_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button("Find")
+    b: Gtk.Button = Gtk.Button(label="Find")
     b.connect("clicked", vm_find_clicked)
     return b
 
@@ -156,13 +156,13 @@ def button_reset_clicked(widget: Gtk.Widget):
 
 
 def button_reset_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button("Restart")
+    b: Gtk.Button = Gtk.Button(label="Restart")
     b.connect("clicked", button_reset_clicked)
     return b
 
 
 def ds_label_init(text: str) -> Gtk.Label:
-    l: Gtk.Label = Gtk.Label(text)
+    l: Gtk.Label = Gtk.Label(label=text)
     c = l.get_style_context()
     c.add_class("ds_label");
     return l
@@ -173,7 +173,7 @@ def button_src_clicked(widget: Gtk.Widget):
 
 
 def button_src_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button("Start Test!")
+    b: Gtk.Button = Gtk.Button(label="Start Test!")
     b.connect("clicked", button_src_clicked)
     return b
 
@@ -183,7 +183,7 @@ def button_test_clicked(widget: Gtk.Widget):
 
 
 def button_test_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button("Start Conversion!")
+    b: Gtk.Button = Gtk.Button(label="Start Conversion!")
     b.connect("clicked", button_test_clicked)
     return b
 
@@ -195,7 +195,7 @@ def button_tgt_clicked(widget: Gtk.Widget):
 
 
 def button_tgt_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button("Reset")
+    b: Gtk.Button = Gtk.Button(label="Reset")
     b.connect("clicked", button_tgt_clicked)
     return b
 
