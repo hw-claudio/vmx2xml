@@ -19,16 +19,19 @@ spacing_v: int = 48
 spacing_h: int = 48
 
 header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
-vm_entry: Gtk.Entry; vm_find: Gtk.Button
+vm_entry: Gtk.Entry; vm_find: Gtk.Button; button_reset: Gtk.Button;
 
 tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; button_src: Gtk.Button
 tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_test: Gtk.Button
 tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView; button_tgt: Gtk.Button
 
 
-def arrow_init() -> Gtk.Image:
-    i: Gtk.Image = Gtk.Image.new_from_file("art/arrow_dark_t.png")
-    return i
+def arrow_init() -> Gtk.Frame:
+    f: Gtk.Frame = Gtk.Frame()
+    f.set_shadow_type(0)
+    i: Gtk.Image = Gtk.Image.new_from_file("art/arrow_dark.png")
+    f.add(i)
+    return f
 
 
 def header_suse_init() -> Gtk.Image:
@@ -115,6 +118,18 @@ def vm_find_init() -> Gtk.Button:
     return b
 
 
+def button_reset_clicked(widget: Gtk.Widget):
+    tree_store_src.clear()
+    tree_store_tgt.clear()
+    tree_store_test.clear()
+
+
+def button_reset_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button("Restart")
+    b.connect("clicked", button_reset_clicked)
+    return b
+
+
 def ds_label_init(text: str) -> Gtk.Label:
     l: Gtk.Label = Gtk.Label(text)
     c = l.get_style_context()
@@ -157,10 +172,10 @@ def button_tgt_init() -> Gtk.Button:
 class MainWindow(Gtk.Window):
     def __init__(self):
         global header_suse, header_title, header_kvm
-        global vm_entry, vm_find
+        global vm_entry, vm_find, button_reset
         global tree_store_src, tree_view_src, button_src
         global tree_store_test, tree_view_test, button_test
-        global tree_store_tgt, tree_view_tgt, button_tgt
+        global tree_store_tgt, tree_view_tgt
 
         super().__init__(title="Convert to KVM!")
         self.set_border_width(border)
@@ -188,7 +203,6 @@ class MainWindow(Gtk.Window):
         vm_find = vm_find_init()
         layout_find_int.pack_start(vm_find, False, False, 0)
 
-
         # LAYOUT DS (Source Datastore, Layout Test, Target Datastore)
         layout_ds = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         layout.pack_start(layout_ds, True, True, 0)
@@ -196,8 +210,11 @@ class MainWindow(Gtk.Window):
         layout_src = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_src, True, True, 0)
 
+        layout_arrow_src = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
+        layout_arrow_src.set_margin_top(spacing_v * 2)
+        layout_ds.pack_start(layout_arrow_src, True, False, 0)
         arrow_src = arrow_init()
-        layout_ds.pack_start(arrow_src, False, False, 0)
+        layout_arrow_src.pack_start(arrow_src, False, False, 0)
 
         label_src = ds_label_init("Source Datastores")
         layout_src.pack_start(label_src, False, False, 0)
@@ -215,8 +232,11 @@ class MainWindow(Gtk.Window):
         layout_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_test, True, True, 0)
 
+        layout_arrow_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
+        layout_arrow_test.set_margin_top(spacing_v * 2)
+        layout_ds.pack_start(layout_arrow_test, True, False, 0)
         arrow_test = arrow_init()
-        layout_ds.pack_start(arrow_test, False, False, 0)
+        layout_arrow_test.pack_start(arrow_test, False, False, 0)
 
         label_test = ds_label_init("Boot Test")
         layout_test.pack_start(label_test, False, False, 0)
@@ -246,8 +266,13 @@ class MainWindow(Gtk.Window):
         # button_tgt = button_tgt_init()
         # layout_button_tgt.pack_start(button_tgt, True, False, 0)
 
+        layout_button_reset = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout.pack_start(layout_button_reset, False, False, 0)
+        button_reset = button_reset_init()
+        layout_button_reset.pack_start(button_reset, True, False, 0)
+
         self.add(layout)
-        self.set_default_size(800, 600)
+        self.set_default_size(1024, 768)
 
 
 abspath = os.path.abspath(__file__)
