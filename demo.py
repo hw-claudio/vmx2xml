@@ -61,14 +61,17 @@ def tree_store_init() -> Gtk.TreeStore:
 
 def tree_store_add_walk(t: Gtk.TreeStore, folder: str) -> None:
     for (root, dirs, files) in os.walk(folder, topdown=True):
+        vms: int = 0; count: int = 0
         for this in dirs:
             vmxnames: list = glob.glob(os.path.join(root, this, "*.vmx"))
-            if (len(vmxnames) >= 1):
-                size: int = os.stat(root).st_blocks * 512 // (1024 * 1024)
-                t.append(None, [root, str(size) + " MiB", ""])
-                del dirs
-                del root
-                break
+            count = len(vmxnames)
+            if (count >= 1):
+                vms += count
+        if (vms >= 1):
+            t.append(None, [root, str(vms) + " VMs", "None"])
+            del dirs
+            del root
+            continue
 
 
 def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.TreeView:
@@ -76,10 +79,13 @@ def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.
     renderer: Gtk.CellRendererText = Gtk.CellRendererText()
     column: Gtk.TreeViewColumn = Gtk.TreeViewColumn(first, renderer, text=0)
     column.set_expand(True)
+    column.set_resizable(True)
     t.append_column(column)
     column = Gtk.TreeViewColumn(second, renderer, text=1)
+    column.set_resizable(True)
     t.append_column(column)
     column = Gtk.TreeViewColumn(third, renderer, text=2)
+    column.set_resizable(True)
     t.append_column(column)
     return t
 
@@ -132,36 +138,36 @@ class MainWindow(Gtk.Window):
         header_suse = header_suse_init()
         layout_title.pack_start(header_suse, False, False, 0)
         header_title = header_title_init()
-        layout_title.pack_start(header_title, True, False, 0)
+        layout_title.pack_start(header_title, True, True, 0)
         header_kvm = header_kvm_init()
         layout_title.pack_start(header_kvm, False, False, 0)
 
-        # LAYOUT DATASTORES (Source Datastore, Layout Middle, Target Datastore)
+        # LAYOUT DS (Source Datastore, Layout Middle, Target Datastore)
         layout_ds = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
-        layout.pack_start(layout_ds, False, False, 0)
+        layout.pack_start(layout_ds, True, True, 0)
 
         layout_src = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_ds.pack_start(layout_src, True, True, 0)
+        layout_ds.pack_start(layout_src, False, False, 0)
         # invisible, just for the spacing
         align_src = Gtk.Label()
         layout_src.pack_start(align_src, False, False, 0)
 
         label_src = ds_label_init("Source Datastore")
-        layout_src.pack_start(label_src, True, True, 0)
+        layout_src.pack_start(label_src, False, False, 0)
         tree_store_src = tree_store_init()
         tree_view_src = tree_view_init(tree_store_src, "Name", "Size", "Mapping")
         layout_src.pack_start(tree_view_src, True, True, 0)
 
         # LAYOUT MIDDLE (Entry+Find, Test)
         layout_mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_ds.pack_start(layout_mid, True, True, 0)
+        layout_ds.pack_start(layout_mid, False, False, 0)
 
         # LAYOUT FIND (Entry, Find)
         layout_find = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        layout_mid.pack_start(layout_find, True, True, 0)
+        layout_mid.pack_start(layout_find, False, False, 0)
 
         vm_entry = vm_entry_init()
-        layout_find.pack_start(vm_entry, True, True, 0)
+        layout_find.pack_start(vm_entry, False, False, 0)
 
         vm_find = vm_find_init()
         layout_find.pack_start(vm_find, False, False, 0)
@@ -175,13 +181,13 @@ class MainWindow(Gtk.Window):
 
         # LAYOUT DATASTORES (cont)
         layout_tgt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_ds.pack_start(layout_tgt, True, True, 0)
+        layout_ds.pack_start(layout_tgt, False, False, 0)
         # invisible, just for the spacing
         align_tgt = Gtk.Label()
         layout_tgt.pack_start(align_tgt, False, False, 0)
 
         label_tgt = ds_label_init("Target Datastore")
-        layout_tgt.pack_start(label_tgt, True, True, 0)
+        layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tree_store_tgt = tree_store_init()
         tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "Size", "Progress")
