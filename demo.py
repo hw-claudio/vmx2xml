@@ -9,6 +9,7 @@
 import os
 import glob
 import gi
+import re
 
 from vmx2xml.log import *
 from vmx2xml.runcmd import *
@@ -28,6 +29,16 @@ vm_entry: Gtk.Entry; vm_find: Gtk.Button; button_reset: Gtk.Button;
 tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; button_src: Gtk.Button
 tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_test: Gtk.Button
 tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView; button_tgt: Gtk.Button
+
+
+def get_folder_size_str(f: str) -> str:
+    size_str: str = runcmd(["du", "-s", "-h", f], True)
+    size_str = size_str.strip()
+    m = re.match(r"^(\S+)\s+", size_str)
+    if (m):
+        return m.group(1)
+    log.error("get_folder_size_str: failed to match input %s", size_str)
+    return ""
 
 
 def arrow_init() -> Gtk.Frame:
@@ -77,12 +88,10 @@ def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
 
 
 def tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
-    size_str = runcmd(["du", "-s", "-h", root], True)
-    size_str = size_str.strip()
+    size_str: str = get_folder_size_str(root)
     iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "None", root])
     for vm in vms:
-        size_str = runcmd(["du", "-s", "-h", vm["path"]], True)
-        size_str = size_str.strip()
+        size_str = get_folder_size_str(os.path.dirname(vm["path"]))
         t.append(iter, [vm["name"], size_str, "None", vm["path"]])
 
 
