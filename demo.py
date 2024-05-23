@@ -45,7 +45,7 @@ def header_kvm_init() -> Gtk.Image:
 
 def vm_entry_init() -> Gtk.Entry:
     e: Gtk.Entry = Gtk.Entry()
-    e.set_text("Find VMs to convert  >>>")
+    e.set_text("Find VMs >>>")
     e.set_editable(False)
     e.set_alignment(1)
     return e
@@ -77,12 +77,17 @@ def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.
     column: Gtk.TreeViewColumn = Gtk.TreeViewColumn(first, renderer, text=0)
     column.set_expand(True)
     column.set_resizable(True)
+    column.set_min_width(256)
     t.append_column(column)
+
     column = Gtk.TreeViewColumn(second, renderer, text=1)
     column.set_resizable(True)
+    column.set_min_width(48)
     t.append_column(column)
+
     column = Gtk.TreeViewColumn(third, renderer, text=2)
     column.set_resizable(True)
+    column.set_min_width(92)
     t.append_column(column)
     return t
 
@@ -167,63 +172,67 @@ class MainWindow(Gtk.Window):
         header_kvm = header_kvm_init()
         layout_title.pack_start(header_kvm, False, False, 0)
 
+        # LAYOUT FIND (Entry, Find)
+        layout_find = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        layout.pack_start(layout_find, False, False, 0)
+        layout_find_int = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        layout_find.pack_start(layout_find_int, True, False, 0)
+
+        vm_entry = vm_entry_init()
+        layout_find_int.pack_start(vm_entry, False, False, 0)
+        vm_find = vm_find_init()
+        layout_find_int.pack_start(vm_find, False, False, 0)
+
+
         # LAYOUT DS (Source Datastore, Layout Middle, Target Datastore)
         layout_ds = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         layout.pack_start(layout_ds, True, True, 0)
 
         layout_src = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_ds.pack_start(layout_src, False, False, 0)
-        # invisible, just for the spacing
-        align_src = Gtk.Label()
-        layout_src.pack_start(align_src, False, False, 0)
+        layout_ds.pack_start(layout_src, True, True, 0)
 
         label_src = ds_label_init("Source Datastore")
         layout_src.pack_start(label_src, False, False, 0)
         tree_store_src = tree_store_init()
         tree_view_src = tree_view_init(tree_store_src, "Name", "Size", "Mapping")
         layout_src.pack_start(tree_view_src, True, True, 0)
+
+        layout_button_src = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout_src.pack_start(layout_button_src, False, False, 0)
         button_src = button_src_init()
-        layout_src.pack_start(button_src, False, False, 0)
+        layout_button_src.pack_start(button_src, True, False, 0)
 
         # LAYOUT MIDDLE (Entry+Find, Test)
         layout_mid = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_ds.pack_start(layout_mid, False, False, 0)
-
-        # LAYOUT FIND (Entry, Find)
-        layout_find = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-        layout_mid.pack_start(layout_find, False, False, 0)
-
-        vm_entry = vm_entry_init()
-        layout_find.pack_start(vm_entry, False, False, 0)
-        vm_find = vm_find_init()
-        layout_find.pack_start(vm_find, False, False, 0)
+        layout_ds.pack_start(layout_mid, True, True, 0)
 
         label_test = ds_label_init("Boot Test")
         layout_mid.pack_start(label_test, False, False, 0)
 
         tree_store_test = tree_store_init()
-        tree_view_test = tree_view_init(tree_store_test, "VM Name", "Progress", "Test Result")
+        tree_view_test = tree_view_init(tree_store_test, "VM Name", "%", "Test Result")
         layout_mid.pack_start(tree_view_test, True, True, 0)
 
+        layout_button_test = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout_mid.pack_start(layout_button_test, False, False, 0)
         button_test = button_test_init()
-        layout_mid.pack_start(button_test, False, False, 0)
+        layout_button_test.pack_start(button_test, True, False, 0)
 
         # LAYOUT DATASTORES (cont)
         layout_tgt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_ds.pack_start(layout_tgt, False, False, 0)
-        # invisible, just for the spacing
-        align_tgt = Gtk.Label()
-        layout_tgt.pack_start(align_tgt, False, False, 0)
+        layout_ds.pack_start(layout_tgt, True, True, 0)
 
         label_tgt = ds_label_init("Target Datastore")
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tree_store_tgt = tree_store_init()
-        tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "Size", "Progress")
+        tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "%", "Conversion Result")
         layout_tgt.pack_start(tree_view_tgt, True, True, 0)
 
+        layout_button_tgt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout_tgt.pack_start(layout_button_tgt, False, False, 0)
         button_tgt = button_tgt_init()
-        layout_tgt.pack_start(button_tgt, False, False, 0)
+        layout_button_tgt.pack_start(button_tgt, True, False, 0)
 
         self.add(layout)
         self.set_default_size(800, 600)
