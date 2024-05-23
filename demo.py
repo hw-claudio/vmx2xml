@@ -77,16 +77,18 @@ def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
 
 def tree_store_add_walk(t: Gtk.TreeStore, folder: str) -> None:
     for (root, dirs, files) in os.walk(folder, topdown=True):
-        vms: int = 0; count: int = 0
+        vms: list = []; i: int = 0
         for this in dirs:
-            vmxnames: list = glob.glob(os.path.join(root, this, "*.vmx"))
-            count = len(vmxnames)
-            if (count >= 1):
-                vms += count
-        if (vms >= 1):
+            names: list = glob.glob(os.path.join(root, this, "*.vmx"))
+            count = len(names)
+            for i in range(0, count):
+                vms.append({"name": names[i]})
+
+        if (len(vms) >= 1):
             if not (tree_store_search(t, root)):
-                t.append(None, [root, str(vms) + " VMs", "None"])
-            del dirs
+                iter: Gtk.TreeIter = t.append(None, [root, str(len(vms)) + " VMs", "None"])
+                for vm in vms:
+                    t.append(iter, [vm["name"], "", "None"])
             del root
             continue
 
@@ -95,19 +97,22 @@ def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.
     t: Gtk.TreeView = Gtk.TreeView(model=s)
     renderer: Gtk.CellRendererText = Gtk.CellRendererText()
     column: Gtk.TreeViewColumn = Gtk.TreeViewColumn(first, renderer, text=0)
-    column.set_expand(True)
-    column.set_resizable(True)
+    #column.set_expand(False)
+    column.set_resizable(False)
     column.set_min_width(256)
+    column.set_sizing(2)
     t.append_column(column)
 
     column = Gtk.TreeViewColumn(second, renderer, text=1)
-    column.set_resizable(True)
+    column.set_resizable(False)
     column.set_min_width(48)
+    column.set_sizing(2)
     t.append_column(column)
 
     column = Gtk.TreeViewColumn(third, renderer, text=2)
-    column.set_resizable(True)
+    column.set_resizable(False)
     column.set_min_width(92)
+    column.set_sizing(2)
     t.append_column(column)
     return t
 
