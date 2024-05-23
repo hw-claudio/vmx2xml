@@ -88,9 +88,10 @@ def tree_store_init() -> Gtk.TreeStore:
 
 def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
     for row in t:
-        if (s == row[0]):
-            log.warning("%s already present in the tree", s)
+        if (s == row[3]):
+            log.info("%s already present in the tree", s)
             return row
+    log.info("%s not present in the tree", s)
     return None
 
 
@@ -109,18 +110,16 @@ def tree_store_tgt_add(t: Gtk.TreeStore, root: str) -> None:
 
 def tree_store_src_walk(t: Gtk.TreeStore, folder: str) -> None:
     for (root, dirs, files) in os.walk(folder, topdown=True):
+        if (tree_store_search(t, root)):
+            continue
         vms: list = []; i: int = 0
         for this in dirs:
             names: list = glob.glob(os.path.join(root, this, "*.vmx"))
             count = len(names)
             for i in range(0, count):
                 vms.append({"name": this, "path": names[i]})
-
         if (len(vms) >= 1):
-            if not (tree_store_search(t, root)):
-                tree_store_src_add(t, root, vms)
-            del root
-            continue
+            tree_store_src_add(t, root, vms)
 
 
 def tree_view_src_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
@@ -133,7 +132,7 @@ def tree_view_src_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.Tree
 
     if (response == Gtk.ResponseType.OK):
         f: str = ds_chooser.get_filename()
-        if not (tree_store_search(t, f)):
+        if not (tree_store_search(tree_store_tgt, f)):
             tree_store_tgt_add(tree_store_tgt, f)
         iter: Gtk.TreeIter = t.get_iter(p)
         t[iter][2] = os.path.basename(f)
