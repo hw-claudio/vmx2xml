@@ -91,9 +91,9 @@ def tree_store_init() -> Gtk.TreeStore:
 def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
     for row in t:
         if (s == row[3]):
-            log.info("%s already present in the tree", s)
+            log.debug("%s already present in the tree", s)
             return row
-    log.info("%s not present in the tree", s)
+    log.debug("%s not present in the tree", s)
     return None
 
 
