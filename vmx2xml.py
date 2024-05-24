@@ -561,8 +561,9 @@ def virt_install(vinst_version: float,
         s = eth["type"]
         model = eth["model"]
         mac: str = eth["mac"]
-        if (model):
-            s += f",model={model}"
+        if not (fidelity and model):
+            model = "virtio-net"
+        s += f",model={model}"
         if (mac and eth["addr_type"] == ".address"):
             s += f",mac={mac}"
         args.extend(["--network", s])
@@ -733,7 +734,7 @@ def get_options(argc: int, argv: list) -> tuple:
 
     vmxt = parser.add_argument_group('VMX TRANSLATION OPTIONS', 'adjust how we translate VMWare .vmx to libvirt .xml')
     vmxt.add_argument('-F', '--fidelity', action='store_true',
-                      help='generate an XML closer to the original VMX. Applies sched.cpu.affinity and explicitly adds a controller and disk hierarchy matching the VMX')
+                      help='generate an XML closer to the original VMX. Applies sched.cpu.affinity and translates closely VMX disk/network devices to libvirt devices')
     vmxt.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
                       help='replace references starting with RIDS to IDS for finding the input disks,\n'
                       'and translate those input disk prefixes to output datastore prefix ODS.\n'
