@@ -17,7 +17,7 @@ from vmx2xml.log import *
 from vmx2xml.runcmd import *
 
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk, GLib
 
 program_version: str = "0.1"
 border: int = 48
@@ -28,10 +28,9 @@ spacing_h: int = 48
 header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
 vm_entry: Gtk.Entry; vm_find: Gtk.Button; button_reset: Gtk.Button;
 
-tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView;
-tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; arrow_test: Gtk.Button
-tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView; arrow_conv: Gtk.Button
-
+tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; arrow_test: Gtk.Button
+tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; arrow_conv: Gtk.Button
+tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView;
 
 def get_folder_size_str(f: str) -> str:
     size_str: str = runcmd(["du", "-s", "-h", f], True)
@@ -50,10 +49,25 @@ def get_folder_avail_str(f: str) -> str:
     return lines[1]             # skip the header line
 
 
+def arrow_pressed(b: Gtk.Button, e: Gdk.EventButton) -> bool:
+    log.info("arrow_pressed! b=%s", b)
+    arrow_light = Gtk.Image.new_from_file("art/arrow_light.png")
+    b.set_image(arrow_light)
+    return False
+
+def arrow_clicked(b: Gtk.Button):
+    log.info("arrow_clicked! b=%s", b)
+    arrow_dark = Gtk.Image.new_from_file("art/arrow_dark.png")
+    b.set_image(arrow_dark)
+
+
 def arrow_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button()
-    i: Gtk.Image = Gtk.Image.new_from_file("art/arrow_dark.png")
-    b.set_image(i)
+    arrow_dark = Gtk.Image.new_from_file("art/arrow_dark.png")
+    b.set_image(arrow_dark)
+    b.set_always_show_image(True)
+    b.connect("button-press-event", arrow_pressed)
+    b.connect("clicked", arrow_clicked)
     return b
 
 
@@ -289,6 +303,7 @@ class MainWindow(Gtk.Window):
         layout_arrow_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_arrow_test.set_margin_top(spacing_v * 2)
         layout_ds.pack_start(layout_arrow_test, True, False, 0)
+
         arrow_test = arrow_init()
         layout_arrow_test.pack_start(arrow_test, False, False, 0)
 
