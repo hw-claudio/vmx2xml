@@ -343,7 +343,7 @@ class MainWindow(Gtk.Window):
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tree_store_tgt = tree_store_init()
-        tree_view_tgt = tree_view_init(tree_store_tgt, layout_tgt, "Name", "Avail", "Needed")
+        tree_view_tgt = tree_view_init(tree_store_tgt, layout_tgt, "Name", "Avail", "%")
 
         # layout_button_tgt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         # layout_tgt.pack_start(layout_button_tgt, False, False, 0)
