@@ -701,7 +701,6 @@ def help_conversion() -> None:
 
 
 def get_options(argc: int, argv: list) -> tuple:
-    global log
     cache_modes: list = [ "none", "writeback", "unsafe", "directsync", "writethrough" ]
     disk_modes: list = [ "none", "translate", "convert" ]
     conv_modes: list = [ "v2v", "x", "y" ]
