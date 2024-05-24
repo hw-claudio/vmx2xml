@@ -356,7 +356,8 @@ class MainWindow(Gtk.Window):
         layout_button_reset.pack_start(button_reset, True, False, 0)
 
         self.add(layout)
-        self.set_default_size(1024, 768)
+        self.set_default_size(1920, 1080)
+        #self.set_resizable(False)
 
 
 abspath = os.path.abspath(__file__)
