@@ -247,6 +247,18 @@ def ds_label_init(text: str) -> Gtk.Label:
 def arrow_test_clicked(b: Gtk.Button) -> None:
     log.debug("arrow_test_clicked")
     selection: Gtk.TreeSelection = tree_view_src.get_selection()
+    (t, rows) = (selection.get_selected_rows())
+    for p in rows:
+        iter: Gtk.TreeIter = t.get_iter(p)
+        child_iter: Gtk.TreeIter = t.iter_children(iter)
+        if not (child_iter):
+            print(t[iter][0])
+
+        while (child_iter):
+            cp: Gtk.TreePath = t.get_path(child_iter)
+            if not (cp in rows):
+                print(t[cp][0])
+            child_iter = t.iter_next(child_iter)
 
 
 def arrow_test_init() -> Gtk.Button:
