@@ -59,6 +59,10 @@ def arrow_clicked(b: Gtk.Button):
     log.info("arrow_clicked! b=%s", b)
     arrow_dark = Gtk.Image.new_from_file("art/arrow_dark.png")
     b.set_image(arrow_dark)
+    if (b == arrow_test):
+        arrow_test_clicked(b)
+    elif (b == arrow_conv):
+        arrow_conv_clicked(b)
 
 
 def arrow_init() -> Gtk.Button:
@@ -239,8 +243,8 @@ def ds_label_init(text: str) -> Gtk.Label:
     return l
 
 
-def arrow_test_clicked(widget: Gtk.Widget):
-    print("clicked.")
+def arrow_test_clicked(b: Gtk.Button) -> None:
+    log.debug("arrow_test_clicked")
 
 
 def arrow_test_init() -> Gtk.Button:
@@ -249,8 +253,8 @@ def arrow_test_init() -> Gtk.Button:
     return b
 
 
-def arrow_conv_clicked(widget: Gtk.Widget):
-    print("clicked.")
+def arrow_conv_clicked(b: Gtk.Button):
+    log.debug("arrow_conv_clicked")
 
 
 def arrow_conv_init() -> Gtk.Button:
