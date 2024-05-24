@@ -198,7 +198,8 @@ def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, first:str, second: str,
     view.append_column(column)
 
     view.connect("row-activated", tree_view_row_activated)
-
+    selection: Gtk.TreeSelection = view.get_selection()
+    selection.set_mode(Gtk.SelectionMode.MULTIPLE)
     tree_view_scroll: Gtk.ScrolledWindow = Gtk.ScrolledWindow()
     tree_view_scroll.add(view)
     tree_view_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.ALWAYS)
@@ -245,6 +246,7 @@ def ds_label_init(text: str) -> Gtk.Label:
 
 def arrow_test_clicked(b: Gtk.Button) -> None:
     log.debug("arrow_test_clicked")
+    selection: Gtk.TreeSelection = tree_view_src.get_selection()
 
 
 def arrow_test_init() -> Gtk.Button:
@@ -253,7 +255,7 @@ def arrow_test_init() -> Gtk.Button:
     return b
 
 
-def arrow_conv_clicked(b: Gtk.Button):
+def arrow_conv_clicked(b: Gtk.Button) -> None:
     log.debug("arrow_conv_clicked")
 
 
