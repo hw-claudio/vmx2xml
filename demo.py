@@ -7,9 +7,11 @@
 #
 
 import os
+import sys
 import glob
 import gi
 import re
+import argparse
 
 from vmx2xml.log import *
 from vmx2xml.runcmd import *
@@ -17,7 +19,7 @@ from vmx2xml.runcmd import *
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 
-debug: bool = True
+program_version: str = "0.1"
 border: int = 48
 spacing_min: int = 4
 spacing_v: int = 48
@@ -360,17 +362,40 @@ class MainWindow(Gtk.Window):
         #self.set_resizable(False)
 
 
+def get_options() -> None:
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
+        prog='demo.py',
+        description="DEMO for the VMX->XML mass test and conversion.",
+        usage="%(prog)s [options]\n"
+    )
+
+    general = parser.add_argument_group('GENERAL OPTIONS', 'verbosity control, version display')
+    general.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
+    general.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
+    general.add_argument('-V', '--version', action='version', version=program_version)
+
+    args: argparse.Namespace = parser.parse_args()
+    if (args.verbose and args.quiet):
+        log.critical("cannot specify both --verbose and --quiet at the same time.")
+        sys.exit(1)
+    if (args.verbose > 2):
+        args.verbose = 2
+    if (args.quiet > 2):
+        args.quiet = 2
+    # initialize logging module
+    log_init(args.verbose, args.quiet)
+
+
 abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
 
-log_init(1, 0)
+get_options()
 
 w = MainWindow()
-w.set_interactive_debugging(debug)
+if (log.level <= logging.DEBUG):
+    w.set_interactive_debugging(True)
 #w.fullscreen()
-
 w.connect("destroy", Gtk.main_quit)
 w.show_all()
-
 Gtk.main()
