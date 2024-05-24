@@ -135,8 +135,14 @@ def tree_view_src_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.Tree
         if not (tree_store_search(tree_store_tgt, f)):
             tree_store_tgt_add(tree_store_tgt, f)
         iter: Gtk.TreeIter = t.get_iter(p)
-        t[iter][2] = os.path.basename(f)
+        ds: str = os.path.basename(f)
+        t[iter][2] = ds
         t[iter][4] = f
+        child_iter: Gtk.TreeIter = t.iter_children(iter)
+        while (child_iter):
+            t[child_iter][2] = ds
+            t[child_iter][4] = f
+            child_iter = t.iter_next(child_iter)
     ds_chooser.destroy()
 
 
@@ -145,7 +151,7 @@ def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
         return tree_view_src_row_activated(view, p, c)
 
 
-def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.TreeView:
+def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, first:str, second: str, third: str) -> Gtk.TreeView:
     view: Gtk.TreeView = Gtk.TreeView(model=s)
     renderer: Gtk.CellRendererText = Gtk.CellRendererText()
     column: Gtk.TreeViewColumn = Gtk.TreeViewColumn(first, renderer, text=0)
@@ -173,6 +179,11 @@ def tree_view_init(s: Gtk.TreeStore, first:str, second: str, third: str) -> Gtk.
     view.append_column(column)
 
     view.connect("row-activated", tree_view_row_activated)
+
+    tree_view_scroll: Gtk.ScrolledWindow = Gtk.ScrolledWindow()
+    tree_view_scroll.add(view)
+    tree_view_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.ALWAYS)
+    layout.pack_start(tree_view_scroll, True, True, 0)
     return view
 
 
@@ -295,8 +306,7 @@ class MainWindow(Gtk.Window):
         label_src = ds_label_init("Source Datastores")
         layout_src.pack_start(label_src, False, False, 0)
         tree_store_src = tree_store_init()
-        tree_view_src = tree_view_init(tree_store_src, "Name", "Size", "Mapping")
-        layout_src.pack_start(tree_view_src, True, True, 0)
+        tree_view_src = tree_view_init(tree_store_src, layout_src, "Name", "Size", "Mapping")
 
         # DISABLE BUTTONS, TRY ARROWS
         # layout_button_src = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
@@ -318,8 +328,7 @@ class MainWindow(Gtk.Window):
         layout_test.pack_start(label_test, False, False, 0)
 
         tree_store_test = tree_store_init()
-        tree_view_test = tree_view_init(tree_store_test, "VM Name", "%", "Test Result")
-        layout_test.pack_start(tree_view_test, True, True, 0)
+        tree_view_test = tree_view_init(tree_store_test, layout_test, "VM Name", "%", "Test Result")
 
         # layout_button_test = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         # layout_test.pack_start(layout_button_test, False, False, 0)
@@ -334,8 +343,7 @@ class MainWindow(Gtk.Window):
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tree_store_tgt = tree_store_init()
-        tree_view_tgt = tree_view_init(tree_store_tgt, "Name", "Avail", "%")
-        layout_tgt.pack_start(tree_view_tgt, True, True, 0)
+        tree_view_tgt = tree_view_init(tree_store_tgt, layout_tgt, "Name", "Avail", "Needed")
 
         # layout_button_tgt = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         # layout_tgt.pack_start(layout_button_tgt, False, False, 0)
