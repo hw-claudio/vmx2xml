@@ -90,7 +90,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
         log.debug("       looking in datastore '..' %s", datastores[".."])
         paths = find_file_ref(basename, datastores[".."][0], datastores[".."], False)
     if (not all (paths)):
-        log.critical("       NOT FOUND, datastores %s", basename, datastores)
+        log.critical("       NOT FOUND, datastores %s", datastores)
         sys.exit(1)
 
     if (translate_disk):
