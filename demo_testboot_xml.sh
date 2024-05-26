@@ -15,14 +15,20 @@ DS1NAME=`basename ${DS1}`
 
 # Maybe not necessary, we will rely on default mappings
 # DS_MAP12=/vmfs/volumes/datastore1,${DS1}=${DS2}
-vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -A -D -X
+echo "vmx2xml.py" > ${XML}.log
+echo "==========" >> ${XML}.log
+vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -A -D -X 2>>${XML}.log
+
 RESULT=$?
 if test ${RESULT} != "0" ; then
 	echo "FAILURE CONVERSION"
 	exit 0
 fi
 
-testboot_xml.py -v -f ${XML} -t 60 -O
+echo "testboot_xml.py" >> ${XML}.log
+echo "===============" >> ${XML}.log
+testboot_xml.py -v -f ${XML} -t 60 -O 2>>${XML}.log
+
 if test ${RESULT} = "0" ; then
 	echo "SUCCESS ${VMX}"
 	exit 0
