@@ -12,6 +12,7 @@ import glob
 import gi
 import re
 import argparse
+import concurrent.futures
 
 from vmx2xml.log import *
 from vmx2xml.runcmd import *
@@ -24,6 +25,7 @@ border: int = 48
 spacing_min: int = 4
 spacing_v: int = 48
 spacing_h: int = 48
+test_datastore: str = "/vm_testboot"
 
 header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
 vm_entry: Gtk.Entry; vm_find: Gtk.Button; button_reset: Gtk.Button;
@@ -244,6 +246,29 @@ def ds_label_init(text: str) -> Gtk.Label:
     return l
 
 
+def test_vm_complete(future) -> None:
+    try:
+        result: str = future.result()
+    except Exception as e:
+        log.error("test_vm %s exception: %s", e)
+        return
+    log.info("test_vm result=%s", result)
+
+
+def testboot_xml(name: str, vmxpath: str, ds: str) -> str:
+    result_str: str = runcmd(["demo_testboot_xml.sh", name, vmxpath, ds], True)
+    log.info("testboot_xml: %s", result_str)
+    return result_str
+
+
+def test_vm(name: str, vmxpath: str, ds: str, iter: Gtk.TreeIter):
+    log.info("test_vm name:%s vmx:%s ds:%s", name, vmxpath, ds)
+    tree_store_test.append(None, [name, "0 %", "Starting", "", ""])
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(testboot_xml, name, vmxpath, ds)
+        future.add_done_callback(test_vm_complete)
+
+
 def arrow_test_clicked(b: Gtk.Button) -> None:
     log.debug("arrow_test_clicked")
     selection: Gtk.TreeSelection = tree_view_src.get_selection()
@@ -252,12 +277,11 @@ def arrow_test_clicked(b: Gtk.Button) -> None:
         iter: Gtk.TreeIter = t.get_iter(p)
         child_iter: Gtk.TreeIter = t.iter_children(iter)
         if not (child_iter):
-            print(t[iter][0])
-
+            test_vm(t[iter][0], t[iter][3], test_datastore, iter)
         while (child_iter):
             cp: Gtk.TreePath = t.get_path(child_iter)
             if not (cp in rows):
-                print(t[cp][0])
+                test_vm(t[cp][0], t[cp][3], test_datastore, child_iter)
             child_iter = t.iter_next(child_iter)
 
 
@@ -344,7 +368,7 @@ class MainWindow(Gtk.Window):
         layout_test.pack_start(label_test, False, False, 0)
 
         tree_store_test = tree_store_init()
-        tree_view_test = tree_view_init(tree_store_test, layout_test, "VM Name", "%", "Test Result")
+        tree_view_test = tree_view_init(tree_store_test, layout_test, "VM Name", "%", "Test State")
 
         # LAYOUT DATASTORES (cont)
         layout_tgt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
