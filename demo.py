@@ -26,6 +26,7 @@ spacing_min: int = 4
 spacing_v: int = 48
 spacing_h: int = 48
 test_datastore: str = "/vm_testboot"
+executors: dict = {}
 
 header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
 vm_entry: Gtk.Entry; vm_find: Gtk.Button; button_reset: Gtk.Button;
@@ -246,27 +247,38 @@ def ds_label_init(text: str) -> Gtk.Label:
     return l
 
 
+def test_vm_complete_update(result_str: str, vmxpath: str):
+    row: Gtk.TreeModelRow = tree_store_search(tree_store_test, vmxpath)
+    if not (row):
+        log.info("test_vm_complete_update: %s: not found in tree_store_test")
+        return
+    row[1] = "100 %"
+    row[2] = result_str
+
+
 def test_vm_complete(future) -> None:
     try:
-        result: str = future.result()
+        (result_str, vmxpath) = future.result()
     except Exception as e:
         log.error("test_vm %s exception: %s", e)
         return
-    log.info("test_vm result=%s", result)
+    GLib.idle_add(test_vm_complete_update, result_str, vmxpath)
 
 
 def testboot_xml(name: str, vmxpath: str, ds: str) -> str:
     result_str: str = runcmd(["demo_testboot_xml.sh", name, vmxpath, ds], True)
     log.info("testboot_xml: %s", result_str)
-    return result_str
+    return (result_str, vmxpath)
 
 
 def test_vm(name: str, vmxpath: str, ds: str, iter: Gtk.TreeIter):
+    global executors
     log.info("test_vm name:%s vmx:%s ds:%s", name, vmxpath, ds)
-    tree_store_test.append(None, [name, "0 %", "Starting", "", ""])
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(testboot_xml, name, vmxpath, ds)
-        future.add_done_callback(test_vm_complete)
+    tree_store_test.append(None, [name, "0 %", "Starting", vmxpath, ""])
+    executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+    executors[vmxpath] = executor
+    future = executor.submit(testboot_xml, name, vmxpath, ds)
+    future.add_done_callback(test_vm_complete)
 
 
 def arrow_test_clicked(b: Gtk.Button) -> None:
