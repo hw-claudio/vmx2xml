@@ -30,7 +30,7 @@ echo "===============" >> ${XML}.log
 testboot_xml.py -v -f ${XML} -t 60 -O 2>>${XML}.log
 
 if test ${RESULT} = "0" ; then
-	echo "SUCCESS ${VMX}"
+	echo "SUCCESS"
 	exit 0
 fi
 if test ${RESULT} = "2" ; then
