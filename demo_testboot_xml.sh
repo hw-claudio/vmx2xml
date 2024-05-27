@@ -21,7 +21,7 @@ vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -A -D -X 2>>${XML}.log
 
 RESULT=$?
 if test ${RESULT} != "0" ; then
-	echo "FAILURE CONVERSION"
+	echo "FAILURE(conversion)"
 	exit 0
 fi
 
@@ -34,10 +34,10 @@ if test ${RESULT} = "0" ; then
 	exit 0
 fi
 if test ${RESULT} = "2" ; then
-    echo "FAILURE BOOT"
+    echo "FAILURE(boot)"
 	exit 0
 fi
 if test ${RESULT} = "1" ; then
-	echo "FAILURE SCRIPT"
+	echo "FAILURE(script)"
 	exit 0
 fi
