@@ -1,0 +1,21 @@
+/* SUSE colors: 0b332b (dark green), 2fba77 (green), 192071 (dark blue), 2553ff (blue), fe7c40 (orange), 90ebcc (light green) */
+window {
+	/* color: #0B332B; */
+	background-image: linear-gradient(to top, #90ebcc 5%, #2FBA77 20%, #0B332B 70%);
+}
+
+frame {
+	border-style: solid;
+	border-width: 1px;
+	border-color: #90ebcc;
+}
+
+.ds_label {
+	color: #ffffff;
+	font-size:36px;
+}
+
+.title {
+	color: #ffffff;
+	font-size: 56px;
+}
