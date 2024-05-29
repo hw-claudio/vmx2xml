@@ -93,7 +93,7 @@ def guestfs_trim_all(g: guestfs.GuestFS) -> bool:
             continue
         try:
             g.umount_all()
-            g.mount_options("discard", fs, "/")
+            g.mount_options("", fs, "/")
             # XXX maybe also g.zero_free_space() before that? What's the impact on large VMs?
             g.fstrim("/")
         except RuntimeError as err:
