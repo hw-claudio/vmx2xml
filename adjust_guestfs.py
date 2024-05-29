@@ -87,7 +87,9 @@ def guestfs_trim_all(g: guestfs.GuestFS) -> bool:
         return False
 
     for fs in filesystems:
-        if (filesystems[fs] == "swap"):
+        # ignore the swap partition and the partition without fstype.
+        # e.g. the bios boot partition or the unformatted partition.
+        if (filesystems[fs] == "swap" or filesystems[fs] == "unknown"):
             continue
         try:
             g.umount_all()
