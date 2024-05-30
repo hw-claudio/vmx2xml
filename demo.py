@@ -365,7 +365,7 @@ def test_vm_complete(future) -> None:
     GLib.idle_add(test_vm_complete_update, result_str, vmxpath)
 
 
-def testboot_xml(name: str, vmxpath: str, ds: str) -> str:
+def testboot_xml(name: str, vmxpath: str, ds: str) -> tuple:
     result_str: str = runcmd(["demo_testboot_xml.sh", name, vmxpath, ds], True)
     result_str = result_str.strip()
     log.info("testboot_xml: %s", result_str)
