@@ -198,7 +198,7 @@ def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: 
         c.set_max_width(csizes[i])
         c.set_fixed_width(csizes[i])
         c.set_resizable(False)
-        c.set_sizing(2)
+        c.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         c.set_expand(True)
         view.append_column(c)
     view.connect("row-activated", tree_view_row_activated)
