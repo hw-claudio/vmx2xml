@@ -5,6 +5,8 @@
 #
 # Just a demo for the VMWare to KVM conversion
 #
+# requires Python package psutil (zypper install python311-psutil)
+#
 
 import os
 import sys
@@ -13,6 +15,7 @@ import gi
 import re
 import argparse
 import concurrent.futures
+import psutil
 
 from vmx2xml.log import *
 from vmx2xml.runcmd import *
@@ -29,11 +32,14 @@ test_datastore: str = "/vm_testboot"
 executors: dict = {}
 
 header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
-vm_entry: Gtk.Entry; vm_find: Gtk.Button; button_reset: Gtk.Button;
-
-tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; arrow_test: Gtk.Button
-tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; arrow_conv: Gtk.Button
+vm_entry: Gtk.Entry; vm_find: Gtk.Button;
+button_restart: Gtk.Button;
+tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; button_external: Gtk.Button; arrow_test: Gtk.Button
+tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_cancel_test: Gtk.Button; arrow_conv: Gtk.Button
 tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView;
+
+external_window: Gtk.Window
+tree_store_external: Gtk.TreeStore; tree_view_external: Gtk.TreeView;
 
 def get_folder_size_str(f: str) -> str:
     size_str: str = runcmd(["du", "-s", "-h", f], True)
@@ -228,15 +234,51 @@ def vm_find_init() -> Gtk.Button:
     return b
 
 
-def button_reset_clicked(widget: Gtk.Widget):
+def button_restart_clicked(widget: Gtk.Widget):
     tree_store_src.clear()
     tree_store_tgt.clear()
     tree_store_test.clear()
 
 
-def button_reset_init() -> Gtk.Button:
+def button_restart_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button(label="Restart")
-    b.connect("clicked", button_reset_clicked)
+    b.connect("clicked", button_restart_clicked)
+    return b
+
+
+def button_external_clicked(widget: Gtk.Widget):
+    external_window.show_all()
+
+
+def button_external_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button(label="External Disks")
+    b.connect("clicked", button_external_clicked)
+    return b
+
+
+def kill_child_processes(parent_pid):
+    try:
+        parent = psutil.Process(parent_pid)
+    except psutil.NoSuchProcess:
+        return
+    children = parent.children(recursive=True)
+    for process in children:
+        log.debug("killing child: %s", process)
+        os.kill(process.pid, 15)
+
+
+def button_cancel_test_clicked(widget: Gtk.Widget):
+    global executors
+    for vmxpath in executors:
+        executors[vmxpath].shutdown(wait=False)
+    kill_child_processes(os.getpid())
+    executors = {}
+    tree_store_test.clear()
+
+
+def button_cancel_test_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button(label="Cancel Test")
+    b.connect("clicked", button_cancel_test_clicked)
     return b
 
 
@@ -250,17 +292,20 @@ def ds_label_init(text: str) -> Gtk.Label:
 def test_vm_complete_update(result_str: str, vmxpath: str):
     row: Gtk.TreeModelRow = tree_store_search(tree_store_test, vmxpath)
     if not (row):
-        log.info("test_vm_complete_update: %s: not found in tree_store_test")
+        log.info("test_vm_complete_update: %s: not found in tree_store_test", vmxpath)
         return
     row[1] = "100 %"
     row[2] = result_str
+    if vmxpath in executors:
+        executors[vmxpath].shutdown(wait=False)
+        del executors[vmxpath]
 
 
 def test_vm_complete(future) -> None:
     try:
         (result_str, vmxpath) = future.result()
     except Exception as e:
-        log.error("test_vm %s exception: %s", e)
+        log.error("test_vm exception: %s", ''.join(str(e).splitlines()))
         return
     GLib.idle_add(test_vm_complete_update, result_str, vmxpath)
 
@@ -317,9 +362,9 @@ def arrow_conv_init() -> Gtk.Button:
 class MainWindow(Gtk.Window):
     def __init__(self):
         global header_suse, header_title, header_kvm
-        global vm_entry, vm_find, button_reset
-        global tree_store_src, tree_view_src, arrow_test
-        global tree_store_test, tree_view_test, arrow_conv
+        global vm_entry, vm_find, button_restart
+        global tree_store_src, tree_view_src, button_external, arrow_test
+        global tree_store_test, tree_view_test, button_cancel_test, arrow_conv
         global tree_store_tgt, tree_view_tgt
 
         super().__init__(title="Convert to KVM!")
@@ -367,6 +412,9 @@ class MainWindow(Gtk.Window):
         tree_store_src = tree_store_init()
         tree_view_src = tree_view_init(tree_store_src, layout_src, "Name", "Size", "Mapping")
 
+        button_external = button_external_init()
+        layout_src.pack_start(button_external, False, False, 0)
+
         # LAYOUT TEST
         layout_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_test, True, True, 0)
@@ -383,6 +431,9 @@ class MainWindow(Gtk.Window):
         tree_store_test = tree_store_init()
         tree_view_test = tree_view_init(tree_store_test, layout_test, "VM Name", "%", "Test State")
 
+        button_cancel_test = button_cancel_test_init()
+        layout_test.pack_start(button_cancel_test, False, False, 0)
+
         # LAYOUT DATASTORES (cont)
         layout_tgt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_tgt, True, True, 0)
@@ -393,13 +444,39 @@ class MainWindow(Gtk.Window):
         tree_store_tgt = tree_store_init()
         tree_view_tgt = tree_view_init(tree_store_tgt, layout_tgt, "Name", "Avail", "%")
 
-        layout_button_reset = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
-        layout.pack_start(layout_button_reset, False, False, 0)
-        button_reset = button_reset_init()
-        layout_button_reset.pack_start(button_reset, True, False, 0)
+        layout_button_restart = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout.pack_start(layout_button_restart, False, False, 0)
+        button_restart = button_restart_init()
+        layout_button_restart.pack_start(button_restart, True, False, 0)
 
         self.add(layout)
         self.set_default_size(1920, 1080)
+        #self.set_resizable(False)
+
+
+def external_title_init() -> Gtk.Label:
+    l: Gtk.Label = ds_label_init("External Disks")
+    c = l.get_style_context()
+    c.add_class("ds_label");
+    return l
+
+
+class ExternalWindow(Gtk.Window):
+    def __init__(self):
+        global tree_store_external, tree_view_external
+
+        super().__init__(title="External Disks Datastore Mappings")
+        self.set_border_width(border)
+        layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
+
+        # LAYOUT TITLE
+        layout_title = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        layout.pack_start(layout_title, False, False, 0)
+        external_title = external_title_init()
+        layout_title.pack_start(external_title, True, True, 0)
+
+        self.add(layout)
+        self.set_default_size(640, 480)
         #self.set_resizable(False)
 
 
@@ -438,5 +515,9 @@ if (log.level <= logging.DEBUG):
     w.set_interactive_debugging(True)
 #w.fullscreen()
 w.connect("destroy", Gtk.main_quit)
+
+external_window = ExternalWindow()
+external_window.set_transient_for(w)
+
 w.show_all()
 Gtk.main()
