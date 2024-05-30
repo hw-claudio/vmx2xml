@@ -568,6 +568,14 @@ class ExternalWindow(Gtk.Window):
         layout.pack_start(layout_table, True, True, 0)
         tree_store_external = tree_store_init()
         tree_view_external = tree_view_init(tree_store_external, layout_table, ["Disk Path", "Source DS", "Target DS"], [ 256, 192, 192 ])
+
+        # LAYOUT FOOTER
+        layout_foot = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        layout.pack_start(layout_foot, False, False, 0)
+        button_external_close = button_external_close_init()
+        layout_foot.pack_start(button_external_close, True, False, 0)
+        button_external_rescan = button_external_rescan_init()
+        layout_foot.pack_start(button_external_rescan, True, False, 0)
         self.add(layout)
         self.set_default_size(800, 480)
 
