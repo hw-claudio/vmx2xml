@@ -70,6 +70,7 @@ def arrow_pressed(b: Gtk.Button, e: Gdk.EventButton) -> bool:
     b.set_image(arrow_light)
     return False
 
+
 def arrow_clicked(b: Gtk.Button):
     log.info("arrow_clicked! b=%s", b)
     arrow_dark = Gtk.Image.new_from_file("art/arrow_dark.png")
@@ -510,10 +511,16 @@ def external_get_mappings() -> list:
 def button_external_clicked(widget: Gtk.Widget):
     global w
     external_window.show_all()
-    external_window.set_transient_for(w)
+    #external_window.set_position(Gtk.WindowPosition.MOUSE)
     external_window.present()
-    external_window.move(0, 480)
-
+    rect: Gdk.Rectangle = Gdk.Rectangle()
+    (_, rect.y) = w.get_size()
+    rect.width = 800
+    rect.height = 480
+    rect.x = 0
+    rect.y -= rect.height
+    window: Gdk.Window = external_window.get_window()
+    window.move_to_rect(rect, Gdk.Gravity.SOUTH_WEST, Gdk.Gravity.SOUTH_WEST, 0, 0, 0)
     if (len(tree_store_external) < 1):
         external_rescan(None)
 
@@ -553,9 +560,9 @@ class ExternalWindow(Gtk.Window):
     def __init__(self):
         global tree_store_external, tree_view_external
 
-        super().__init__(title="External Disks Datastore Mappings")
-        self.set_border_width(border)
-        layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
+        super().__init__(title="External Disks Datastore Mappings", type=Gtk.WindowType.POPUP)
+        self.set_border_width(border / 2)
+        layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v / 2)
 
         # LAYOUT TITLE
         layout_title = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
@@ -617,7 +624,10 @@ if (log.level <= logging.DEBUG):
 w.connect("destroy", Gtk.main_quit)
 
 external_window = ExternalWindow()
+external_window.set_decorated(False)
+#external_window.set_gravity(Gdk.Gravity.SOUTH_WEST)
 external_window.connect("delete-event", external_window_hide)
+external_window.set_transient_for(w)
 
 w.show_all()
 Gtk.main()
