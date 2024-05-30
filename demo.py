@@ -38,7 +38,7 @@ tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; button_external: Gtk
 tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_cancel_test: Gtk.Button; arrow_conv: Gtk.Button
 tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView;
 
-external_window: Gtk.Window
+w: Gtk.Window; external_window: Gtk.Window
 tree_store_external: Gtk.TreeStore; tree_view_external: Gtk.TreeView;
 
 def get_folder_size_str(f: str) -> str:
@@ -150,7 +150,7 @@ def tree_store_src_walk(t: Gtk.TreeStore, folder: str) -> None:
             tree_store_src_add(t, root, vms)
 
 
-def tree_view_src_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+def tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     t: Gtk.TreeStore = tree_store_src
     ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
     ds_chooser.set_create_folders(True)
@@ -174,9 +174,49 @@ def tree_view_src_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.Tree
     ds_chooser.destroy()
 
 
+def tree_view_external_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = tree_store_external
+    ds_chooser = Gtk.FileChooserDialog(title="Select Source Datastore")
+    ds_chooser.set_create_folders(False)
+    ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
+    ds_chooser.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,)
+    response = ds_chooser.run()
+
+    if (response == Gtk.ResponseType.OK):
+        f: str = ds_chooser.get_filename()
+        iter: Gtk.TreeIter = t.get_iter(p)
+        ds: str = os.path.basename(f)
+        t[iter][1] = ds
+        t[iter][3] = f
+    ds_chooser.destroy()
+
+
+def tree_view_external_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = tree_store_external
+    ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
+    ds_chooser.set_create_folders(True)
+    ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
+    ds_chooser.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,)
+    response = ds_chooser.run()
+
+    if (response == Gtk.ResponseType.OK):
+        f: str = ds_chooser.get_filename()
+        if not (tree_store_search(tree_store_tgt, f, 3)):
+            tree_store_tgt_add(tree_store_tgt, f)
+        iter: Gtk.TreeIter = t.get_iter(p)
+        ds: str = os.path.basename(f)
+        t[iter][2] = ds
+        t[iter][4] = f
+    ds_chooser.destroy()
+
+
 def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     if (view == tree_view_src):
-        return tree_view_src_row_activated(view, p, c)
+        return tree_view_src_activated(view, p, c)
+    elif (view == tree_view_external and (c == view.get_column(0) or c == view.get_column(1))):
+        return tree_view_external_src_activated(view, p, c)
+    elif (view == tree_view_external):
+        return tree_view_external_tgt_activated(view, p, c)
 
 
 def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list) -> Gtk.TreeView:
@@ -255,7 +295,12 @@ def external_rescan() -> None:
 
 
 def button_external_clicked(widget: Gtk.Widget):
+    global w
     external_window.show_all()
+    external_window.set_transient_for(w)
+    external_window.present()
+    external_window.move(0, 480)
+
     if (len(tree_store_external) < 1):
         external_rescan()
 
@@ -471,6 +516,11 @@ def external_title_init() -> Gtk.Label:
     return l
 
 
+def external_window_hide(w: Gtk.Widget, data) -> bool:
+    w.hide()
+    return True
+
+
 class ExternalWindow(Gtk.Window):
     def __init__(self):
         global tree_store_external, tree_view_external
@@ -490,7 +540,6 @@ class ExternalWindow(Gtk.Window):
         layout.pack_start(layout_table, True, True, 0)
         tree_store_external = tree_store_init()
         tree_view_external = tree_view_init(tree_store_external, layout_table, ["Disk Path", "Source DS", "Target DS"], [ 256, 192, 192 ])
-        layout_table.pack_start(tree_view_external, True, True, 0)
         self.add(layout)
         self.set_default_size(800, 480)
 
@@ -532,7 +581,7 @@ if (log.level <= logging.DEBUG):
 w.connect("destroy", Gtk.main_quit)
 
 external_window = ExternalWindow()
-external_window.set_transient_for(w)
+external_window.connect("delete-event", external_window_hide)
 
 w.show_all()
 Gtk.main()
