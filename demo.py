@@ -285,13 +285,18 @@ def external_rescan() -> None:
             else:
                 log.info("external_rescan: appending datastore %s", ds)
                 iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", ""])
-#             def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
-#         args.append(row[0])
-#     if not (args):
-#         log.debug("external_rescan(): tree_store_src is empty, nothing to do.")
-#         return
-#     args.insert(0, "datastore_find_external_disks.sh")
-#     result_str: str = runcmd(args, True)
+
+
+def external_get_mappings() -> list:
+    t: Gtk.TreeStore = tree_store_external
+    args: list = []
+    for row in t:
+        ref = row[0]
+        ds_src = row[3]
+        ds_tgt = row[4]
+        args.append(f"-d{ref},{ds_src}={ds_tgt}")
+    log.info("external_get_mappings: %s", args)
+    return args
 
 
 def button_external_clicked(widget: Gtk.Widget):
@@ -366,7 +371,11 @@ def test_vm_complete(future) -> None:
 
 
 def testboot_xml(name: str, vmxpath: str, ds: str) -> tuple:
-    result_str: str = runcmd(["demo_testboot_xml.sh", name, vmxpath, ds], True)
+    args: list = ["demo_testboot_xml.sh", name, vmxpath, ds]
+    mappings: list = external_get_mappings()
+    if (mappings):
+        args.extend(mappings)
+    result_str: str = runcmd(args, True)
     result_str = result_str.strip()
     log.info("testboot_xml: %s", result_str)
     return (result_str, vmxpath)
