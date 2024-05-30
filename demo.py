@@ -114,9 +114,9 @@ def tree_store_init() -> Gtk.TreeStore:
     return s
 
 
-def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
+def tree_store_search(t: Gtk.TreeStore, s: str, i: int) -> Gtk.TreeModelRow:
     for row in t:
-        if (s == row[3]):
+        if (s == row[i]):
             log.debug("%s already present in the tree", s)
             return row
     log.debug("%s not present in the tree", s)
@@ -138,7 +138,7 @@ def tree_store_tgt_add(t: Gtk.TreeStore, root: str) -> None:
 
 def tree_store_src_walk(t: Gtk.TreeStore, folder: str) -> None:
     for (root, dirs, files) in os.walk(folder, topdown=True):
-        if (tree_store_search(t, root)):
+        if (tree_store_search(t, root, 3)):
             continue
         vms: list = []; i: int = 0
         for this in dirs:
@@ -160,7 +160,7 @@ def tree_view_src_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.Tree
 
     if (response == Gtk.ResponseType.OK):
         f: str = ds_chooser.get_filename()
-        if not (tree_store_search(tree_store_tgt, f)):
+        if not (tree_store_search(tree_store_tgt, f, 3)):
             tree_store_tgt_add(tree_store_tgt, f)
         iter: Gtk.TreeIter = t.get_iter(p)
         ds: str = os.path.basename(f)
@@ -179,33 +179,18 @@ def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
         return tree_view_src_row_activated(view, p, c)
 
 
-def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, first:str, second: str, third: str) -> Gtk.TreeView:
+def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list) -> Gtk.TreeView:
     view: Gtk.TreeView = Gtk.TreeView(model=s)
     renderer: Gtk.CellRendererText = Gtk.CellRendererText()
-    column: Gtk.TreeViewColumn = Gtk.TreeViewColumn(first, renderer, text=0)
-    column.set_min_width(256)
-    column.set_max_width(256)
-    column.set_fixed_width(256)
-    column.set_resizable(False)
-    column.set_sizing(2)
-    view.append_column(column)
-
-    column = Gtk.TreeViewColumn(second, renderer, text=1)
-    column.set_resizable(False)
-    column.set_min_width(48)
-    column.set_max_width(48)
-    column.set_fixed_width(48)
-    column.set_sizing(2)
-    view.append_column(column)
-
-    column = Gtk.TreeViewColumn(third, renderer, text=2)
-    column.set_resizable(False)
-    column.set_min_width(92)
-    column.set_max_width(92)
-    column.set_fixed_width(92)
-    column.set_sizing(2)
-    view.append_column(column)
-
+    for i in range(len(columns)):
+        c: Gtk.TreeViewColumn = Gtk.TreeViewColumn(columns[i], renderer, text=i)
+        c.set_min_width(csizes[i])
+        c.set_max_width(csizes[i])
+        c.set_fixed_width(csizes[i])
+        c.set_resizable(False)
+        c.set_sizing(2)
+        c.set_expand(True)
+        view.append_column(c)
     view.connect("row-activated", tree_view_row_activated)
     selection: Gtk.TreeSelection = view.get_selection()
     selection.set_mode(Gtk.SelectionMode.MULTIPLE)
@@ -246,8 +231,33 @@ def button_restart_init() -> Gtk.Button:
     return b
 
 
+def external_rescan() -> None:
+    t: Gtk.TreeStore = tree_store_external
+    for row in tree_store_src:
+        args: list = [ "datastore_find_external_disks.sh", row[3] ]
+        lines: list = runcmd(args, True).strip().splitlines()
+        log.debug("external_rescan: %s: lines: %s", row[3], lines)
+        for line in lines:
+            # XXX we assume that the datastore is two dirs higher than the vmx
+            ds: str = os.path.dirname(os.path.dirname(line))
+            if (tree_store_search(t, ds, 0)):
+                log.info("external_rescan: %s already in tree_store_external", ds)
+            else:
+                log.info("external_rescan: appending datastore %s", ds)
+                iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", ""])
+#             def tree_store_search(t: Gtk.TreeStore, s: str) -> Gtk.TreeModelRow:
+#         args.append(row[0])
+#     if not (args):
+#         log.debug("external_rescan(): tree_store_src is empty, nothing to do.")
+#         return
+#     args.insert(0, "datastore_find_external_disks.sh")
+#     result_str: str = runcmd(args, True)
+
+
 def button_external_clicked(widget: Gtk.Widget):
     external_window.show_all()
+    if (len(tree_store_external) < 1):
+        external_rescan()
 
 
 def button_external_init() -> Gtk.Button:
@@ -290,7 +300,7 @@ def ds_label_init(text: str) -> Gtk.Label:
 
 
 def test_vm_complete_update(result_str: str, vmxpath: str):
-    row: Gtk.TreeModelRow = tree_store_search(tree_store_test, vmxpath)
+    row: Gtk.TreeModelRow = tree_store_search(tree_store_test, vmxpath, 3)
     if not (row):
         log.info("test_vm_complete_update: %s: not found in tree_store_test", vmxpath)
         return
@@ -410,7 +420,7 @@ class MainWindow(Gtk.Window):
         label_src = ds_label_init("Source Datastores")
         layout_src.pack_start(label_src, False, False, 0)
         tree_store_src = tree_store_init()
-        tree_view_src = tree_view_init(tree_store_src, layout_src, "Name", "Size", "Mapping")
+        tree_view_src = tree_view_init(tree_store_src, layout_src, ["Name", "Size", "Mapping"], [256, 48, 92])
 
         button_external = button_external_init()
         layout_src.pack_start(button_external, False, False, 0)
@@ -429,7 +439,7 @@ class MainWindow(Gtk.Window):
         layout_test.pack_start(label_test, False, False, 0)
 
         tree_store_test = tree_store_init()
-        tree_view_test = tree_view_init(tree_store_test, layout_test, "VM Name", "%", "Test State")
+        tree_view_test = tree_view_init(tree_store_test, layout_test, ["VM Name", "%", "Test State"], [256, 48, 92])
 
         button_cancel_test = button_cancel_test_init()
         layout_test.pack_start(button_cancel_test, False, False, 0)
@@ -442,7 +452,7 @@ class MainWindow(Gtk.Window):
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tree_store_tgt = tree_store_init()
-        tree_view_tgt = tree_view_init(tree_store_tgt, layout_tgt, "Name", "Avail", "%")
+        tree_view_tgt = tree_view_init(tree_store_tgt, layout_tgt, ["Name", "Avail", "%"], [256, 48, 92])
 
         layout_button_restart = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         layout.pack_start(layout_button_restart, False, False, 0)
@@ -475,9 +485,14 @@ class ExternalWindow(Gtk.Window):
         external_title = external_title_init()
         layout_title.pack_start(external_title, True, True, 0)
 
+        # LAYOUT TABLE
+        layout_table = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        layout.pack_start(layout_table, True, True, 0)
+        tree_store_external = tree_store_init()
+        tree_view_external = tree_view_init(tree_store_external, layout_table, ["Disk Path", "Source DS", "Target DS"], [ 256, 192, 192 ])
+        layout_table.pack_start(tree_view_external, True, True, 0)
         self.add(layout)
-        self.set_default_size(640, 480)
-        #self.set_resizable(False)
+        self.set_default_size(800, 480)
 
 
 def get_options() -> None:
