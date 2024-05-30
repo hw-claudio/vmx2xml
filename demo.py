@@ -31,15 +31,21 @@ spacing_h: int = 48
 test_datastore: str = "/vm_testboot"
 executors: dict = {}
 
+# MAIN WINDOW
 header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
 vm_entry: Gtk.Entry; vm_find: Gtk.Button;
 button_restart: Gtk.Button;
 tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; button_external: Gtk.Button; arrow_test: Gtk.Button
 tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_cancel_test: Gtk.Button; arrow_conv: Gtk.Button
 tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView;
+w: Gtk.Window;
 
-w: Gtk.Window; external_window: Gtk.Window
+# EXTERNAL WINDOW
+external_window: Gtk.Window
 tree_store_external: Gtk.TreeStore; tree_view_external: Gtk.TreeView;
+button_external_close: Gtk.Button
+button_external_rescan: Gtk.Button
+
 
 def get_folder_size_str(f: str) -> str:
     size_str: str = runcmd(["du", "-s", "-h", f], True)
@@ -174,42 +180,6 @@ def tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
     ds_chooser.destroy()
 
 
-def tree_view_external_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
-    t: Gtk.TreeStore = tree_store_external
-    ds_chooser = Gtk.FileChooserDialog(title="Select Source Datastore")
-    ds_chooser.set_create_folders(False)
-    ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
-    ds_chooser.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,)
-    response = ds_chooser.run()
-
-    if (response == Gtk.ResponseType.OK):
-        f: str = ds_chooser.get_filename()
-        iter: Gtk.TreeIter = t.get_iter(p)
-        ds: str = os.path.basename(f)
-        t[iter][1] = ds
-        t[iter][3] = f
-    ds_chooser.destroy()
-
-
-def tree_view_external_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
-    t: Gtk.TreeStore = tree_store_external
-    ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
-    ds_chooser.set_create_folders(True)
-    ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
-    ds_chooser.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,)
-    response = ds_chooser.run()
-
-    if (response == Gtk.ResponseType.OK):
-        f: str = ds_chooser.get_filename()
-        if not (tree_store_search(tree_store_tgt, f, 3)):
-            tree_store_tgt_add(tree_store_tgt, f)
-        iter: Gtk.TreeIter = t.get_iter(p)
-        ds: str = os.path.basename(f)
-        t[iter][2] = ds
-        t[iter][4] = f
-    ds_chooser.destroy()
-
-
 def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     if (view == tree_view_src):
         return tree_view_src_activated(view, p, c)
@@ -268,51 +238,6 @@ def button_restart_clicked(widget: Gtk.Widget):
 def button_restart_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button(label="Restart")
     b.connect("clicked", button_restart_clicked)
-    return b
-
-
-def external_rescan() -> None:
-    t: Gtk.TreeStore = tree_store_external
-    for row in tree_store_src:
-        args: list = [ "datastore_find_external_disks.sh", row[3] ]
-        lines: list = runcmd(args, True).strip().splitlines()
-        log.debug("external_rescan: %s: lines: %s", row[3], lines)
-        for line in lines:
-            # XXX we assume that the datastore is two dirs higher than the vmx
-            ds: str = os.path.dirname(os.path.dirname(line))
-            if (tree_store_search(t, ds, 0)):
-                log.info("external_rescan: %s already in tree_store_external", ds)
-            else:
-                log.info("external_rescan: appending datastore %s", ds)
-                iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", ""])
-
-
-def external_get_mappings() -> list:
-    t: Gtk.TreeStore = tree_store_external
-    args: list = []
-    for row in t:
-        ref = row[0]
-        ds_src = row[3]
-        ds_tgt = row[4]
-        args.append(f"-d{ref},{ds_src}={ds_tgt}")
-    log.info("external_get_mappings: %s", args)
-    return args
-
-
-def button_external_clicked(widget: Gtk.Widget):
-    global w
-    external_window.show_all()
-    external_window.set_transient_for(w)
-    external_window.present()
-    external_window.move(0, 480)
-
-    if (len(tree_store_external) < 1):
-        external_rescan()
-
-
-def button_external_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button(label="External Disks")
-    b.connect("clicked", button_external_clicked)
     return b
 
 
@@ -518,6 +443,87 @@ class MainWindow(Gtk.Window):
         #self.set_resizable(False)
 
 
+def tree_view_external_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = tree_store_external
+    ds_chooser = Gtk.FileChooserDialog(title="Select Source Datastore")
+    ds_chooser.set_create_folders(False)
+    ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
+    ds_chooser.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,)
+    response = ds_chooser.run()
+
+    if (response == Gtk.ResponseType.OK):
+        f: str = ds_chooser.get_filename()
+        iter: Gtk.TreeIter = t.get_iter(p)
+        ds: str = os.path.basename(f)
+        t[iter][1] = ds
+        t[iter][3] = f
+    ds_chooser.destroy()
+
+
+def tree_view_external_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = tree_store_external
+    ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
+    ds_chooser.set_create_folders(True)
+    ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
+    ds_chooser.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK,)
+    response = ds_chooser.run()
+
+    if (response == Gtk.ResponseType.OK):
+        f: str = ds_chooser.get_filename()
+        if not (tree_store_search(tree_store_tgt, f, 3)):
+            tree_store_tgt_add(tree_store_tgt, f)
+        iter: Gtk.TreeIter = t.get_iter(p)
+        ds: str = os.path.basename(f)
+        t[iter][2] = ds
+        t[iter][4] = f
+    ds_chooser.destroy()
+
+
+def external_rescan(unusedp) -> None:
+    t: Gtk.TreeStore = tree_store_external
+    for row in tree_store_src:
+        args: list = [ "datastore_find_external_disks.sh", row[3] ]
+        lines: list = runcmd(args, True).strip().splitlines()
+        log.debug("external_rescan: %s: lines: %s", row[3], lines)
+        for line in lines:
+            # XXX we assume that the datastore is two dirs higher than the vmx
+            ds: str = os.path.dirname(os.path.dirname(line))
+            if (tree_store_search(t, ds, 0)):
+                log.info("external_rescan: %s already in tree_store_external", ds)
+            else:
+                log.info("external_rescan: appending datastore %s", ds)
+                iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", ""])
+
+
+def external_get_mappings() -> list:
+    t: Gtk.TreeStore = tree_store_external
+    args: list = []
+    for row in t:
+        ref = row[0]
+        ds_src = row[3]
+        ds_tgt = row[4]
+        args.append(f"-d{ref},{ds_src}={ds_tgt}")
+    log.info("external_get_mappings: %s", args)
+    return args
+
+
+def button_external_clicked(widget: Gtk.Widget):
+    global w
+    external_window.show_all()
+    external_window.set_transient_for(w)
+    external_window.present()
+    external_window.move(0, 480)
+
+    if (len(tree_store_external) < 1):
+        external_rescan(None)
+
+
+def button_external_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button(label="External Disks")
+    b.connect("clicked", button_external_clicked)
+    return b
+
+
 def external_title_init() -> Gtk.Label:
     l: Gtk.Label = ds_label_init("External Disks")
     c = l.get_style_context()
@@ -526,8 +532,21 @@ def external_title_init() -> Gtk.Label:
 
 
 def external_window_hide(w: Gtk.Widget, data) -> bool:
-    w.hide()
+    global external_window
+    external_window.hide()
     return True
+
+
+def button_external_rescan_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button(label="Rescan")
+    b.connect("clicked", external_rescan)
+    return b
+
+
+def button_external_close_init() -> Gtk.Button:
+    b: Gtk.Button = Gtk.Button(label="Close")
+    b.connect("clicked", external_window_hide, "")
+    return b
 
 
 class ExternalWindow(Gtk.Window):
