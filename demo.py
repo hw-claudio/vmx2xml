@@ -495,6 +495,10 @@ def external_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
     ds_chooser.destroy()
 
 
+def networks_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    pass
+
+
 def external_rescan(unusedp) -> None:
     t: Gtk.TreeStore = external_tree_store
     for row in src_tree_store:
@@ -517,7 +521,7 @@ def external_rescan(unusedp) -> None:
                 iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", ""])
 
 
-def networks_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+def networks_rescan(unusedp) -> None:
     pass
 
 
