@@ -187,20 +187,23 @@ def src_tree_view_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
 def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     if (view == src_tree_view):
         return src_tree_view_activated(view, p, c)
-    elif (view == external_tree_view and (c == view.get_column(0) or c == view.get_column(1))):
+    elif (view == external_tree_view and (c == view.get_column(1))):
         return external_tree_view_src_activated(view, p, c)
-    elif (view == external_tree_view):
+    elif (view == external_tree_view and (c == view.get_column(2))):
         return external_tree_view_tgt_activated(view, p, c)
-    elif (view == networks_tree_view and (c == view.get_column(0) or c == view.get_column(1))):
+    elif (view == networks_tree_view and (c == view.get_column(0))):
         return networks_tree_view_src_activated(view, p, c)
-    elif (view == networks_tree_view):
+    elif (view == networks_tree_view and (c == view.get_column(1))):
         return networks_tree_view_tgt_activated(view, p, c)
 
 
-def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list) -> Gtk.TreeView:
+def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list, editable: list) -> Gtk.TreeView:
     view: Gtk.TreeView = Gtk.TreeView(model=s)
-    renderer: Gtk.CellRendererText = Gtk.CellRendererText()
+
     for i in range(len(columns)):
+        renderer: Gtk.CellRendererText = Gtk.CellRendererText()
+        if (editable[i]):
+            renderer.set_property("editable", True)
         c: Gtk.TreeViewColumn = Gtk.TreeViewColumn(columns[i], renderer, text=i)
         c.set_min_width(csizes[i])
         c.set_max_width(csizes[i])
@@ -410,7 +413,8 @@ class MainWindow(Gtk.Window):
         label_src = ds_label_init("Source Datastores")
         layout_src.pack_start(label_src, False, False, 0)
         src_tree_store = tree_store_init()
-        src_tree_view = tree_view_init(src_tree_store, layout_src, ["Name", "Size", "Mapping"], [192, 48, 192])
+        src_tree_view = tree_view_init(src_tree_store, layout_src,
+                                       ["Name", "Size", "Mapping"], [192, 48, 192], [ False, False, False ])
 
         layout_maps = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
         layout_src.pack_start(layout_maps, False, False, 0)
@@ -433,7 +437,8 @@ class MainWindow(Gtk.Window):
         layout_test.pack_start(label_test, False, False, 0)
 
         test_tree_store = tree_store_init()
-        test_tree_view = tree_view_init(test_tree_store, layout_test, ["VM Name", "%", "Test State"], [192, 96, 144])
+        test_tree_view = tree_view_init(test_tree_store, layout_test,
+                                        ["VM Name", "%", "Test State"], [192, 96, 144], [False, False,False])
 
         test_cancel_button = test_cancel_button_init()
         layout_test.pack_start(test_cancel_button, False, False, 0)
@@ -446,7 +451,8 @@ class MainWindow(Gtk.Window):
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
         tgt_tree_store = tree_store_init()
-        tgt_tree_view = tree_view_init(tgt_tree_store, layout_tgt, ["Name", "Avail", "%"], [192, 96, 144])
+        tgt_tree_view = tree_view_init(tgt_tree_store, layout_tgt,
+                                       ["Name", "Avail", "%"], [192, 96, 144], [False, False, False])
 
         restart_button = restart_button_init()
         layout_tgt.pack_start(restart_button, False, False, 0)
@@ -522,7 +528,20 @@ def external_rescan(unusedp) -> None:
 
 
 def networks_rescan(unusedp) -> None:
-    pass
+    t: Gtk.TreeStore = networks_tree_store
+    for row in src_tree_store:
+        args: list = [ "datastore_find_networks.sh", row[3] ]
+        lines: list = runcmd(args, True).strip().splitlines()
+        log.debug("networks_rescan: %s: lines: %s", row[3], lines)
+        for line in lines:
+            log.debug("networks_rescan: network=%s", line)
+            if not (line.startswith("type:") or line.startswith("name:")):
+                continue
+            if (tree_store_search(t, line, 0)):
+                log.info("networks_rescan: %s already in networks_tree_store", line)
+            else:
+                log.info("networks_rescan: appending network %s", line)
+                iter: Gtk.TreeIter = t.append(None, [line, "", "", "", ""])
 
 
 def external_get_mappings() -> list:
@@ -571,8 +590,8 @@ def external_window_init() -> Gtk.Popover:
     layout_table = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     layout.pack_start(layout_table, True, True, 0)
     external_tree_store = tree_store_init()
-    external_tree_view = tree_view_init(external_tree_store, layout_table, ["Volume", "Source DS", "Target DS"], [ 336, 192, 192 ])
-
+    external_tree_view = tree_view_init(external_tree_store, layout_table,
+                                        ["Volume", "Source DS", "Target DS"], [ 336, 192, 192 ], [False, False, False])
     pop.add(layout)
     pop.set_position(Gtk.PositionType.BOTTOM)
     return pop
@@ -608,8 +627,11 @@ def networks_window_init() -> Gtk.Popover:
     layout_table = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     layout.pack_start(layout_table, True, True, 0)
     networks_tree_store = tree_store_init()
-    networks_tree_view = tree_view_init(networks_tree_store, layout_table, ["Source Network", "Target Network"], [ 256, 256 ])
-
+    networks_tree_view = tree_view_init(networks_tree_store, layout_table,
+                                        ["Source Network", "Target Network"], [ 256, 256 ], [False, True])
+    renderer = Gtk.CellRendererText()
+    renderer.set_property("editable", True)
+    networks_tree_view.get_column(1).set_cell_data_func(renderer, None)
     pop.add(layout)
     pop.set_position(Gtk.PositionType.BOTTOM)
     return pop
