@@ -31,20 +31,18 @@ test_datastore: str = "/vm_testboot"
 executors: dict = {}
 
 # MAIN WINDOW
-header_suse: Gtk.Image; header_title: Gtk.Label; header_kvm: Gtk.Image
-vm_entry: Gtk.Entry; vm_find: Gtk.Button;
-button_restart: Gtk.Button;
-tree_store_src: Gtk.TreeStore; tree_view_src: Gtk.TreeView; button_external: Gtk.MenuButton; arrow_test: Gtk.Button
-tree_store_test: Gtk.TreeStore; tree_view_test: Gtk.TreeView; button_cancel_test: Gtk.Button; arrow_conv: Gtk.Button
-tree_store_tgt: Gtk.TreeStore; tree_view_tgt: Gtk.TreeView;
 w: Gtk.Window;
+
+vm_find_button: Gtk.Button
+src_tree_store: Gtk.TreeStore; src_tree_view: Gtk.TreeView; external_button: Gtk.MenuButton;
+test_arrow: Gtk.Button
+test_tree_store: Gtk.TreeStore; test_tree_view: Gtk.TreeView; test_cancel_button: Gtk.Button;
+tgt_arrow: Gtk.Button
+tgt_tree_store: Gtk.TreeStore; tgt_tree_view: Gtk.TreeView; restart_button: Gtk.Button;
 
 # EXTERNAL WINDOW
 external_window: Gtk.Popover
-tree_store_external: Gtk.TreeStore; tree_view_external: Gtk.TreeView;
-button_external_close: Gtk.Button
-button_external_rescan: Gtk.Button
-
+external_tree_store: Gtk.TreeStore; external_tree_view: Gtk.TreeView;
 
 def get_folder_size_str(f: str) -> str:
     size_str: str = runcmd(["du", "-s", "-h", f], True)
@@ -74,10 +72,10 @@ def arrow_clicked(b: Gtk.Button):
     log.info("arrow_clicked! b=%s", b)
     arrow_dark = Gtk.Image.new_from_file("art/arrow_dark.png")
     b.set_image(arrow_dark)
-    if (b == arrow_test):
-        arrow_test_clicked(b)
-    elif (b == arrow_conv):
-        arrow_conv_clicked(b)
+    if (b == test_arrow):
+        test_arrow_clicked(b)
+    elif (b == tgt_arrow):
+        tgt_arrow_clicked(b)
 
 
 def arrow_init() -> Gtk.Button:
@@ -129,7 +127,7 @@ def tree_store_search(t: Gtk.TreeStore, s: str, i: int) -> Gtk.TreeModelRow:
     return None
 
 
-def tree_store_src_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
+def src_tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
     size_str: str = get_folder_size_str(root)
     iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "None", root, ""])
     for vm in vms:
@@ -138,12 +136,12 @@ def tree_store_src_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
     external_rescan(None)
 
 
-def tree_store_tgt_add(t: Gtk.TreeStore, root: str) -> None:
+def tgt_tree_store_add(t: Gtk.TreeStore, root: str) -> None:
     avail_str: str = get_folder_avail_str(root)
     t.append(None, [os.path.basename(root), avail_str, "", root, ""])
 
 
-def tree_store_src_walk(t: Gtk.TreeStore, folder: str) -> None:
+def src_tree_store_walk(t: Gtk.TreeStore, folder: str) -> None:
     for (root, dirs, files) in os.walk(folder, topdown=True):
         if (tree_store_search(t, root, 3)):
             continue
@@ -154,11 +152,11 @@ def tree_store_src_walk(t: Gtk.TreeStore, folder: str) -> None:
             for i in range(0, count):
                 vms.append({"name": this, "path": names[i]})
         if (len(vms) >= 1):
-            tree_store_src_add(t, root, vms)
+            src_tree_store_add(t, root, vms)
 
 
-def tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
-    t: Gtk.TreeStore = tree_store_src
+def src_tree_view_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = src_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
     ds_chooser.set_create_folders(True)
     ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
@@ -167,8 +165,8 @@ def tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
 
     if (response == Gtk.ResponseType.OK):
         f: str = ds_chooser.get_filename()
-        if not (tree_store_search(tree_store_tgt, f, 3)):
-            tree_store_tgt_add(tree_store_tgt, f)
+        if not (tree_store_search(tgt_tree_store, f, 3)):
+            tgt_tree_store_add(tgt_tree_store, f)
         iter: Gtk.TreeIter = t.get_iter(p)
         ds: str = os.path.basename(f)
         t[iter][2] = ds
@@ -182,12 +180,12 @@ def tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
 
 
 def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
-    if (view == tree_view_src):
-        return tree_view_src_activated(view, p, c)
-    elif (view == tree_view_external and (c == view.get_column(0) or c == view.get_column(1))):
-        return tree_view_external_src_activated(view, p, c)
-    elif (view == tree_view_external):
-        return tree_view_external_tgt_activated(view, p, c)
+    if (view == src_tree_view):
+        return src_tree_view_activated(view, p, c)
+    elif (view == external_tree_view and (c == view.get_column(0) or c == view.get_column(1))):
+        return external_tree_view_src_activated(view, p, c)
+    elif (view == external_tree_view):
+        return external_tree_view_tgt_activated(view, p, c)
 
 
 def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list) -> Gtk.TreeView:
@@ -212,7 +210,7 @@ def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: 
     return view
 
 
-def vm_find_clicked(widget: Gtk.Widget):
+def vm_find_button_clicked(widget: Gtk.Widget):
     vm_chooser = Gtk.FileChooserDialog(title="Select Folder to scan for VMX files")
     vm_chooser.set_create_folders(False)
     vm_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
@@ -220,26 +218,26 @@ def vm_find_clicked(widget: Gtk.Widget):
     response = vm_chooser.run()
 
     if (response == Gtk.ResponseType.OK):
-        tree_store_src_walk(tree_store_src, vm_chooser.get_filename())
+        src_tree_store_walk(src_tree_store, vm_chooser.get_filename())
     vm_chooser.destroy()
 
 
-def vm_find_init() -> Gtk.Button:
+def vm_find_button_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button(label="Find")
-    b.connect("clicked", vm_find_clicked)
+    b.connect("clicked", vm_find_button_clicked)
     return b
 
 
-def button_restart_clicked(widget: Gtk.Widget):
-    tree_store_src.clear()
-    tree_store_tgt.clear()
-    tree_store_test.clear()
-    tree_store_external.clear()
+def restart_button_clicked(widget: Gtk.Widget):
+    src_tree_store.clear()
+    tgt_tree_store.clear()
+    test_tree_store.clear()
+    external_tree_store.clear()
 
 
-def button_restart_init() -> Gtk.Button:
+def restart_button_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button(label="Restart")
-    b.connect("clicked", button_restart_clicked)
+    b.connect("clicked", restart_button_clicked)
     return b
 
 
@@ -254,18 +252,18 @@ def kill_child_processes(parent_pid):
         os.kill(process.pid, 15)
 
 
-def button_cancel_test_clicked(widget: Gtk.Widget):
+def test_cancel_button_clicked(widget: Gtk.Widget):
     global executors
     for vmxpath in executors:
         executors[vmxpath].shutdown(wait=False)
     kill_child_processes(os.getpid())
     executors = {}
-    tree_store_test.clear()
+    test_tree_store.clear()
 
 
-def button_cancel_test_init() -> Gtk.Button:
+def test_cancel_button_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button(label="Cancel Test")
-    b.connect("clicked", button_cancel_test_clicked)
+    b.connect("clicked", test_cancel_button_clicked)
     return b
 
 
@@ -277,9 +275,9 @@ def ds_label_init(text: str) -> Gtk.Label:
 
 
 def test_vm_complete_update(result_str: str, vmxpath: str):
-    row: Gtk.TreeModelRow = tree_store_search(tree_store_test, vmxpath, 3)
+    row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
-        log.info("test_vm_complete_update: %s: not found in tree_store_test", vmxpath)
+        log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
         return
     row[1] = "100 %"
     row[2] = result_str
@@ -311,16 +309,16 @@ def testboot_xml(name: str, vmxpath: str, ds: str) -> tuple:
 def test_vm(name: str, vmxpath: str, ds: str, iter: Gtk.TreeIter):
     global executors
     log.info("test_vm name:%s vmx:%s ds:%s", name, vmxpath, ds)
-    tree_store_test.append(None, [name, "0 %", "Starting", vmxpath, ""])
+    test_tree_store.append(None, [name, "0 %", "Starting", vmxpath, ""])
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
     executors[vmxpath] = executor
     future = executor.submit(testboot_xml, name, vmxpath, ds)
     future.add_done_callback(test_vm_complete)
 
 
-def arrow_test_clicked(b: Gtk.Button) -> None:
-    log.debug("arrow_test_clicked")
-    selection: Gtk.TreeSelection = tree_view_src.get_selection()
+def test_arrow_clicked(b: Gtk.Button) -> None:
+    log.debug("test_arrow_clicked")
+    selection: Gtk.TreeSelection = src_tree_view.get_selection()
     (t, rows) = (selection.get_selected_rows())
     for p in rows:
         iter: Gtk.TreeIter = t.get_iter(p)
@@ -334,29 +332,29 @@ def arrow_test_clicked(b: Gtk.Button) -> None:
             child_iter = t.iter_next(child_iter)
 
 
-def arrow_test_init() -> Gtk.Button:
+def test_arrow_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button(label="Start Test!")
-    b.connect("clicked", arrow_test_clicked)
+    b.connect("clicked", test_arrow_clicked)
     return b
 
 
-def arrow_conv_clicked(b: Gtk.Button) -> None:
-    log.debug("arrow_conv_clicked")
+def tgt_arrow_clicked(b: Gtk.Button) -> None:
+    log.debug("tgt_arrow_clicked")
 
 
-def arrow_conv_init() -> Gtk.Button:
+def tgt_arrow_init() -> Gtk.Button:
     b: Gtk.Button = Gtk.Button(label="Start Conversion!")
-    b.connect("clicked", arrow_conv_clicked)
+    b.connect("clicked", tgt_arrow_clicked)
     return b
 
 
 class MainWindow(Gtk.Window):
     def __init__(self):
         global header_suse, header_title, header_kvm
-        global vm_entry, vm_find
-        global tree_store_src, tree_view_src, button_external, arrow_test
-        global tree_store_test, tree_view_test, button_cancel_test, arrow_conv
-        global tree_store_tgt, tree_view_tgt, button_restart
+        global vm_entry, vm_find_button
+        global src_tree_store, src_tree_view, external_button, test_arrow
+        global test_tree_store, test_tree_view, test_cancel_button, tgt_arrow
+        global tgt_tree_store, tgt_tree_view, restart_button
 
         super().__init__(title="Convert to KVM!")
         self.set_border_width(border)
@@ -381,8 +379,8 @@ class MainWindow(Gtk.Window):
 
         vm_entry = vm_entry_init()
         layout_find_int.pack_start(vm_entry, False, False, 0)
-        vm_find = vm_find_init()
-        layout_find_int.pack_start(vm_find, False, False, 0)
+        vm_find_button = vm_find_button_init()
+        layout_find_int.pack_start(vm_find_button, False, False, 0)
 
         # LAYOUT DS (Source Datastore, Layout Test, Target Datastore)
         layout_ds = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
@@ -391,39 +389,39 @@ class MainWindow(Gtk.Window):
         layout_src = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_src, True, True, 0)
 
-        layout_arrow_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_arrow_test.set_margin_top(spacing_v * 2)
-        layout_ds.pack_start(layout_arrow_test, True, False, 0)
+        layout_test_arrow = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
+        layout_test_arrow.set_margin_top(spacing_v * 2)
+        layout_ds.pack_start(layout_test_arrow, True, False, 0)
 
-        arrow_test = arrow_init()
-        layout_arrow_test.pack_start(arrow_test, False, False, 0)
+        test_arrow = arrow_init()
+        layout_test_arrow.pack_start(test_arrow, False, False, 0)
 
         label_src = ds_label_init("Source Datastores")
         layout_src.pack_start(label_src, False, False, 0)
-        tree_store_src = tree_store_init()
-        tree_view_src = tree_view_init(tree_store_src, layout_src, ["Name", "Size", "Mapping"], [192, 48, 192])
+        src_tree_store = tree_store_init()
+        src_tree_view = tree_view_init(src_tree_store, layout_src, ["Name", "Size", "Mapping"], [192, 48, 192])
 
-        button_external = button_external_init()
-        layout_src.pack_start(button_external, False, False, 0)
+        external_button = external_button_init()
+        layout_src.pack_start(external_button, False, False, 0)
 
         # LAYOUT TEST
         layout_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_test, True, True, 0)
 
-        layout_arrow_conv = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_arrow_conv.set_margin_top(spacing_v * 2)
-        layout_ds.pack_start(layout_arrow_conv, True, False, 0)
-        arrow_conv = arrow_init()
-        layout_arrow_conv.pack_start(arrow_conv, False, False, 0)
+        layout_tgt_arrow = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
+        layout_tgt_arrow.set_margin_top(spacing_v * 2)
+        layout_ds.pack_start(layout_tgt_arrow, True, False, 0)
+        tgt_arrow = arrow_init()
+        layout_tgt_arrow.pack_start(tgt_arrow, False, False, 0)
 
         label_test = ds_label_init("Boot Test")
         layout_test.pack_start(label_test, False, False, 0)
 
-        tree_store_test = tree_store_init()
-        tree_view_test = tree_view_init(tree_store_test, layout_test, ["VM Name", "%", "Test State"], [192, 96, 144])
+        test_tree_store = tree_store_init()
+        test_tree_view = tree_view_init(test_tree_store, layout_test, ["VM Name", "%", "Test State"], [192, 96, 144])
 
-        button_cancel_test = button_cancel_test_init()
-        layout_test.pack_start(button_cancel_test, False, False, 0)
+        test_cancel_button = test_cancel_button_init()
+        layout_test.pack_start(test_cancel_button, False, False, 0)
 
         # LAYOUT DATASTORES (cont)
         layout_tgt = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
@@ -432,19 +430,19 @@ class MainWindow(Gtk.Window):
         label_tgt = ds_label_init("Target Datastores")
         layout_tgt.pack_start(label_tgt, False, False, 0)
 
-        tree_store_tgt = tree_store_init()
-        tree_view_tgt = tree_view_init(tree_store_tgt, layout_tgt, ["Name", "Avail", "%"], [192, 96, 144])
+        tgt_tree_store = tree_store_init()
+        tgt_tree_view = tree_view_init(tgt_tree_store, layout_tgt, ["Name", "Avail", "%"], [192, 96, 144])
 
-        button_restart = button_restart_init()
-        layout_tgt.pack_start(button_restart, False, False, 0)
+        restart_button = restart_button_init()
+        layout_tgt.pack_start(restart_button, False, False, 0)
 
         self.add(layout)
         self.set_default_size(1920, 1080)
         #self.set_resizable(False)
 
 
-def tree_view_external_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
-    t: Gtk.TreeStore = tree_store_external
+def external_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = external_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select Source Datastore")
     ds_chooser.set_create_folders(False)
     ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
@@ -460,8 +458,8 @@ def tree_view_external_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
     ds_chooser.destroy()
 
 
-def tree_view_external_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
-    t: Gtk.TreeStore = tree_store_external
+def external_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    t: Gtk.TreeStore = external_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
     ds_chooser.set_create_folders(True)
     ds_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
@@ -470,8 +468,8 @@ def tree_view_external_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
 
     if (response == Gtk.ResponseType.OK):
         f: str = ds_chooser.get_filename()
-        if not (tree_store_search(tree_store_tgt, f, 3)):
-            tree_store_tgt_add(tree_store_tgt, f)
+        if not (tree_store_search(tgt_tree_store, f, 3)):
+            tgt_tree_store_add(tgt_tree_store, f)
         iter: Gtk.TreeIter = t.get_iter(p)
         ds: str = os.path.basename(f)
         t[iter][2] = ds
@@ -480,8 +478,8 @@ def tree_view_external_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
 
 
 def external_rescan(unusedp) -> None:
-    t: Gtk.TreeStore = tree_store_external
-    for row in tree_store_src:
+    t: Gtk.TreeStore = external_tree_store
+    for row in src_tree_store:
         args: list = [ "datastore_find_external_disks.sh", row[3] ]
         lines: list = runcmd(args, True).strip().splitlines()
         log.debug("external_rescan: %s: lines: %s", row[3], lines)
@@ -495,14 +493,14 @@ def external_rescan(unusedp) -> None:
                 ds = os.path.dirname(os.path.dirname(line))
 
             if (tree_store_search(t, ds, 0)):
-                log.info("external_rescan: %s already in tree_store_external", ds)
+                log.info("external_rescan: %s already in external_tree_store", ds)
             else:
                 log.info("external_rescan: appending datastore %s", ds)
                 iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", ""])
 
 
 def external_get_mappings() -> list:
-    t: Gtk.TreeStore = tree_store_external
+    t: Gtk.TreeStore = external_tree_store
     args: list = []
     for row in t:
         ref = row[0]
@@ -513,7 +511,7 @@ def external_get_mappings() -> list:
     return args
 
 
-def button_external_clicked(widget: Gtk.Widget):
+def external_button_clicked(widget: Gtk.Widget):
     global w
     global external_window
     external_window.popup()
@@ -521,10 +519,10 @@ def button_external_clicked(widget: Gtk.Widget):
     external_window.set_size_request(640, 320)
 
 
-def button_external_init() -> Gtk.MenuButton:
+def external_button_init() -> Gtk.MenuButton:
     global external_window
     b: Gtk.MenuButton = Gtk.MenuButton(label="External Disks", popover=external_window)
-    b.connect("clicked", button_external_clicked)
+    b.connect("clicked", external_button_clicked)
     return b
 
 
@@ -541,38 +539,16 @@ def external_window_hide(w: Gtk.Widget, data) -> bool:
     return True
 
 
-def button_external_rescan_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button(label="Rescan")
-    b.connect("clicked", external_rescan)
-    return b
-
-
-def button_external_close_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button(label="Close")
-    b.connect("clicked", external_window_hide, "")
-    return b
-
-
 def external_window_init() -> Gtk.Popover:
-    global tree_store_external, tree_view_external
-    log.debug("ExternalWindow: entry")
-    #self.set_border_width(border / 2)
-    #self.set_default_size(800, 480)
-    #self.popover = Gtk.Popover()
+    global external_tree_store, external_tree_view
     pop = Gtk.Popover()
     layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v / 2)
-
-    # LAYOUT TITLE
-    #layout_title = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
-    #layout.pack_start(layout_title, False, False, 0)
-    #external_title = external_title_init()
-    #layout_title.pack_start(external_title, True, True, 0)
 
     # LAYOUT TABLE
     layout_table = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
     layout.pack_start(layout_table, True, True, 0)
-    tree_store_external = tree_store_init()
-    tree_view_external = tree_view_init(tree_store_external, layout_table, ["Volume", "Source DS", "Target DS"], [ 336, 192, 192 ])
+    external_tree_store = tree_store_init()
+    external_tree_view = tree_view_init(external_tree_store, layout_table, ["Volume", "Source DS", "Target DS"], [ 336, 192, 192 ])
 
     pop.add(layout)
     pop.set_position(Gtk.PositionType.BOTTOM)
@@ -614,6 +590,5 @@ w = MainWindow()
 if (log.level <= logging.DEBUG):
     w.set_interactive_debugging(True)
 w.connect("destroy", Gtk.main_quit)
-#external_window.connect("delete-event", external_window_hide)
 w.show_all()
 Gtk.main()
