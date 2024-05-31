@@ -526,13 +526,6 @@ def external_button_init() -> Gtk.MenuButton:
     return b
 
 
-def external_title_init() -> Gtk.Label:
-    l: Gtk.Label = ds_label_init("External Disks")
-    c = l.get_style_context()
-    c.add_class("ds_label");
-    return l
-
-
 def external_window_hide(w: Gtk.Widget, data) -> bool:
     global external_window
     external_window.hide()
