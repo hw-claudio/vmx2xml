@@ -138,6 +138,7 @@ def src_tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
         size_str = get_folder_size_str(os.path.dirname(vm["path"]))
         t.append(iter, [vm["name"], size_str, "None", vm["path"], ""])
     external_rescan(None)
+    networks_rescan(None)
 
 
 def tgt_tree_store_add(t: Gtk.TreeStore, root: str) -> None:
@@ -190,6 +191,10 @@ def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
         return external_tree_view_src_activated(view, p, c)
     elif (view == external_tree_view):
         return external_tree_view_tgt_activated(view, p, c)
+    elif (view == networks_tree_view and (c == view.get_column(0) or c == view.get_column(1))):
+        return networks_tree_view_src_activated(view, p, c)
+    elif (view == networks_tree_view):
+        return networks_tree_view_tgt_activated(view, p, c)
 
 
 def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list) -> Gtk.TreeView:
@@ -237,6 +242,7 @@ def restart_button_clicked(widget: Gtk.Widget):
     tgt_tree_store.clear()
     test_tree_store.clear()
     external_tree_store.clear()
+    networks_tree_store.clear()
 
 
 def restart_button_init() -> Gtk.Button:
@@ -354,10 +360,11 @@ def tgt_arrow_init() -> Gtk.Button:
 
 class MainWindow(Gtk.Window):
     def __init__(self):
-        global header_suse, header_title, header_kvm
-        global vm_entry, vm_find_button
-        global src_tree_store, src_tree_view, external_button, test_arrow
-        global test_tree_store, test_tree_view, test_cancel_button, tgt_arrow
+        global vm_find_button
+        global src_tree_store, src_tree_view, external_button, networks_button
+        global test_arrow
+        global test_tree_store, test_tree_view, test_cancel_button
+        global tgt_arrow
         global tgt_tree_store, tgt_tree_view, restart_button
 
         super().__init__(title="Convert to KVM!")
@@ -405,8 +412,12 @@ class MainWindow(Gtk.Window):
         src_tree_store = tree_store_init()
         src_tree_view = tree_view_init(src_tree_store, layout_src, ["Name", "Size", "Mapping"], [192, 48, 192])
 
+        layout_maps = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout_src.pack_start(layout_maps, False, False, 0)
         external_button = external_button_init()
-        layout_src.pack_start(external_button, False, False, 0)
+        layout_maps.pack_start(external_button, True, True, 0)
+        networks_button = networks_button_init()
+        layout_maps.pack_start(networks_button, True, True, 0)
 
         # LAYOUT TEST
         layout_test = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
@@ -462,6 +473,9 @@ def external_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
     ds_chooser.destroy()
 
 
+def networks_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    pass
+
 def external_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     t: Gtk.TreeStore = external_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
@@ -503,6 +517,10 @@ def external_rescan(unusedp) -> None:
                 iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", ""])
 
 
+def networks_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+    pass
+
+
 def external_get_mappings() -> list:
     t: Gtk.TreeStore = external_tree_store
     args: list = []
@@ -513,6 +531,10 @@ def external_get_mappings() -> list:
         args.append(f"-d{ref},{ds_src}={ds_tgt}")
     log.info("external_get_mappings: %s", args)
     return args
+
+
+def networks_get_mappings() -> list:
+    return []
 
 
 def external_button_clicked(widget: Gtk.Widget):
@@ -552,6 +574,43 @@ def external_window_init() -> Gtk.Popover:
     return pop
 
 
+def networks_button_clicked(widget: Gtk.Widget):
+    global w
+    global networks_window
+    networks_window.popup()
+    networks_window.show_all()
+    networks_window.set_size_request(640, 320)
+
+
+def networks_button_init() -> Gtk.MenuButton:
+    global networks_window
+    b: Gtk.MenuButton = Gtk.MenuButton(label="Networks", popover=networks_window)
+    b.connect("clicked", networks_button_clicked)
+    return b
+
+
+def networks_window_hide(w: Gtk.Widget, data) -> bool:
+    global networks_window
+    networks_window.hide()
+    return True
+
+
+def networks_window_init() -> Gtk.Popover:
+    global networks_tree_store, networks_tree_view
+    pop = Gtk.Popover()
+    layout = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v / 2)
+
+    # LAYOUT TABLE
+    layout_table = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+    layout.pack_start(layout_table, True, True, 0)
+    networks_tree_store = tree_store_init()
+    networks_tree_view = tree_view_init(networks_tree_store, layout_table, ["Source Network", "Target Network"], [ 256, 256 ])
+
+    pop.add(layout)
+    pop.set_position(Gtk.PositionType.BOTTOM)
+    return pop
+
+
 def get_options() -> None:
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='demo.py',
@@ -583,6 +642,8 @@ os.chdir(dname)
 get_options()
 
 external_window = external_window_init()
+networks_window = networks_window_init()
+
 w = MainWindow()
 if (log.level <= logging.DEBUG):
     w.set_interactive_debugging(True)
