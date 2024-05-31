@@ -184,6 +184,13 @@ def src_tree_view_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
     ds_chooser.destroy()
 
 
+def tree_view_edited(cell: Gtk.CellRendererText, pathstr: str, newtxt: str, data: tuple):
+    tree_store: Gtk.TreeStore = data[0]
+    i: int = data[1]
+    iter: Gtk.TreeIter = tree_store.get_iter_from_string(pathstr)
+    tree_store[iter][i] = newtxt
+
+
 def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     if (view == src_tree_view):
         return src_tree_view_activated(view, p, c)
@@ -197,13 +204,14 @@ def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
         return networks_tree_view_tgt_activated(view, p, c)
 
 
-def tree_view_init(s: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list, editable: list) -> Gtk.TreeView:
-    view: Gtk.TreeView = Gtk.TreeView(model=s)
+def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list, editable: list) -> Gtk.TreeView:
+    view: Gtk.TreeView = Gtk.TreeView(model=tree_store)
 
     for i in range(len(columns)):
         renderer: Gtk.CellRendererText = Gtk.CellRendererText()
         if (editable[i]):
             renderer.set_property("editable", True)
+            renderer.connect("edited", tree_view_edited, (tree_store, i));
         c: Gtk.TreeViewColumn = Gtk.TreeViewColumn(columns[i], renderer, text=i)
         c.set_min_width(csizes[i])
         c.set_max_width(csizes[i])
