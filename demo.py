@@ -34,15 +34,19 @@ executors: dict = {}
 w: Gtk.Window;
 
 vm_find_button: Gtk.Button
-src_tree_store: Gtk.TreeStore; src_tree_view: Gtk.TreeView; external_button: Gtk.MenuButton;
+src_tree_store: Gtk.TreeStore; src_tree_view: Gtk.TreeView; external_button: Gtk.MenuButton; networks_button: Gtk.MenuButton
 test_arrow: Gtk.Button
-test_tree_store: Gtk.TreeStore; test_tree_view: Gtk.TreeView; test_cancel_button: Gtk.Button;
+test_tree_store: Gtk.TreeStore; test_tree_view: Gtk.TreeView; test_cancel_button: Gtk.Button
 tgt_arrow: Gtk.Button
-tgt_tree_store: Gtk.TreeStore; tgt_tree_view: Gtk.TreeView; restart_button: Gtk.Button;
+tgt_tree_store: Gtk.TreeStore; tgt_tree_view: Gtk.TreeView; restart_button: Gtk.Button
 
 # EXTERNAL WINDOW
 external_window: Gtk.Popover
-external_tree_store: Gtk.TreeStore; external_tree_view: Gtk.TreeView;
+external_tree_store: Gtk.TreeStore; external_tree_view: Gtk.TreeView
+
+# NETWORKS WINDOW
+networks_window: Gtk.Popover
+networks_tree_store: Gtk.TreeStore; networks_tree_view: Gtk.TreeView
 
 def get_folder_size_str(f: str) -> str:
     size_str: str = runcmd(["du", "-s", "-h", f], True)
