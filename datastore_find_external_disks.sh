@@ -3,5 +3,5 @@
 
 for DIRNAME in $* ; do
 	VMXS=`find ${DIRNAME} -name "*.vmx"`
-	grep -i "filename" ${VMXS} | fgrep \"/ | sed 's,^.*"\(.*\)".*$,\1,'
+	fgrep -i ".filename" ${VMXS} | fgrep \"/ | sed 's,^.*"\(.*\)".*$,\1,'
 done
