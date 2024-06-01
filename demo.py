@@ -325,6 +325,10 @@ def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bo
         row[1] = "100 %"
         row[5] = 100
         row[6] = -1
+    else:
+        row[1] = ""
+        row[5] = 0
+        row[6] = -1
     return False
 
 
@@ -352,7 +356,7 @@ def test_vm_boot_progress_idle(vmxpath: str, xmlpath: str) -> bool:
         return
     # increase spinner
     if (row[6] >= 0):
-        row[6] += 1
+        row[6] += 3
     return False
 
 
@@ -376,6 +380,8 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
         return
     if (result_str != "SUCCESS"):
         row[2] = result_str
+        row[5] = 0
+        row[6] = -1
         return
     row[2] = ""
     row[5] = 0
@@ -419,7 +425,7 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
         return
     # increase spinner
     if (row[6] >= 0):
-        row[6] += 1
+        row[6] += 3
     try:
         f = open(xmlpath + ".prg", "rb")
         f.seek(-14, os.SEEK_END)
