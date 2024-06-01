@@ -5,8 +5,7 @@
 #
 # Just a demo for the VMWare to KVM conversion
 #
-# requires Python package psutil (zypper install python311-psutil)
-#
+# requires GTK3, python-gtk and Python psutil.
 
 import os
 import sys
