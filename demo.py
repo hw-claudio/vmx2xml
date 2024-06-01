@@ -410,6 +410,9 @@ def test_vm_convert_progress(xmlpath: str) -> bool:
 
 def test_vm(name: str, vmxpath: str, ds_tgt: str):
     global executors
+    if (tree_store_search(test_tree_store, vmxpath, 3)):
+        log.info("test_vm: already testing %s", vmxpath)
+        return
     ds_src: str = os.path.dirname(os.path.dirname(vmxpath))
     xmlpath: str = vmxpath.replace(ds_src, ds_tgt, 1)
     (match, is_vmx) = re.subn(r"\.vmx$", ".xml", xmlpath, count=1, flags=re.IGNORECASE)
