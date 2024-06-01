@@ -27,7 +27,7 @@ program_version: str = "0.1"
 border: int = 24
 spacing_v: int = 24
 spacing_h: int = 36
-progress_timer: int = 3000
+progress_timer: int = 1000
 test_datastore: str = "/vm_testboot"
 executors: dict = {}
 
@@ -119,32 +119,32 @@ def vm_entry_init() -> Gtk.Entry:
 
 
 def tree_store_init() -> Gtk.TreeStore:
-    s: Gtk.TreeStore = Gtk.TreeStore(str, str, str, str, str, int)
+    s: Gtk.TreeStore = Gtk.TreeStore(str, str, str, str, str, int, int)
     return s
 
 
 def tree_store_search(t: Gtk.TreeStore, s: str, i: int) -> Gtk.TreeModelRow:
     for row in t:
         if (s == row[i]):
-            log.debug("%s already present in the tree", s)
+            #log.debug("%s already present in the tree", s)
             return row
-    log.debug("%s not present in the tree", s)
+    #log.debug("%s not present in the tree", s)
     return None
 
 
 def src_tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
     size_str: str = get_folder_size_str(root)
-    iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "None", root, "", 0])
+    iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "None", root, "", 0, -1])
     for vm in vms:
         size_str = get_folder_size_str(os.path.dirname(vm["path"]))
-        t.append(iter, [vm["name"], size_str, "None", vm["path"], "", 0])
+        t.append(iter, [vm["name"], size_str, "None", vm["path"], "", 0, -1])
     external_rescan(None)
     networks_rescan(None)
 
 
 def tgt_tree_store_add(t: Gtk.TreeStore, root: str) -> None:
     avail_str: str = get_folder_avail_str(root)
-    t.append(None, [os.path.basename(root), avail_str, "", root, "", 0])
+    t.append(None, [os.path.basename(root), avail_str, "", root, "", 0, -1])
 
 
 def src_tree_store_walk(t: Gtk.TreeStore, folder: str) -> None:
@@ -213,7 +213,7 @@ def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout, columns: list,
         c: Gtk.TreeViewColumn
         if (rend[i] == 2):
             renderer = Gtk.CellRendererProgress()
-            c = Gtk.TreeViewColumn(columns[i], renderer, value=5)
+            c = Gtk.TreeViewColumn(columns[i], renderer, text=i, value=5, pulse=6)
         elif (rend[i] == 1):
             renderer = Gtk.CellRendererText()
             renderer.set_property("editable", True)
@@ -307,7 +307,7 @@ def ds_label_init(text: str) -> Gtk.Label:
     return l
 
 
-def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str):
+def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bool:
     global executors
     if vmxpath in executors:
         executors[vmxpath]["executor"].shutdown(wait=False)
@@ -320,10 +320,12 @@ def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str):
     if not (row):
         log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
         return
-    row[1] = "100 %"
     row[2] = result_str
-    row[5] = 100
-    return
+    if (result_str == "SUCCESS"):
+        row[1] = "100 %"
+        row[5] = 100
+        row[6] = -1
+    return False
 
 
 def test_vm_boot_complete(vmxpath: str, xmlpath: str, future: concurrent.futures.Future) -> None:
@@ -344,14 +346,22 @@ def test_vm_boot(name: str, xmlpath: str) -> str:
     return result_str
 
 
-def test_vm_boot_progress(xmlpath: str) -> bool:
-    Gdk.threads_enter()
-    log.debug("test_vm_boot_progress: %s", xmlpath)
-    Gdk.threads_leave()
+def test_vm_boot_progress_idle(vmxpath: str, xmlpath: str) -> bool:
+    row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
+    if not (row):
+        return
+    # increase spinner
+    if (row[6] >= 0):
+        row[6] += 1
+    return False
+
+
+def test_vm_boot_progress(vmxpath: str, xmlpath: str) -> bool:
+    GLib.idle_add(test_vm_boot_progress_idle, vmxpath, xmlpath)
     return True
 
 
-def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str):
+def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -> bool:
     global executors
     if vmxpath in executors:
         executors[vmxpath]["executor"].shutdown(wait=False)
@@ -364,20 +374,22 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str):
     if not (row):
         log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
         return
-    row[1] = "100 %"
-    row[2] = result_str
-    row[5] = 100
     if (result_str != "SUCCESS"):
+        row[2] = result_str
         return
-    row[2] = "Booting..."
+    row[2] = ""
+    row[5] = 0
+    row[6] = 0
+    row[1] = "Booting..."
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
     # row[0] = name, row[3] = vmxpath, row[4] = xmlpath
     assert(row[3] == vmxpath)
     assert(row[4] == xmlpath)
     future: concurrent.futures.Future = executor.submit(test_vm_boot, row[0], row[4])
-    timer = GLib.timeout_add(progress_timer, test_vm_boot_progress, xmlpath)
+    timer = GLib.timeout_add(progress_timer, test_vm_boot_progress, vmxpath, xmlpath)
     executors[vmxpath] = { "executor": executor, "timer": timer }
     future.add_done_callback(functools.partial(test_vm_boot_complete, vmxpath, xmlpath))
+    return False
 
 
 def test_vm_convert_complete(vmxpath: str, xmlpath: str, future: concurrent.futures.Future) -> None:
@@ -401,10 +413,39 @@ def test_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
     return result_str
 
 
-def test_vm_convert_progress(xmlpath: str) -> bool:
-    Gdk.threads_enter()
-    log.debug("test_vm_convert_progress: %s", xmlpath)
-    Gdk.threads_leave()
+def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
+    row: Gtk.TreeRow = tree_store_search(test_tree_store, vmxpath, 3)
+    if not (row):
+        return
+    # increase spinner
+    if (row[6] >= 0):
+        row[6] += 1
+    try:
+        f = open(xmlpath + ".prg", "rb")
+        f.seek(-14, os.SEEK_END)
+        txt: str = f.read()
+    except:
+        return False
+    if (len(txt) < 14):
+        return False
+
+    if (row[6] >= 0):
+        row[6] = -1
+        row[5] = 0
+        row[1] = "Converting..."
+    log.debug("test_vm_convert_progress: %s read: %s", xmlpath, txt)
+    txt = txt.decode("ascii")
+    m = re.match(r"\s+\((\d+)\.\d\d/100%\)\r", txt)
+    f.close()
+    if (not m):
+        return False
+    row[5] = int(m.group(1))
+    row[1] = f"Converting ({row[5]}%)"
+    return False
+
+
+def test_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
+    GLib.idle_add(test_vm_convert_progress_idle, vmxpath, xmlpath)
     return True
 
 
@@ -419,11 +460,11 @@ def test_vm(name: str, vmxpath: str, ds_tgt: str):
     assert(is_vmx == 1)
     xmlpath = match
     log.info("test_vm name:%s vmxpath:%s xmlpath:%s", name, vmxpath, xmlpath)
-    test_tree_store.append(None, [name, "0 %", "Starting...", vmxpath, xmlpath, 0])
+    test_tree_store.append(None, [name, "Inspecting...", "", vmxpath, xmlpath, 0, 0])
 
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
     future: concurrent.futures.Future = executor.submit(test_vm_convert, name, vmxpath, xmlpath)
-    timer = GLib.timeout_add(progress_timer, test_vm_convert_progress, xmlpath)
+    timer = GLib.timeout_add(progress_timer, test_vm_convert_progress, vmxpath, xmlpath)
     executors[vmxpath] = { "executor": executor, "timer": timer }
     future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
 
@@ -623,7 +664,7 @@ def external_rescan(unusedp) -> None:
                 log.info("external_rescan: %s already in external_tree_store", ds)
             else:
                 log.info("external_rescan: appending datastore %s", ds)
-                iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", "", 0])
+                iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", "", 0, -1])
 
 
 def networks_rescan(unusedp) -> None:
@@ -640,7 +681,7 @@ def networks_rescan(unusedp) -> None:
                 log.info("networks_rescan: %s already in networks_tree_store", line)
             else:
                 log.info("networks_rescan: appending network %s", line)
-                iter: Gtk.TreeIter = t.append(None, [line, "", "", "", "", 0])
+                iter: Gtk.TreeIter = t.append(None, [line, "", "", "", "", 0, -1])
 
 
 def external_get_mappings() -> list:
