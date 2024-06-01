@@ -1,5 +1,6 @@
 #! /bin/bash
 # Usage: datastore_find_networks.sh FOLDER ..
+IFS=$'\n'
 
 for DIRNAME in $* ; do
 	VMXS=`find ${DIRNAME} -name "*.vmx"`
