@@ -14,8 +14,10 @@ XML=${VMX/${DS1}/${DS2}}
 XML=${XML/%.vmx/.xml}
 DS1NAME=`basename ${DS1}`
 
-# Maybe not necessary, we will rely on default mappings
-# DS_MAP12=/vmfs/volumes/datastore1,${DS1}=${DS2}
+#['demo_testboot_xml.sh', 'sdm_sdmrhnwapp2', '/home/claudio/git/vmx-examples/redhat7and6/sdm_sdmrhnwapp2/sdm_sdmrhnwapp2.vmx', '/vm_testboot', '-d/vmfs/volumes/04707693-68dd9a8b,=']
+# for the log
+mkdir -p `dirname ${XML}`
+
 echo "vmx2xml.py" > ${XML}.log
 echo "==========" >> ${XML}.log
 vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -A -D -X $* 2>>${XML}.log

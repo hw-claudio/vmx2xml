@@ -320,6 +320,7 @@ def testboot_xml(name: str, vmxpath: str, ds: str) -> tuple:
     mappings: list = external_get_mappings()
     if (mappings):
         args.extend(mappings)
+    log.debug("%s", args)
     result_str: str = runcmd(args, True)
     result_str = result_str.strip()
     log.info("testboot_xml: %s", result_str)
