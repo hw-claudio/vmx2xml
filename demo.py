@@ -26,6 +26,7 @@ program_version: str = "0.1"
 border: int = 24
 spacing_v: int = 24
 spacing_h: int = 36
+progress_timer: int = 3000
 test_datastore: str = "/vm_testboot"
 executors: dict = {}
 
@@ -275,7 +276,10 @@ def kill_child_processes(parent_pid):
 def test_cancel_button_clicked(widget: Gtk.Widget):
     global executors
     for vmxpath in executors:
-        executors[vmxpath].shutdown(wait=False)
+        executors[vmxpath]["executor"].shutdown(wait=False)
+        if (executors[vmxpath]["timer"] >= 0):
+            GLib.source_remove(executors[vmxpath]["timer"])
+            executors[vmxpath]["timer"] = -1
     kill_child_processes(os.getpid())
     executors = {}
     test_tree_store.clear()
@@ -302,7 +306,10 @@ def test_vm_complete_update(result_str: str, vmxpath: str):
     row[1] = "100 %"
     row[2] = result_str
     if vmxpath in executors:
-        executors[vmxpath].shutdown(wait=False)
+        executors[vmxpath]["executor"].shutdown(wait=False)
+        if (executors[vmxpath]["timer"] >= 0):
+            GLib.source_remove(executors[vmxpath]["timer"])
+            executors[vmxpath]["timer"] = -1
         del executors[vmxpath]
 
 
@@ -327,13 +334,21 @@ def testboot_xml(name: str, vmxpath: str, ds: str) -> tuple:
     return (result_str, vmxpath)
 
 
+def test_vm_progress_func(vmxpath: str) -> bool:
+    Gdk.threads_enter()
+    log.warning("test_vm_progress_func: %s %s", vmxpath, executors[vmxpath])
+    Gdk.threads_leave()
+    return True
+
+
 def test_vm(name: str, vmxpath: str, ds: str, iter: Gtk.TreeIter):
     global executors
     log.info("test_vm name:%s vmx:%s ds:%s", name, vmxpath, ds)
     test_tree_store.append(None, [name, "0 %", "Starting", vmxpath, ""])
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
-    executors[vmxpath] = executor
     future = executor.submit(testboot_xml, name, vmxpath, ds)
+    timer = GLib.timeout_add(progress_timer, test_vm_progress_func, vmxpath)
+    executors[vmxpath] = { "executor": executor, "timer": timer }
     future.add_done_callback(test_vm_complete)
 
 
