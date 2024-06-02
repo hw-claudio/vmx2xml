@@ -322,11 +322,10 @@ def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bo
         return
     row[2] = result_str
     if (result_str == "SUCCESS"):
-        row[1] = "100 %"
+        row[1] = "Converted!"
         row[5] = 100
         row[6] = -1
     else:
-        row[1] = ""
         row[5] = 0
         row[6] = -1
     return False
