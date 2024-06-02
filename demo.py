@@ -427,7 +427,7 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
         row[6] += 1
     try:
         f = open(xmlpath + ".prg", "rb")
-        f.seek(-14, os.SEEK_END)
+        f.seek(-15, os.SEEK_END)
         b: bytes = f.read()
     except:
         return False
@@ -443,7 +443,7 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
 
     txt: str = b.decode("ascii")
     log.debug("test_vm_convert_progress: %s read: %s", xmlpath, txt)
-    m = re.match(r"\s+\((\d+)\.\d\d/100%\)\r\n*", txt)
+    m = re.match(r"\s*\((\d+)\.\d\d/100%\)\r\n*", txt)
     f.close()
     if (not m):
         return False
