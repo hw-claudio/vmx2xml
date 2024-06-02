@@ -27,7 +27,8 @@ program_version: str = "0.1"
 border: int = 24
 spacing_v: int = 24
 spacing_h: int = 36
-progress_timer: int = 1000
+pulse_timer: int = 200
+progress_timer: int = 3000
 test_datastore: str = "/vm_testboot"
 executors: dict = {}
 
@@ -356,7 +357,7 @@ def test_vm_boot_progress_idle(vmxpath: str, xmlpath: str) -> bool:
         return
     # increase spinner
     if (row[6] >= 0):
-        row[6] += 3
+        row[6] += 1
     return False
 
 
@@ -392,7 +393,7 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
     assert(row[3] == vmxpath)
     assert(row[4] == xmlpath)
     future: concurrent.futures.Future = executor.submit(test_vm_boot, row[0], row[4])
-    timer = GLib.timeout_add(progress_timer, test_vm_boot_progress, vmxpath, xmlpath)
+    timer = GLib.timeout_add(pulse_timer, test_vm_boot_progress, vmxpath, xmlpath)
     executors[vmxpath] = { "executor": executor, "timer": timer }
     future.add_done_callback(functools.partial(test_vm_boot_complete, vmxpath, xmlpath))
     return False
@@ -425,7 +426,7 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
         return
     # increase spinner
     if (row[6] >= 0):
-        row[6] += 3
+        row[6] += 1
     try:
         f = open(xmlpath + ".prg", "rb")
         f.seek(-14, os.SEEK_END)
@@ -436,9 +437,12 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
         return False
 
     if (row[6] >= 0):
-        row[6] = -1
         row[5] = 0
+        row[6] = -1
         row[1] = "Converting..."
+        GLib.source_remove(executors[vmxpath]["timer"])
+        executors[vmxpath]["timer"] = GLib.timeout_add(progress_timer, test_vm_convert_progress, vmxpath, xmlpath)
+
     log.debug("test_vm_convert_progress: %s read: %s", xmlpath, txt)
     txt = txt.decode("ascii")
     m = re.match(r"\s+\((\d+)\.\d\d/100%\)\r", txt)
@@ -470,7 +474,7 @@ def test_vm(name: str, vmxpath: str, ds_tgt: str):
 
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
     future: concurrent.futures.Future = executor.submit(test_vm_convert, name, vmxpath, xmlpath)
-    timer = GLib.timeout_add(progress_timer, test_vm_convert_progress, vmxpath, xmlpath)
+    timer = GLib.timeout_add(pulse_timer, test_vm_convert_progress, vmxpath, xmlpath)
     executors[vmxpath] = { "executor": executor, "timer": timer }
     future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
 
