@@ -360,6 +360,7 @@ def test_vm_boot_progress_idle(vmxpath: str, xmlpath: str) -> bool:
 
 
 def test_vm_boot_progress(vmxpath: str, xmlpath: str) -> bool:
+    log.debug("test_vm_boot_progress timer triggered")
     GLib.idle_add(test_vm_boot_progress_idle, vmxpath, xmlpath)
     return True
 
@@ -453,6 +454,7 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
 
 
 def test_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
+    log.debug("test_vm_convert_progress timer triggered")
     GLib.idle_add(test_vm_convert_progress_idle, vmxpath, xmlpath)
     return True
 
