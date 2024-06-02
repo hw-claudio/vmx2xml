@@ -319,7 +319,7 @@ def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bo
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
         log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
-        return
+        return False
     row[2] = result_str
     if (result_str == "SUCCESS"):
         row[1] = "Converted!"
@@ -352,7 +352,7 @@ def test_vm_boot(name: str, xmlpath: str) -> str:
 def test_vm_boot_progress_idle(vmxpath: str, xmlpath: str) -> bool:
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
-        return
+        return False
     # increase spinner
     if (row[6] >= 0):
         row[6] += 1
@@ -376,12 +376,12 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
         log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
-        return
+        return False
     if (result_str != "SUCCESS"):
         row[2] = result_str
         row[5] = 0
         row[6] = -1
-        return
+        return False
     row[2] = ""
     row[5] = 0
     row[6] = 0
@@ -421,17 +421,17 @@ def test_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
 def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
     row: Gtk.TreeRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
-        return
+        return False
     # increase spinner
     if (row[6] >= 0):
         row[6] += 1
     try:
         f = open(xmlpath + ".prg", "rb")
         f.seek(-14, os.SEEK_END)
-        txt: str = f.read()
+        b: bytes = f.read()
     except:
         return False
-    if (len(txt) < 14):
+    if (len(b) < 14):
         return False
 
     if (row[6] >= 0):
@@ -441,9 +441,9 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
         GLib.source_remove(executors[vmxpath]["timer"])
         executors[vmxpath]["timer"] = GLib.timeout_add(progress_timer, test_vm_convert_progress, vmxpath, xmlpath)
 
+    txt: str = b.decode("ascii")
     log.debug("test_vm_convert_progress: %s read: %s", xmlpath, txt)
-    txt = txt.decode("ascii")
-    m = re.match(r"\s+\((\d+)\.\d\d/100%\)\r", txt)
+    m = re.match(r"\s+\((\d+)\.\d\d/100%\)\r\n*", txt)
     f.close()
     if (not m):
         return False
