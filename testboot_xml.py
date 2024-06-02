@@ -326,6 +326,7 @@ def main(argc: int, argv: list) -> int:
         return 0
     else:
         log.warning("domain %s testboot report: FAILURE", domainname)
+        domain_obliterate(domainname)
         return 2                # use 2 to distinguish from a runtime script error
 
 
