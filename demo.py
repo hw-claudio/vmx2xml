@@ -26,7 +26,6 @@ from gi.repository import Gtk, Gdk, GLib
 program_version: str = "0.1"
 border: int = 24
 spacing_v: int = 24
-spacing_h: int = 36
 pulse_timer: int = 200
 progress_timer: int = 3000
 test_datastore: str = "/vm_testboot"
@@ -547,14 +546,14 @@ class MainWindow(Gtk.Window):
         layout_find_int.pack_start(vm_find_button, False, False, 0)
 
         # LAYOUT DS (Source Datastore, Layout Test, Target Datastore)
-        layout_ds = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout_ds = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_v)
         layout.pack_start(layout_ds, True, True, 0)
 
         layout_src = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
         layout_ds.pack_start(layout_src, True, True, 0)
 
         layout_test_arrow = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_test_arrow.set_margin_top(spacing_v * 2)
+        layout_test_arrow.set_margin_top(spacing_v)
         layout_ds.pack_start(layout_test_arrow, True, False, 0)
 
         test_arrow = arrow_init()
@@ -566,7 +565,7 @@ class MainWindow(Gtk.Window):
         src_tree_view = tree_view_init(src_tree_store, layout_src,
                                        ["Name", "Size", "Mapping"], [192, 48, 192], [0, 0, 0])
 
-        layout_maps = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_h)
+        layout_maps = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=spacing_v)
         layout_src.pack_start(layout_maps, False, False, 0)
         external_button = external_button_init()
         layout_maps.pack_start(external_button, True, True, 0)
@@ -578,7 +577,7 @@ class MainWindow(Gtk.Window):
         layout_ds.pack_start(layout_test, True, True, 0)
 
         layout_tgt_arrow = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=spacing_v)
-        layout_tgt_arrow.set_margin_top(spacing_v * 2)
+        layout_tgt_arrow.set_margin_top(spacing_v)
         layout_ds.pack_start(layout_tgt_arrow, True, False, 0)
         tgt_arrow = arrow_init()
         layout_tgt_arrow.pack_start(tgt_arrow, False, False, 0)
@@ -588,7 +587,7 @@ class MainWindow(Gtk.Window):
 
         test_tree_store = tree_store_init()
         test_tree_view = tree_view_init(test_tree_store, layout_test,
-                                        ["VM Name", "%", "Test State"], [192, 96, 144], [0, 2, 0])
+                                        ["VM Name", "%", "Test State"], [192, 128, 112], [0, 2, 0])
 
         test_cancel_button = test_cancel_button_init()
         layout_test.pack_start(test_cancel_button, False, False, 0)
