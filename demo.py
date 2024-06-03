@@ -715,7 +715,7 @@ def external_button_clicked(widget: Gtk.Widget):
     global external_window
     external_window.popup()
     external_window.show_all()
-    external_window.set_size_request(800, 320)
+    external_window.set_size_request(800, 256)
 
 
 def external_button_init() -> Gtk.MenuButton:
@@ -752,7 +752,7 @@ def networks_button_clicked(widget: Gtk.Widget):
     global networks_window
     networks_window.popup()
     networks_window.show_all()
-    networks_window.set_size_request(800, 320)
+    networks_window.set_size_request(800, 256)
 
 
 def networks_button_init() -> Gtk.MenuButton:
