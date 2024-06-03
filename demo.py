@@ -779,9 +779,6 @@ def networks_window_init() -> Gtk.Popover:
     networks_tree_store = tree_store_init()
     networks_tree_view = tree_view_init(networks_tree_store, layout_table,
                                         ["Source Network", "Target Network"], [ 256, 256 ], [0, 1])
-    renderer = Gtk.CellRendererText()
-    renderer.set_property("editable", True)
-    networks_tree_view.get_column(1).set_cell_data_func(renderer, None)
     pop.add(layout)
     pop.set_position(Gtk.PositionType.BOTTOM)
     return pop
