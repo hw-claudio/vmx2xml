@@ -30,6 +30,8 @@ pulse_timer: int = 200
 progress_timer: int = 3000
 test_datastore: str = "/vm_testboot"
 executors: dict = {}
+test_ok_str: str = "Tested!"
+success_str: str = "SUCCESS"
 
 # MAIN WINDOW
 w: Gtk.Window;
@@ -64,6 +66,18 @@ def get_folder_avail_str(f: str) -> str:
     size_str = size_str.strip()
     lines = size_str.splitlines()
     return lines[1]             # skip the header line
+
+
+# get the target xmlpath from the input vmxpath and target datastore
+def get_xmlpath_from_vmx(vmxpath: str, ds_tgt: str) -> str:
+    ds_src: str = os.path.dirname(os.path.dirname(vmxpath))
+    xmlpath: str = vmxpath.replace(ds_src, ds_tgt, 1)
+    (match, is_vmx) = re.subn(r"\.vmx$", ".xml", xmlpath, count=1, flags=re.IGNORECASE)
+    if (is_vmx != 1):
+        log.error("get_xmlpath_from_vmx: is_vmx not 1")
+        return ""
+    xmlpath = match
+    return xmlpath
 
 
 def arrow_pressed(b: Gtk.Button, e: Gdk.EventButton) -> bool:
@@ -122,21 +136,32 @@ def tree_store_init() -> Gtk.TreeStore:
     return s
 
 
+def tree_store_search_children(t: Gtk.TreeStore, row: Gtk.TreeModelRow, s: str, i: int) -> Gtk.TreeModelRow:
+    iter: Gtk.TreeIter = row.iter
+    child_iter: Gtk.TreeIter = t.iter_children(iter)
+    while (child_iter):
+        if (s == t[child_iter][i]):
+            return t[child_iter]
+        child_iter = t.iter_next(child_iter)
+    return None
+
+
 def tree_store_search(t: Gtk.TreeStore, s: str, i: int) -> Gtk.TreeModelRow:
     for row in t:
         if (s == row[i]):
-            #log.debug("%s already present in the tree", s)
             return row
-    #log.debug("%s not present in the tree", s)
+        child_row = tree_store_search_children(t, row, s, i)
+        if (child_row):
+            return child_row
     return None
 
 
 def src_tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
     size_str: str = get_folder_size_str(root)
-    iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "None", root, "", 0, -1])
+    iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "", root, "", 0, -1])
     for vm in vms:
         size_str = get_folder_size_str(os.path.dirname(vm["path"]))
-        t.append(iter, [vm["name"], size_str, "None", vm["path"], "", 0, -1])
+        t.append(iter, [vm["name"], size_str, "", vm["path"], "", 0, -1])
     external_rescan(None)
     networks_rescan(None)
 
@@ -281,7 +306,7 @@ def kill_child_processes(parent_pid):
         os.kill(process.pid, 15)
 
 
-def test_cancel_button_clicked(widget: Gtk.Widget):
+def test_cancel_button_clicked(unused: Gtk.Widget):
     global executors
     for vmxpath in executors:
         executors[vmxpath]["executor"].shutdown(wait=False)
@@ -320,8 +345,8 @@ def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bo
         log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
         return False
     row[2] = result_str
-    if (result_str == "SUCCESS"):
-        row[1] = "Converted!"
+    if (result_str == success_str):
+        row[1] = test_ok_str
         row[5] = 100
         row[6] = -1
     else:
@@ -377,7 +402,7 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
     if not (row):
         log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
         return False
-    if (result_str != "SUCCESS"):
+    if (result_str != success_str):
         row[2] = result_str
         row[5] = 0
         row[6] = -1
@@ -387,9 +412,8 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
     row[6] = 0
     row[1] = "Booting..."
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
-    # row[0] = name, row[3] = vmxpath, row[4] = xmlpath
-    assert(row[3] == vmxpath)
-    assert(row[4] == xmlpath)
+    #assert(row[3] == vmxpath)
+    #assert(row[4] == xmlpath)
     future: concurrent.futures.Future = executor.submit(test_vm_boot, row[0], row[4])
     timer = GLib.timeout_add(pulse_timer, test_vm_boot_progress, vmxpath, xmlpath)
     executors[vmxpath] = { "executor": executor, "timer": timer }
@@ -461,13 +485,9 @@ def test_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
 def test_vm(name: str, vmxpath: str, ds_tgt: str):
     global executors
     if (tree_store_search(test_tree_store, vmxpath, 3)):
-        log.info("test_vm: already testing %s", vmxpath)
+        log.warning("test_vm: already testing %s", vmxpath)
         return
-    ds_src: str = os.path.dirname(os.path.dirname(vmxpath))
-    xmlpath: str = vmxpath.replace(ds_src, ds_tgt, 1)
-    (match, is_vmx) = re.subn(r"\.vmx$", ".xml", xmlpath, count=1, flags=re.IGNORECASE)
-    assert(is_vmx == 1)
-    xmlpath = match
+    xmlpath: str = get_xmlpath_from_vmx(vmxpath, ds_tgt)
     log.info("test_vm name:%s vmxpath:%s xmlpath:%s", name, vmxpath, xmlpath)
     test_tree_store.append(None, [name, "Inspecting...", "", vmxpath, xmlpath, 0, 0])
 
@@ -500,8 +520,49 @@ def test_arrow_init() -> Gtk.Button:
     return b
 
 
+def migrate_vm(name: str, vmxpath: str, tgt_ds: str):
+    #global executors_tgt
+    tgt_row: Gtk.TreeModelRow = tree_store_search(tgt_tree_store, tgt_ds, 3)
+    if not (tgt_row):
+        log.warning("migrate_vm: no datastore %s found", tgt_ds)
+        return
+    if (tree_store_search_children(tgt_tree_store, tgt_row, vmxpath, 3)):
+        log.warning("migrate_vm: already migrating %s (%s)", name, vmxpath)
+        return
+    xmlpath = get_xmlpath_from_vmx(vmxpath, tgt_ds)
+    log.info("migrate_vm name:%s vmxpath:%s xmlpath:%s", name, vmxpath, xmlpath)
+    tgt_tree_store.append(tgt_row.iter, [name, "Starting...", "", vmxpath, xmlpath, 0, 0])
+
+    #executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+    #future: concurrent.futures.Future = executor.submit(test_vm_convert, name, vmxpath, xmlpath)
+    #timer = GLib.timeout_add(pulse_timer, test_vm_convert_progress, vmxpath, xmlpath)
+    #executors[vmxpath] = { "executor": executor, "timer": timer }
+    #future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
+
+
 def tgt_arrow_clicked(b: Gtk.Button) -> None:
     log.debug("tgt_arrow_clicked")
+    selection: Gtk.TreeSelection = test_tree_view.get_selection()
+    (t, rows) = (selection.get_selected_rows())
+    if not (rows):
+        selection.select_all()
+    (t, rows) = (selection.get_selected_rows())
+
+    for p in rows:
+        i: Gtk.TreeIter = t.get_iter(p)
+        row: Gtk.TreeModelRow = t[i]
+        if (row[1] != test_ok_str or row[2] != success_str):
+            # test is not completed successfully for this VM, cannot migrate
+            log.warning("tgt_arrow_clicked: %s not testbooted successfully yet", row[3])
+            continue;
+        sr: Gtk.TreeModelRow = tree_store_search(src_tree_store, row[3], 3)
+        if not (sr):
+            log.warning("tgt_arrow_clicked: %s not in src_tree_store", row[3])
+            continue
+        if not (sr[4]):
+            log.warning("tgt_arrow_clicked: no target datastore chosen for %s", row[3])
+            continue
+        migrate_vm(sr[0], sr[3], sr[4])
 
 
 def tgt_arrow_init() -> Gtk.Button:
