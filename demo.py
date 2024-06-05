@@ -30,7 +30,9 @@ pulse_timer: int = 200
 progress_timer: int = 3000
 test_datastore: str = "/vm_testboot"
 test_executors: dict = {}
+migrate_executors: dict = {}
 test_ok_str: str = "Tested!"
+migrate_ok_str: str = "Migrated!"
 success_str: str = "SUCCESS"
 
 # MAIN WINDOW
@@ -78,6 +80,40 @@ def get_xmlpath_from_vmx(vmxpath: str, ds_tgt: str) -> str:
         return ""
     xmlpath = match
     return xmlpath
+
+
+def convert_progress_idle(vmxpath: str, xmlpath: str, t: Gtk.TreeStore, executors: dict, progress_f) -> bool:
+    row: Gtk.TreeRow = tree_store_search(t, vmxpath, 3)
+    if not (row):
+        return False
+    # increase spinner
+    if (row[6] >= 0):
+        row[6] += 1
+    try:
+        f = open(xmlpath + ".prg", "rb")
+        f.seek(-15, os.SEEK_END)
+        b: bytes = f.read()
+    except:
+        return False
+    if (len(b) < 14):
+        return False
+
+    if (row[6] >= 0):
+        row[5] = 0
+        row[6] = -1
+        row[1] = "Converting..."
+        GLib.source_remove(executors[vmxpath]["timer"])
+        executors[vmxpath]["timer"] = GLib.timeout_add(progress_timer, progress_f, vmxpath, xmlpath)
+
+    txt: str = b.decode("ascii")
+    log.debug("convert_progress: %s read: %s", xmlpath, txt)
+    m = re.match(r"\s*\((\d+)\.\d\d/100%\)\r\n*", txt)
+    f.close()
+    if (not m):
+        return False
+    row[5] = int(m.group(1))
+    row[1] = f"Converting ({row[5]}%)"
+    return False
 
 
 def arrow_pressed(b: Gtk.Button, e: Gdk.EventButton) -> bool:
@@ -449,43 +485,10 @@ def test_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
     return result_str
 
 
-def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
-    row: Gtk.TreeRow = tree_store_search(test_tree_store, vmxpath, 3)
-    if not (row):
-        return False
-    # increase spinner
-    if (row[6] >= 0):
-        row[6] += 1
-    try:
-        f = open(xmlpath + ".prg", "rb")
-        f.seek(-15, os.SEEK_END)
-        b: bytes = f.read()
-    except:
-        return False
-    if (len(b) < 14):
-        return False
-
-    if (row[6] >= 0):
-        row[5] = 0
-        row[6] = -1
-        row[1] = "Converting..."
-        GLib.source_remove(test_executors[vmxpath]["timer"])
-        test_executors[vmxpath]["timer"] = GLib.timeout_add(progress_timer, test_vm_convert_progress, vmxpath, xmlpath)
-
-    txt: str = b.decode("ascii")
-    log.debug("test_vm_convert_progress: %s read: %s", xmlpath, txt)
-    m = re.match(r"\s*\((\d+)\.\d\d/100%\)\r\n*", txt)
-    f.close()
-    if (not m):
-        return False
-    row[5] = int(m.group(1))
-    row[1] = f"Converting ({row[5]}%)"
-    return False
-
-
 def test_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
+    global test_executors
     log.debug("test_vm_convert_progress timer triggered")
-    GLib.idle_add(test_vm_convert_progress_idle, vmxpath, xmlpath)
+    GLib.idle_add(convert_progress_idle, vmxpath, xmlpath, test_tree_store, test_executors, test_vm_convert_progress)
     return True
 
 
@@ -527,8 +530,63 @@ def test_arrow_init() -> Gtk.Button:
     return b
 
 
+def migrate_vm_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bool:
+    global migrate_executors
+    if vmxpath in migrate_executors:
+        migrate_executors[vmxpath]["executor"].shutdown(wait=False)
+        if (migrate_executors[vmxpath]["timer"] >= 0):
+            GLib.source_remove(migrate_executors[vmxpath]["timer"])
+            migrate_executors[vmxpath]["timer"] = -1
+        del migrate_executors[vmxpath]
+
+    row: Gtk.TreeModelRow = tree_store_search(tgt_tree_store, vmxpath, 3)
+    if not (row):
+        log.info("migrate_vm_complete_end: %s: not found in tgt_tree_store", vmxpath)
+        return False
+    row[2] = result_str
+    if (result_str == success_str):
+        row[1] = migrate_ok_str
+        row[5] = 100
+        row[6] = -1
+    else:
+        row[5] = 0
+        row[6] = -1
+    return False
+
+
+def migrate_vm_complete(vmxpath: str, xmlpath: str, future: concurrent.futures.Future) -> None:
+    try:
+        result_str = future.result()
+    except Exception as e:
+        log.error("migrate_vm_complete exception: %s", ''.join(str(e).splitlines()))
+        result_str = "ERROR"
+    GLib.idle_add(migrate_vm_complete_end, result_str, vmxpath, xmlpath)
+
+
+def migrate_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
+    args: list = ["demo_migrate.sh", name, vmxpath, xmlpath]
+    external_mappings: list = external_get_mappings()
+    if (external_mappings):
+        args.extend(external_mappings)
+    network_mappings: list = networks_get_mappings()
+    if (network_mappings):
+        args.extend(network_mappings)
+
+    log.debug("%s", args)
+    result_str: str = runcmd(args, True)
+    result_str = result_str.strip()
+    log.info("migrate_vm_convert: %s", result_str)
+    return result_str
+
+
+def migrate_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
+    global migrate_executors
+    log.debug("migrate_vm_convert_progress timer triggered")
+    GLib.idle_add(convert_progress_idle, vmxpath, xmlpath, tgt_tree_store, migrate_executors, migrate_vm_convert_progress)
+    return True
+
+
 def migrate_vm(name: str, vmxpath: str, tgt_ds: str):
-    #global executors_tgt
     tgt_row: Gtk.TreeModelRow = tree_store_search(tgt_tree_store, tgt_ds, 3)
     if not (tgt_row):
         log.warning("migrate_vm: no datastore %s found", tgt_ds)
@@ -540,11 +598,11 @@ def migrate_vm(name: str, vmxpath: str, tgt_ds: str):
     log.info("migrate_vm name:%s vmxpath:%s xmlpath:%s", name, vmxpath, xmlpath)
     tgt_tree_store.append(tgt_row.iter, [name, "Starting...", "", vmxpath, xmlpath, 0, 0])
 
-    #executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
-    #future: concurrent.futures.Future = executor.submit(test_vm_convert, name, vmxpath, xmlpath)
-    #timer = GLib.timeout_add(pulse_timer, test_vm_convert_progress, vmxpath, xmlpath)
-    #executors[vmxpath] = { "executor": executor, "timer": timer }
-    #future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
+    executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
+    future: concurrent.futures.Future = executor.submit(migrate_vm_convert, name, vmxpath, xmlpath)
+    timer = GLib.timeout_add(pulse_timer, migrate_vm_convert_progress, vmxpath, xmlpath)
+    migrate_executors[vmxpath] = { "executor": executor, "timer": timer }
+    future.add_done_callback(functools.partial(migrate_vm_complete, vmxpath, xmlpath))
 
 
 def tgt_arrow_clicked(b: Gtk.Button) -> None:
@@ -775,7 +833,14 @@ def external_get_mappings() -> list:
 
 
 def networks_get_mappings() -> list:
-    return []
+    t: Gtk.TreeStore = networks_tree_store
+    args: list = []
+    for row in t:
+        net_src = row[0]
+        net_tgt = row[1]
+        args.append(f"-n{net_src}={net_tgt}")
+    log.info("networks_get_mappings: %s", args)
+    return args
 
 
 def external_button_clicked(widget: Gtk.Widget):

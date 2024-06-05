@@ -1,6 +1,7 @@
 #! /bin/bash
-# Used by demo.py to do the initial test conversion before the test boot.
-# args: name, vmxfile, xmlfile, [-d iref:ids=ods]...
+# Used by demo.py to do the final conversion
+# args: name, vmxfile, xmlfile, [-d iref:ids=ods] [-n in=out]...
+IFS=$'\n'
 
 set -x
 NAME=$1
@@ -13,7 +14,7 @@ mkdir -p `dirname ${XML}`
 
 echo "vmx2xml.py" > ${XML}.log
 echo "==========" >> ${XML}.log
-vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -x -C none -A -D -X $* >${XML}.prg 2>>${XML}.log
+vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -x -C none $* >${XML}.prg 2>>${XML}.log
 
 RESULT=$?
 if test ${RESULT} != "0" ; then
