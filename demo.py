@@ -551,6 +551,12 @@ def migrate_vm_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bool
     else:
         row[5] = 0
         row[6] = -1
+    parent_row: Gtk.TreeModelRow = row.parent
+    if not (parent_row):
+        log.error("migrate_vm_complete_end: row has no parent: %s", vmxpath)
+        return False
+    avail_str: str = get_folder_avail_str(parent_row[3])
+    parent_row[1] = avail_str
     return False
 
 
@@ -713,7 +719,7 @@ class MainWindow(Gtk.Window):
 
         test_tree_store = tree_store_init()
         test_tree_view = tree_view_init(test_tree_store, layout_test,
-                                        ["VM Name", "%", "Test State"], [192, 128, 112], [0, 2, 0])
+                                        ["VM Name", "State", "Result"], [192, 128, 112], [0, 2, 0])
 
         test_cancel_button = test_cancel_button_init()
         layout_test.pack_start(test_cancel_button, False, False, 0)
@@ -727,7 +733,7 @@ class MainWindow(Gtk.Window):
 
         tgt_tree_store = tree_store_init()
         tgt_tree_view = tree_view_init(tgt_tree_store, layout_tgt,
-                                       ["Name", "Avail", "%"], [192, 96, 144], [0, 0, 0])
+                                       ["Name", "State", "Result"], [192, 128, 112], [0, 2, 0])
 
         restart_button = restart_button_init()
         layout_tgt.pack_start(restart_button, False, False, 0)
