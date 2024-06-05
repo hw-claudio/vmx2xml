@@ -295,7 +295,7 @@ def test_cancel_button_clicked(widget: Gtk.Widget):
 
 
 def test_cancel_button_init() -> Gtk.Button:
-    b: Gtk.Button = Gtk.Button(label="Cancel Test")
+    b: Gtk.Button = Gtk.Button(label="Cancel All Tests")
     b.connect("clicked", test_cancel_button_clicked)
     return b
 
