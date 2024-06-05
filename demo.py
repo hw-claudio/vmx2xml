@@ -284,9 +284,14 @@ def vm_find_button_init() -> Gtk.Button:
 def restart_button_clicked(widget: Gtk.Widget):
     src_tree_store.clear()
     tgt_tree_store.clear()
-    test_tree_store.clear()
+
+    test_cancel_button_clicked(widget)
+
     external_tree_store.clear()
     networks_tree_store.clear()
+
+    # kill lingering child processes from tests and migrations
+    kill_child_processes(os.getpid())
 
 
 def restart_button_init() -> Gtk.Button:
@@ -313,7 +318,9 @@ def test_cancel_button_clicked(unused: Gtk.Widget):
         if (test_executors[vmxpath]["timer"] >= 0):
             GLib.source_remove(test_executors[vmxpath]["timer"])
             test_executors[vmxpath]["timer"] = -1
-    kill_child_processes(os.getpid())
+    # XXX there could be lingering children processes
+    # Using the restart button once in a while will be good to clean up all children
+    #kill_child_processes(os.getpid())
     test_executors = {}
     test_tree_store.clear()
 
