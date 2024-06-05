@@ -74,7 +74,6 @@ def arrow_pressed(b: Gtk.Button, e: Gdk.EventButton) -> bool:
 
 
 def arrow_clicked(b: Gtk.Button):
-    log.info("arrow_clicked! b=%s", b)
     arrow_dark = Gtk.Image.new_from_file("art/arrow_dark.png")
     b.set_image(arrow_dark)
     if (b == test_arrow):
@@ -632,6 +631,7 @@ def external_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
 def networks_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     pass
 
+
 def external_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     t: Gtk.TreeStore = external_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
@@ -713,6 +713,8 @@ def networks_get_mappings() -> list:
 def external_button_clicked(widget: Gtk.Widget):
     global w
     global external_window
+    log.debug("external_button_clicked")
+
     external_window.popup()
     external_window.show_all()
     external_window.set_size_request(800, 256)
@@ -750,6 +752,7 @@ def external_window_init() -> Gtk.Popover:
 def networks_button_clicked(widget: Gtk.Widget):
     global w
     global networks_window
+    log.debug("networks_button_clicked")
     networks_window.popup()
     networks_window.show_all()
     networks_window.set_size_request(800, 256)
