@@ -117,7 +117,7 @@ def convert_progress_idle(vmxpath: str, xmlpath: str, t: Gtk.TreeStore, executor
 
 
 def arrow_pressed(b: Gtk.Button, e: Gdk.EventButton) -> bool:
-    log.info("arrow_pressed! b=%s", b)
+    log.debug("arrow_pressed! b=%s", b)
     arrow_light = Gtk.Image.new_from_file("art/arrow_light.png")
     b.set_image(arrow_light)
     return False
@@ -385,7 +385,7 @@ def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bo
 
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
-        log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
+        log.warning("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
         return False
     row[2] = result_str
     if (result_str == success_str):
@@ -443,7 +443,7 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
 
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
-        log.info("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
+        log.warning("test_vm_complete_update: %s: not found in test_tree_store", vmxpath)
         return False
     if (result_str != success_str):
         row[2] = result_str
@@ -541,7 +541,7 @@ def migrate_vm_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bool
 
     row: Gtk.TreeModelRow = tree_store_search(tgt_tree_store, vmxpath, 3)
     if not (row):
-        log.info("migrate_vm_complete_end: %s: not found in tgt_tree_store", vmxpath)
+        log.warning("migrate_vm_complete_end: %s: not found in tgt_tree_store", vmxpath)
         return False
     row[2] = result_str
     if (result_str == success_str):
