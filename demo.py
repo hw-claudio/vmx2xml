@@ -29,7 +29,7 @@ spacing_v: int = 24
 pulse_timer: int = 200
 progress_timer: int = 3000
 test_datastore: str = "/vm_testboot"
-executors: dict = {}
+test_executors: dict = {}
 test_ok_str: str = "Tested!"
 success_str: str = "SUCCESS"
 
@@ -307,14 +307,14 @@ def kill_child_processes(parent_pid):
 
 
 def test_cancel_button_clicked(unused: Gtk.Widget):
-    global executors
-    for vmxpath in executors:
-        executors[vmxpath]["executor"].shutdown(wait=False)
-        if (executors[vmxpath]["timer"] >= 0):
-            GLib.source_remove(executors[vmxpath]["timer"])
-            executors[vmxpath]["timer"] = -1
+    global test_executors
+    for vmxpath in test_executors:
+        test_executors[vmxpath]["executor"].shutdown(wait=False)
+        if (test_executors[vmxpath]["timer"] >= 0):
+            GLib.source_remove(test_executors[vmxpath]["timer"])
+            test_executors[vmxpath]["timer"] = -1
     kill_child_processes(os.getpid())
-    executors = {}
+    test_executors = {}
     test_tree_store.clear()
 
 
@@ -332,13 +332,13 @@ def ds_label_init(text: str) -> Gtk.Label:
 
 
 def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bool:
-    global executors
-    if vmxpath in executors:
-        executors[vmxpath]["executor"].shutdown(wait=False)
-        if (executors[vmxpath]["timer"] >= 0):
-            GLib.source_remove(executors[vmxpath]["timer"])
-            executors[vmxpath]["timer"] = -1
-        del executors[vmxpath]
+    global test_executors
+    if vmxpath in test_executors:
+        test_executors[vmxpath]["executor"].shutdown(wait=False)
+        if (test_executors[vmxpath]["timer"] >= 0):
+            GLib.source_remove(test_executors[vmxpath]["timer"])
+            test_executors[vmxpath]["timer"] = -1
+        del test_executors[vmxpath]
 
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
@@ -390,13 +390,13 @@ def test_vm_boot_progress(vmxpath: str, xmlpath: str) -> bool:
 
 
 def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -> bool:
-    global executors
-    if vmxpath in executors:
-        executors[vmxpath]["executor"].shutdown(wait=False)
-        if (executors[vmxpath]["timer"] >= 0):
-            GLib.source_remove(executors[vmxpath]["timer"])
-            executors[vmxpath]["timer"] = -1
-        del executors[vmxpath]
+    global test_executors
+    if vmxpath in test_executors:
+        test_executors[vmxpath]["executor"].shutdown(wait=False)
+        if (test_executors[vmxpath]["timer"] >= 0):
+            GLib.source_remove(test_executors[vmxpath]["timer"])
+            test_executors[vmxpath]["timer"] = -1
+        del test_executors[vmxpath]
 
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
@@ -416,7 +416,7 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
     #assert(row[4] == xmlpath)
     future: concurrent.futures.Future = executor.submit(test_vm_boot, row[0], row[4])
     timer = GLib.timeout_add(pulse_timer, test_vm_boot_progress, vmxpath, xmlpath)
-    executors[vmxpath] = { "executor": executor, "timer": timer }
+    test_executors[vmxpath] = { "executor": executor, "timer": timer }
     future.add_done_callback(functools.partial(test_vm_boot_complete, vmxpath, xmlpath))
     return False
 
@@ -462,8 +462,8 @@ def test_vm_convert_progress_idle(vmxpath:str, xmlpath: str) -> bool:
         row[5] = 0
         row[6] = -1
         row[1] = "Converting..."
-        GLib.source_remove(executors[vmxpath]["timer"])
-        executors[vmxpath]["timer"] = GLib.timeout_add(progress_timer, test_vm_convert_progress, vmxpath, xmlpath)
+        GLib.source_remove(test_executors[vmxpath]["timer"])
+        test_executors[vmxpath]["timer"] = GLib.timeout_add(progress_timer, test_vm_convert_progress, vmxpath, xmlpath)
 
     txt: str = b.decode("ascii")
     log.debug("test_vm_convert_progress: %s read: %s", xmlpath, txt)
@@ -483,7 +483,7 @@ def test_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
 
 
 def test_vm(name: str, vmxpath: str, ds_tgt: str):
-    global executors
+    global test_executors
     if (tree_store_search(test_tree_store, vmxpath, 3)):
         log.warning("test_vm: already testing %s", vmxpath)
         return
@@ -494,7 +494,7 @@ def test_vm(name: str, vmxpath: str, ds_tgt: str):
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
     future: concurrent.futures.Future = executor.submit(test_vm_convert, name, vmxpath, xmlpath)
     timer = GLib.timeout_add(pulse_timer, test_vm_convert_progress, vmxpath, xmlpath)
-    executors[vmxpath] = { "executor": executor, "timer": timer }
+    test_executors[vmxpath] = { "executor": executor, "timer": timer }
     future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
 
 
