@@ -60,6 +60,19 @@ def domain_obliterate(domainname: str) -> None:
     virsh(["undefine", "--nvram", domainname], False)
 
 
+def network_available(network: str) -> bool:
+    out: str = virsh(["net-info", "--network", network], False)
+    if not (out):
+        log.critical("Network not found: no network with matching name '%s'", network)
+        return False
+    else:
+        network_m = re.search(f"Active:\s+yes", out, flags = re.MULTILINE)
+        if (network_m):
+            return True
+        log.critical("Network '%s' is not active", network)
+        return False
+
+
 def get_options(argc: int, argv: list) -> tuple:
     global log
     adj_modes: list = [ "none", "v2v", "x" ]
@@ -306,6 +319,9 @@ def main(argc: int, argv: list) -> int:
     virsh_version: float = detect_virsh_version()
     virt_xml_version: float = detect_virt_xml_version()
     arping_version: float = detect_arping_version()
+
+    if not (network_available(network)):
+        sys.exit(1)
 
     # check the input file name and whether it can be opened for reading
     if not (xml_name.endswith(".xml")):
