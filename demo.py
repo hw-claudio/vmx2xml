@@ -739,7 +739,7 @@ class MainWindow(Gtk.Window):
         layout_tgt.pack_start(restart_button, False, False, 0)
 
         self.add(layout)
-        self.set_default_size(1280, 800)
+        self.set_default_size(1920, 1080)
         #self.set_resizable(False)
 
 
