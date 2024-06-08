@@ -67,14 +67,13 @@ def guestfs_mount_all(g: guestfs.GuestFS, root: str) -> bool:
         return False
 
     # now mount all mountpoints detected
-    try:
-        for key in mountpoints:
-            if (key == root or mountpoints[key] == "/"):
-                continue        # we already mounted root
+    for key in mountpoints:
+        if (key == root or mountpoints[key] == "/"):
+            continue        # we already mounted root
+        try:
             g.mount(mountpoints[key], key)
-    except RuntimeError as err:
-        log.debug("failed to mount: %s, ignoring.", err)
-
+        except RuntimeError as err:
+            log.debug("failed to mount: %s, ignoring.", err)
     return True
 
 
