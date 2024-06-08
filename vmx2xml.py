@@ -569,7 +569,7 @@ def virt_install(vinst_version: float,
         args.extend(["--network", s])
 
     ### COMMUNICATIONS, GUEST-AGENT ###
-    args.extend(["--vsock", "cid.auto=yes"])
+    #args.extend(["--vsock", "cid.auto=yes"])
     args.extend(["--controller", "type=virtio-serial,model=virtio"])
     args.extend(["--channel", "unix,mode=bind,target_type=virtio,name=org.qemu.guest_agent.0"])
     # allow copypaste to work (XXX does not really work for me XXX)
