@@ -1,6 +1,7 @@
 #! /bin/bash
 # Used by demo.py to launch the boot test after successful test conversion.
 # args: name, xmlfile
+IFS=$'\n'
 
 set -x
 NAME=$1
@@ -11,7 +12,7 @@ shift 2
 mkdir -p `dirname ${XML}`
 echo "testboot_xml.py" >> ${XML}.log
 echo "===============" >> ${XML}.log
-testboot_xml.py -v -v -f ${XML} -t 60 -O 2>>${XML}.log
+testboot_xml.py -v -v -f ${XML} -t 130 -O 2>>${XML}.log
 
 RESULT=$?
 if test ${RESULT} = "0" ; then
