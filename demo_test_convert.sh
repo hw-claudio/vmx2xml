@@ -1,6 +1,7 @@
 #! /bin/bash
 # Used by demo.py to do the initial test conversion before the test boot.
 # args: name, vmxfile, xmlfile, [-d iref:ids=ods]...
+IFS=$'\n'
 
 set -x
 NAME=$1
