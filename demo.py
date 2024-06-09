@@ -478,6 +478,9 @@ def test_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
     mappings: list = external_get_mappings()
     if (mappings):
         args.extend(mappings)
+    mappings = networks_get_mappings()
+    if (mappings):
+        args.extend(mappings)
     log.debug("%s", args)
     result_str: str = runcmd(args, True)
     result_str = result_str.strip()
@@ -833,7 +836,8 @@ def external_get_mappings() -> list:
         ref = row[0]
         ds_src = row[3]
         ds_tgt = row[4]
-        args.append(f"-d{ref},{ds_src}={ds_tgt}")
+        if (ds_tgt != "" or ds_src != ""):
+            args.extend(["-d", f"{ref},{ds_src}={ds_tgt}"])
     log.info("external_get_mappings: %s", args)
     return args
 
@@ -844,7 +848,8 @@ def networks_get_mappings() -> list:
     for row in t:
         net_src = row[0]
         net_tgt = row[1]
-        args.append(f"-n{net_src}={net_tgt}")
+        if (net_tgt != ""):
+            args.extend(["-n", f"{net_src}={net_tgt}"])
     log.info("networks_get_mappings: %s", args)
     return args
 
