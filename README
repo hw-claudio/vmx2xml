@@ -1,17 +1,47 @@
-REQUIREMENTS
+GOAL
+----
+
+The goal of this project is to convert VMWare VMs to KVM, primarily Linux guests,
+translating the source .vmx to libvirt .xml, and keeping the VM definition as simple as possible,
+and translating the VMDK disks to QCOW2 or RAW.
+
+For a more general tool able to convert between many different formats, you may be better served by virt-v2v.
+
+This project targets server VM guest workloads primarily running Linux and not desktop use cases.
+
+
+MOTIVATION
+----------
+
+Initial attempts to "just" use virt-v2v directly failed when considering datastore mappings,
+overall performance of the conversions, and other changes to the operation needed, with no way of controlling
+the bahaviour of virt-v2v independently.
+
+The fact that virt-v2v is written in a fairly obscure language (OCaml) and the image conversion drifted away
+around 2021 from using and improving qemu-img to a procedure based on qemu-nbd and nbdcopy has been revealed in our
+use cases to be a regression in stability and performance.
+
+In general we can more easily make changes to a script controlling the underlying tools from a Python script,
+and we can still leverage virt-v2v-in-place to convert the disks themselves for the cases where it is needed.
+
+In particular this is needed currently for Windows (which is not in focus at the moment), since the installation
+of the VMDP or virtio-win drivers is currently only possible when using virt-v2v.
+
+
+ARCHITECTURE
 ------------
 
-This script has been developed as a result of a sales opportunity for a VMWare -> KVM conversion.
+The scripts are currently written in Python3, and make use of standard virtualization and libguestfs tools,
+composing their behaviour to achieve the goal.
 
-The relevant requirements in the context of this specific script were:
+The conversion has a VM-centric view, and assumes that a plan has already been made for which source datastores
+(VMWare) need to be mapped to which target "datastores" for libvirt, ie where to put the actual converted disk images,
+since a single VM might reference disks in multiple datastores.
 
-* NFS servers serving OS images as .VMDK files, VM using vmware pvscsi virtual network device.
-* Guest OSes including Windows 2008 .. 2022, RHEL 6.x to 8.x, SLES 12 to SLES 15 SP2, Ubuntu
-* Virtual Firmware all legacy BIOS (most?)
-* Conversion of VMDK to QCOW2 was needed but concern on the conversion times (automation and optimization required)
+There is some rudimentary support also to map networks from VMWare to libvirt networks or just host bridges.
 
-* Move from existing NFS datastore volumes to new NFS datastore volumes was necessary,
-since the existing ones were already almost full at capacity, so the disks could not be converted "in place" in the same datastore.
+There is no special consideration currently for disks directly attached to VMs, we assume that only virtual
+disks (files) are used.
 
 
 -------------------------------
@@ -23,49 +53,48 @@ that notably tries to match the existing configuration of the original VMX (with
 For disks and controllers it can operate respecting more the original configuration ("fidelity" mode),
 or converting all disks for performance to virtio-blk.
 
-The script also optionally can translate all references to VMDK disks in the VMX to references to QCOW2 disks (or RAW disks),
-optionally on a different datastore.
+The script also optionally can translate all references to VMDK disks in the VMX to references to QCOW2 disks
+(or RAW disks), optionally on a different datastore.
 
 This is important because some of the VMs may have different large disks scattered across datastores.
 
-Here a datastore is basically just an NFS-reachable directory, so this functionality can be used also to convert VMs locally between
-different local disks.
+The script also can optionally trigger the conversion of the VMDK disks into QCOW2 disks (or raw disks),
+and optionally one can trigger the adjustments to the guest to make them bootable under KVM.
 
-The script also can optionally trigger the conversion of the VMDK disks into QCOW2 disks (or raw disks) bootable under KVM,
-and this is done using the libguestfs tools and by default using virt-v2v.
+There is a special option (-x) that can be used to use an alternative to virt-v2v, still experimental,
+and especially not ready to handle Windows guests. It seems to perform a bit better than virt-v2v.
 
-There is a special option (-x) that can be used to use an alternative to virt-v2v,
-but it is experimental and especially not ready to handle Windows guests. It seems to perform a bit better than virt-v2v.
+There is also a special option (-y) that mimics the virt-v2v behavior in terms of the image copying,
+for testing and benchmarking.
 
-There is also a special option (-y) that mimics the virt-v2v behavior in terms of the image copying, for testing and benchmarking.
-
-The script contains these different optional functionalities so it can be relaunched once the QCOW2 disks have been converted,
-in order to update and fine tune the xml translation without the costly operation of moving or reconverting disk images.
-
+The script contains these different optional functionalities so it can be relaunched once the QCOW2 disks
+have been converted, in order to update and fine tune the xml translation, or to inject the drivers
+at separate times, depending on the overall migration plan, without the costly operation of moving or
+reconverting disk images.
 
 
 --------------------------------------
 
 WHAT THE adjust_guestfs.py SCRIPT DOES
 
-This is an experimental script that can be triggered instead of virt-v2v by using special option (-x) in the vmx2xml tool.
-It is also triggered when using (-y).
-
+This is an experimental script that can be triggered instead of virt-v2v by using special option -A,
+in combination with the experimental conversion methods (-x or -y).
 Beware that Windows is not supported by this script.
-If in doubt, use the default virt-v2v.
 
+If in doubt, use the default virt-v2v especially for Windows, and make sure that the virt-v2v-vmdp package
+or virtio-win.
 
 
 -----------------------------------------
 
 WHAT THE datastore_migrate.sh SCRIPT DOES
 
-This is a simple example script (that needs adaptation before use), which focuses on converting a whole datastore worth of VMs,
-moving it to either a different datastore or another directory in the same datastore.
+This is a simple example script (that needs adaptation before use), which focuses on converting a whole datastore
+worth of VMs, moving it to either a different datastore or another directory in the same datastore.
 
 It is just a loop that calls vmx2xml for all .vmx VM definitions in a datastore,
-with pre-chosen options to show a simple conversion from a DATASTORE1 to a DATASTORE-libvirt, including a separate extra
-storage directory.
+with pre-chosen options to show a simple conversion from a DATASTORE1 to a DATASTORE-libvirt,
+including a separate extra storage directory.
 
 Normally it would be called as
 
@@ -77,5 +106,4 @@ It can also be called as:
 
 # datastore_migrate.sh -t
 
-to translate the .vmx to .xml only, also translating references to VMDK disks to QCOW2 disks, but without converting the storage itself.
-This is useful to do a slight change to the configuration without reprocessing any disk.
+to translate the .vmx to .xml only, also translating references to VMDK disks to QCOW2 disks, but without converting the storage itself. This is useful to do a slight change to the configuration without reprocessing any disk.

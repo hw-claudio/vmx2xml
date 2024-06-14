@@ -1,30 +1,38 @@
 === NEXT STEP ===
 
-implement testboot_xml.py fully from the sketch.
+*) show at SUSECon
 
-Can use separate guest injection with:
-virt-v2v-in-place --root=first -i disk /154-RAID0/datastore-libvirt/15sp6bios/15sp6bios.qcow2
 
 === UNSOLVED QUESTIONS ===
 
 *) How to deal with multiple OS disks in the same VM?
 
+*) adjust_guestfs.py: installation of virtio drivers in Windows. Windows is low prio, but would be nice to have
+   something without relying on v2v-in-place for that.
+
+*) adjust_guestfs.py: how to adjust networking so that the first boot on KVM is reliably successful?
+
+   Major problems are the unpredictable "predictable device names", and the different networking configuration
+   tools in different Linux OS.
+
+   Old OSes like centos7 are mostly fine since virtio appears as eth0, and sles with wicked is also ok,
+   but we need to deal with netplan, network-manager, systemd-networkd...
+
 
 === OTHER DETAILS ===
 
-*) "cputune": vmx sched.cpu.affinity => translate to virt-install "cputune" ?
-*) queues=NN performance improvement for disks needs libvirt 10 and qemu 9
-*)  --features apic.eoi=on Enable ? APIC PV EOI
-*)  --features pvspinlock=on Notify the guest that the host supports paravirtual spinlocks
-*) --pm suspend_to_mem.enabled=on,suspend_to_disk.enabled=off
-*) --boot cdrom,fd,hd,network translated from VMX bios.bootOrder
-*) add bios menuitems? --boot bootmenu.enable=on,bios.useserial=on
+
+*) vsock -> useful for anything?
+*) --pm suspend_to_mem.enabled=on,suspend_to_disk.enabled=off ?
+*) --boot cdrom,fd,hd,network translated from VMX bios.bootOrder ?
+*) add bios menuitems? --boot bootmenu.enable=on,bios.useserial=on ?
 *) --network add virtualport.* options?
    https://libvirt.org/formatdomain.html#elementsNICS
    there are VMX vswitch fields to convert from.
-*) vdagent for copy/paste with vnc
+*) investigate vdagent for copy/paste with vnc (no spice). Currently it seems host2guest works but not g2h.
 *) install qemu-guest-agent? install spice-vdagent for VNC clipboard?
-*) option to cat /sys/devices/system/node/node1/cpumap > /sys/kernel/debug/tracing/tracing_cpumask ?
+
+
 
 
 
