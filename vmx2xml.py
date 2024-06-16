@@ -270,11 +270,11 @@ def parse_eth_type(eth_type: str) -> str:
 
 
 # default type mapping
-def translate_eth_type(eth_type: str) -> str:
+def translate_eth_type(eth_type: str, sandbox: str) -> str:
     translator: defaultdict = defaultdict(str, {
         "": "",
         "bridged": "bridge",
-        "hostonly": "network=isolated",
+        "hostonly": f"network={sandbox}",
         "nat": "network=default",
     })
     return translate(translator, eth_type)
@@ -290,7 +290,7 @@ def translate_eth_address_type(addr_type: str) -> str:
     return translate(translator, addr_type)
 
 
-def find_eths(d: defaultdict, interface: str, networks: dict) -> list:
+def find_eths(d: defaultdict, interface: str, networks: dict, sandbox: str) -> list:
     eths: list = []
     for x in range(10):
         if not (parse_boolean(d[f"{interface}{x}.present"])):
@@ -313,7 +313,7 @@ def find_eths(d: defaultdict, interface: str, networks: dict) -> list:
             elif (networks["type"]["*"]):
                 onet = networks["type"]["*"]
         if (onet == "" and eth_type):
-            onet = translate_eth_type(eth_type)
+            onet = translate_eth_type(eth_type, sandbox)
         if (onet == ""):
             log.warning("%s: no meaningful network mapping found, defaulting to bridge.", s)
             onet = "bridge"
@@ -672,7 +672,7 @@ def help_networks() -> None:
           '========================\n\n'
           'If no mappings are available for type input network, the program performs a type-based automatic mapping as follows:\n'
           ' - "bridged" or "vmnet0" => "bridge" interface, with the first bridge name detected on the host, as per virt-install.\n'
-          ' - "hostonly" or "vmnet1" => "network=isolated", which needs to be already defined on the host\n'
+          ' - "hostonly" or "vmnet1" => "network=isolated" (or the value of the -m option), which needs to be defined on the host\n'
           ' - "nat" or "vmnet8" => "network=default", which needs to be already defined on the host\n\n'
           )
     sys.exit(0)
@@ -740,6 +740,8 @@ def get_options(argc: int, argv: list) -> tuple:
                       'Can be specified multiple times. Also see --help-datastores')
     vmxt.add_argument('-n', '--network', metavar="[type:|name:]INET=ONET", action='append',
                       help='replace references INET into network ONET. Can be specified multiple times. Also see --help-networks')
+    vmxt.add_argument('-m', '--sandbox', metavar="NETNAME", action='store', default='isolated',
+                      help='use this libvirt network name as the sandbox for the hostonly vmnet1 network mapping')
     diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx file')
     diskmode.add_argument('-t', '--translate-disks', action='store_true', help='just translate references from .vmdk to .qcow2 or .raw')
     diskmode.add_argument('-c', '--convert-disks', action='store_true', help='translate but also convert disk contents across datastores')
@@ -849,10 +851,10 @@ def get_options(argc: int, argv: list) -> tuple:
     overwrite: bool = args.overwrite
 
     log.debug("[OPTIONS] vmx_name=%s xml_name=%s overwrite:%s fidelity:%s "
-              "disk_mode:%s raw:%s skip_extra:%s datastores:%s networks:%s conv_mode:%s "
+              "disk_mode:%s raw:%s skip_extra:%s datastores:%s networks:%s sandbox:%s conv_mode:%s "
               "adj_mode:%s adj_actions:%s trace_cmd:%s cache_mode:%s numa_node:%s parallel:%s",
               vmx_name, xml_name, overwrite, fidelity,
-              disk_mode, args.raw, args.skip_extra, datastores, networks, conv_mode,
+              disk_mode, args.raw, args.skip_extra, datastores, networks, args.sandbox, conv_mode,
               adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, parallel)
 
     if (os.path.exists(xml_name)):
@@ -866,13 +868,13 @@ def get_options(argc: int, argv: list) -> tuple:
         sys.exit(1)
 
     return (vmx_name, xml_name, fidelity,
-            disk_mode, args.raw, args.skip_extra, datastores, networks, conv_mode,
+            disk_mode, args.raw, args.skip_extra, datastores, networks, args.sandbox, conv_mode,
             adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, parallel)
 
 
 def main(argc: int, argv: list) -> int:
     (vmx_name, xml_name, fidelity,
-     disk_mode, raw, skip_extra, datastores, networks, conv_mode,
+     disk_mode, raw, skip_extra, datastores, networks, sandbox, conv_mode,
      adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, parallel) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
@@ -972,7 +974,7 @@ def main(argc: int, argv: list) -> int:
     for i in range(2):
         floppys[i] = parse_filename_ref(d[f"floppy{i}.filename"], datastores, disk_mode != "none", raw)
 
-    eths: list = find_eths(d, "ethernet", networks)
+    eths: list = find_eths(d, "ethernet", networks, sandbox)
 
     log.debug("%s", disk_ctrls)
     log.debug("%s", disks)
