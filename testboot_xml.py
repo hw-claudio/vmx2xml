@@ -77,7 +77,6 @@ def get_options(argc: int, argv: list) -> tuple:
     global log
     adj_modes: list = [ "none", "v2v", "x" ]
     adj_mode: str = "v2v"
-    network: str = "isolated"
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='testboot-xml.py',
         usage="%(prog)s [options]\n\n"
@@ -99,8 +98,8 @@ def get_options(argc: int, argv: list) -> tuple:
     parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
                         help='timeout to detect a boot success. Use 0 to never timeout (for debugging)')
     parser.add_argument('-k', '--keep', action='store_true', help='keep running after testboot success (debug only)')
-    parser.add_argument('-n', '--network', metavar="NETWORKNAME", action='store',
-                        help='set a libvirt network name for replacing all networks in the VM')
+    parser.add_argument('-m', '--sandbox', metavar="NETNAME", action='store', default='isolated',
+                        help='libvirt network to replace all networks during the test (default "isolated")')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -122,11 +121,7 @@ def get_options(argc: int, argv: list) -> tuple:
         adj_mode = "none"
 
     timeout: int = int(args.timeout)
-
-    if args.network:
-        network = args.network
-
-    return (args.filename, args.overwrite, adj_mode, timeout, args.layer2, args.keep, network)
+    return (args.filename, args.overwrite, adj_mode, timeout, args.layer2, args.keep, args.sandbox)
 
 
 def remove_disks(domainname: str, extra_disks: list) -> None:
@@ -278,7 +273,7 @@ def find_disks(domainname: str) -> tuple:
     return (os_disks, extra_disks)
 
 
-def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, network: str) -> bool:
+def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, sandbox: str) -> bool:
     (os_disks, extra_disks) = find_disks(domainname)
 
     if (len(os_disks) < 1):
@@ -293,7 +288,7 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, 
         remove_disks(domainname, extra_disks)
 
     macs = find_macs(domainname)
-    modify_networks(domainname, network, macs)
+    modify_networks(domainname, sandbox, macs)
 
     # start the domain.
     virsh(["start", domainname, "--paused"], True) # start paused to avoid race with is_zero
@@ -305,7 +300,7 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, 
 
     stopwatch_start()
     while (timeout <= 0 or stopwatch_elapsed() < timeout):
-        if (testboot_net(domainname, network, macs, layer2)):
+        if (testboot_net(domainname, sandbox, macs, layer2)):
             result = True
             log.info("%s: network activity detected after %s seconds", domainname, stopwatch_elapsed())
             break
@@ -314,13 +309,13 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, 
 
 
 def main(argc: int, argv: list) -> int:
-    (xml_name, overwrite, adj_mode, timeout, layer2, keep_running, network) = get_options(argc, argv)
+    (xml_name, overwrite, adj_mode, timeout, layer2, keep_running, sandbox) = get_options(argc, argv)
     adjust_version: float = adjust_guestfs_detect_version()
     virsh_version: float = detect_virsh_version()
     virt_xml_version: float = detect_virt_xml_version()
     arping_version: float = detect_arping_version()
 
-    if not (network_available(network)):
+    if not (network_available(sandbox)):
         sys.exit(1)
 
     # check the input file name and whether it can be opened for reading
@@ -342,7 +337,7 @@ def main(argc: int, argv: list) -> int:
 
     virsh(["define", xml_name], True)
 
-    if (testboot_domain(domainname, adj_mode, timeout, layer2, network)):
+    if (testboot_domain(domainname, adj_mode, timeout, layer2, sandbox)):
         log.info("domain %s testboot report: SUCCESS", domainname)
         while (keep_running):
             time.sleep(60)
