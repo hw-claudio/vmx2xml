@@ -26,12 +26,12 @@ import re
 import argparse
 import time
 
-from vmx2xml.log import *
-from vmx2xml.img import *
-from vmx2xml.adjust import *
-from vmx2xml.inspector import *
-from vmx2xml.stopwatch import *
-from vmx2xml.runcmd import *
+from vmx2xml.log import log, log_init
+from vmx2xml.img import img_qemu_create_overlay
+from vmx2xml.adjust import adjust_guestfs_detect_version, adjust_guestfs
+from vmx2xml.inspector import inspector_inspect
+from vmx2xml.stopwatch import stopwatch_start, stopwatch_elapsed
+from vmx2xml.runcmd import runcmd_detectv, runcmd
 
 program_version: str = "0.1"
 

@@ -24,18 +24,19 @@
 import os
 import sys
 import glob
-import gi
 import re
 import argparse
 import concurrent.futures
-import psutil
 import functools
 
-from vmx2xml.log import *
-from vmx2xml.runcmd import *
-
+import psutil
+import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
+
+from vmx2xml.log import log, logging, log_init
+from vmx2xml.runcmd import runcmd
+
 
 program_version: str = "0.1"
 border: int = 24

@@ -29,20 +29,18 @@ import os
 import re
 import subprocess
 import argparse
-from os.path import join
 from collections import defaultdict
 import shutil
 import filecmp
 import struct
 
-from vmx2xml.log import *
-from vmx2xml.numa import *
-from vmx2xml.trace import *
-from vmx2xml.adjust import *
-from vmx2xml.inspector import *
-from vmx2xml.img import *
-from vmx2xml.stopwatch import *
-from vmx2xml.runcmd import *
+from vmx2xml.log import log, log_init
+from vmx2xml.trace import trace_cmd_detect_version
+from vmx2xml.adjust import adjust_guestfs_detect_version
+from vmx2xml.inspector import inspector_detect_version, inspector_inspect
+from vmx2xml.img import img_qemu_nbd_convert, img_qemu_convert, img_v2v_convert, img_file_ext
+from vmx2xml.stopwatch import stopwatch_start, stopwatch_elapsed
+from vmx2xml.runcmd import runcmd_detectv
 
 program_version: str = "0.1"
 

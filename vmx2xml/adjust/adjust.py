@@ -19,13 +19,10 @@
 #
 # Experimental guest adjustment submodule
 
-import sys
-import os
-import re
 import subprocess
 
-from vmx2xml.log import *
-from vmx2xml.runcmd import *
+from vmx2xml.log import log, logging, log_get_vq
+from vmx2xml.runcmd import runcmd_detectv
 
 
 # in-place adjustment using virt-v2v-in-place, returns True on success.

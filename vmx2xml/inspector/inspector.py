@@ -19,12 +19,10 @@
 #
 # virt-inspector call to get os info on the image
 
-import sys
 import re
-import subprocess
 
-from vmx2xml.log import *
-from vmx2xml.runcmd import *
+from vmx2xml.log import log
+from vmx2xml.runcmd import runcmd, runcmd_detectv
 
 def inspector_inspect(path: str) -> dict:
     s: str = runcmd(["virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path], False)
