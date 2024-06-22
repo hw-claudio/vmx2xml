@@ -271,14 +271,15 @@ def tree_view_edited(_cell: Gtk.CellRendererText, pathstr: str, newtxt: str, dat
 def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
     if (view == src_tree_view):
         return src_tree_view_activated(view, p, c)
-    elif (view == external_tree_view and (c == view.get_column(1))):
+    if (view == external_tree_view and (c == view.get_column(1))):
         return external_tree_view_src_activated(view, p, c)
-    elif (view == external_tree_view and (c == view.get_column(2))):
+    if (view == external_tree_view and (c == view.get_column(2))):
         return external_tree_view_tgt_activated(view, p, c)
-    elif (view == networks_tree_view and (c == view.get_column(0))):
+    if (view == networks_tree_view and (c == view.get_column(0))):
         return networks_tree_view_src_activated(view, p, c)
-    elif (view == networks_tree_view and (c == view.get_column(1))):
+    if (view == networks_tree_view and (c == view.get_column(1))):
         return networks_tree_view_tgt_activated(view, p, c)
+    return None
 
 
 def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout,
