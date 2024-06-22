@@ -291,10 +291,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     if (args.verbose and args.quiet):
         log.critical("cannot specify both --verbose and --quiet at the same time.")
         sys.exit(1)
-    if (args.verbose > 2):
-        args.verbose = 2
-    if (args.quiet > 2):
-        args.quiet = 2
+    # initialize logging module
     log_init(args.verbose, args.quiet)
 
     if (not args.filename) and (not args.nbd):
