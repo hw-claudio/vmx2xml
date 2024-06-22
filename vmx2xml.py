@@ -683,31 +683,37 @@ def help_datastores() -> None:
 
 
 def help_networks() -> None:
-    print('HELP NETWORKS (-n, --network [type:|name:]INET=ONET)\n\n'
-          'CONNECTION NAME MAPPINGS\n'
-          '========================\n\n'
-          'There are no default name mappings.\n'
-          'You can specify them using the name: prefix and specifying a virt-install network type after the first = sign.\n'
-          'The use of the name: prefix is optional. For example:\n'
-          '-n name:ABCDEF01QP1208=network=mynat\n'
-          '-n myvmnetwork=bridge=br1\n'
-          '...\n\n'
-          'CONNECTION TYPE MAPPINGS\n'
-          '========================\n\n'
-          'If there is no specific name mapping for an input network, the program will attempt to translate the network\n'
-          'using its type, by supplying the type: prefix and specifying a virt-install network type after the first = sign.\n'
-          'The use of the type: prefix is MANDATORY. For example:\n'
-          '-n type:bridged=bridge=br0\n'
-          '-n type:hostonly=bridge=br1\n'
-          '-n type:nat=network=mynat\n'
-          '...\n\n'
-          'FALLBACK MAPPINGS\n'
-          '========================\n\n'
-          'If no mappings are available for type input network, the program performs a type-based automatic mapping as follows:\n'
-          ' - "bridged" or "vmnet0" => "bridge" interface, with the first bridge name detected on the host, as per virt-install.\n'
-          ' - "hostonly" or "vmnet1" => "network=isolated" (or the value of the -m option), which needs to be defined on the host\n'
-          ' - "nat" or "vmnet8" => "network=default", which needs to be already defined on the host\n\n'
-          )
+    print('''HELP NETWORKS (-n, --network [type:|name:]INET=ONET)
+
+    CONNECTION NAME MAPPINGS
+    ========================
+
+    There are no default name mappings.
+    You can specify them using the name: prefix and specifying a virt-install network type after the first = sign.
+    The use of the name: prefix is optional. For example:
+    -n name:ABCDEF01QP1208=network=mynat
+    -n myvmnetwork=bridge=br1
+    ...
+
+    CONNECTION TYPE MAPPINGS
+    ========================
+
+    If there is no specific name mapping for an input network, the program will attempt to translate the network
+    using its type, by supplying the type: prefix and specifying a virt-install network type after the first = sign.
+    The use of the type: prefix is MANDATORY. For example:
+    -n type:bridged=bridge=br0
+    -n type:hostonly=bridge=br1
+    -n type:nat=network=mynat
+    ...
+
+    FALLBACK MAPPINGS
+    ========================
+
+    If no mappings are available for type input network, the program performs a type-based automatic mapping as follows:
+     - "bridged" or "vmnet0" => "bridge" interface, with the first bridge detected on the host, as per virt-install.
+     - "hostonly" or "vmnet1" => "network=isolated" (or value of the -m option), which needs to be defined on the host
+     - "nat" or "vmnet8" => "network=default", which needs to be already defined on the host
+    ''')
     sys.exit(0)
 
 
