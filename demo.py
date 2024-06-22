@@ -51,10 +51,11 @@ migrate_ok_str: str = "Migrated!"
 success_str: str = "SUCCESS"
 
 # MAIN WINDOW
-w: Gtk.Window;
+w: Gtk.Window
 
 vm_find_button: Gtk.Button
-src_tree_store: Gtk.TreeStore; src_tree_view: Gtk.TreeView; external_button: Gtk.MenuButton; networks_button: Gtk.MenuButton
+src_tree_store: Gtk.TreeStore; src_tree_view: Gtk.TreeView
+external_button: Gtk.MenuButton; networks_button: Gtk.MenuButton
 test_arrow: Gtk.Button
 test_tree_store: Gtk.TreeStore; test_tree_view: Gtk.TreeView; test_cancel_button: Gtk.Button
 tgt_arrow: Gtk.Button
@@ -165,7 +166,7 @@ def header_suse_init() -> Gtk.Image:
 def header_title_init() -> Gtk.Label:
     l: Gtk.Label = Gtk.Label(label="Convert to KVM!")
     c = l.get_style_context()
-    c.add_class("title");
+    c.add_class("title")
     return l
 
 
@@ -292,7 +293,7 @@ def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout, columns: list,
         elif (rend[i] == 1):
             renderer = Gtk.CellRendererText()
             renderer.set_property("editable", True)
-            renderer.connect("edited", tree_view_edited, (tree_store, i));
+            renderer.connect("edited", tree_view_edited, (tree_store, i))
             c = Gtk.TreeViewColumn(columns[i], renderer, text=i)
         else:
             renderer = Gtk.CellRendererText()
@@ -385,7 +386,7 @@ def test_cancel_button_init() -> Gtk.Button:
 def ds_label_init(text: str) -> Gtk.Label:
     l: Gtk.Label = Gtk.Label(label=text)
     c = l.get_style_context()
-    c.add_class("ds_label");
+    c.add_class("ds_label")
     return l
 
 
@@ -643,7 +644,7 @@ def tgt_arrow_clicked(_b: Gtk.Button) -> None:
         if (row[1] != test_ok_str or row[2] != success_str):
             # test is not completed successfully for this VM, cannot migrate
             log.warning("tgt_arrow_clicked: %s not testbooted successfully yet", row[3])
-            continue;
+            continue
         sr: Gtk.TreeModelRow = tree_store_search(src_tree_store, row[3], 3)
         if not (sr):
             log.warning("tgt_arrow_clicked: %s not in src_tree_store", row[3])
