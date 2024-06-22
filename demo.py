@@ -131,7 +131,7 @@ def convert_progress_idle(vmxpath: str, xmlpath: str, t: Gtk.TreeStore, executor
     return False
 
 
-def arrow_pressed(b: Gtk.Button, _: Gdk.EventButton) -> bool:
+def arrow_pressed(b: Gtk.Button, _e: Gdk.EventButton) -> bool:
     log.debug("arrow_pressed! b=%s", b)
     arrow_light = Gtk.Image.new_from_file("art/arrow_light.png")
     b.set_image(arrow_light)
@@ -223,7 +223,7 @@ def tgt_tree_store_add(t: Gtk.TreeStore, root: str) -> None:
 
 
 def src_tree_store_walk(t: Gtk.TreeStore, folder: str) -> None:
-    for (root, dirs, _) in os.walk(folder, topdown=True):
+    for (root, dirs, _files) in os.walk(folder, topdown=True):
         if (tree_store_search(t, root, 3)):
             continue
         vms: list = []; i: int = 0
@@ -236,7 +236,7 @@ def src_tree_store_walk(t: Gtk.TreeStore, folder: str) -> None:
             src_tree_store_add(t, root, vms)
 
 
-def src_tree_view_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+def src_tree_view_activated(_view: Gtk.TreeView, p: Gtk.TreePath, _c: Gtk.TreeViewColumn):
     t: Gtk.TreeStore = src_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
     ds_chooser.set_create_folders(True)
@@ -260,7 +260,7 @@ def src_tree_view_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
     ds_chooser.destroy()
 
 
-def tree_view_edited(_: Gtk.CellRendererText, pathstr: str, newtxt: str, data: tuple):
+def tree_view_edited(_cell: Gtk.CellRendererText, pathstr: str, newtxt: str, data: tuple):
     tree_store: Gtk.TreeStore = data[0]
     i: int = data[1]
     iter: Gtk.TreeIter = tree_store.get_iter_from_string(pathstr)
@@ -314,7 +314,7 @@ def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout, columns: list,
     return view
 
 
-def vm_find_button_clicked(_: Gtk.Widget):
+def vm_find_button_clicked(_w: Gtk.Widget):
     vm_chooser = Gtk.FileChooserDialog(title="Select Folder to scan for VMX files")
     vm_chooser.set_create_folders(False)
     vm_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
@@ -362,7 +362,7 @@ def kill_child_processes(parent_pid):
         os.kill(process.pid, 15)
 
 
-def test_cancel_button_clicked(_: Gtk.Widget):
+def test_cancel_button_clicked(_w: Gtk.Widget):
     global test_executors
     for vmxpath in test_executors:
         test_executors[vmxpath]["executor"].shutdown(wait=False)
@@ -389,7 +389,7 @@ def ds_label_init(text: str) -> Gtk.Label:
     return l
 
 
-def test_vm_boot_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bool:
+def test_vm_boot_complete_end(result_str: str, vmxpath: str, _xmlpath: str) -> bool:
     global test_executors
     if vmxpath in test_executors:
         test_executors[vmxpath]["executor"].shutdown(wait=False)
@@ -431,7 +431,7 @@ def test_vm_boot(name: str, xmlpath: str) -> str:
     return result_str
 
 
-def test_vm_boot_progress_idle(vmxpath: str, xmlpath: str) -> bool:
+def test_vm_boot_progress_idle(vmxpath: str, _xmlpath: str) -> bool:
     row: Gtk.TreeModelRow = tree_store_search(test_tree_store, vmxpath, 3)
     if not (row):
         return False
@@ -526,7 +526,7 @@ def test_vm(name: str, vmxpath: str, ds_tgt: str):
     future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
 
 
-def test_arrow_clicked(_: Gtk.Button) -> None:
+def test_arrow_clicked(_b: Gtk.Button) -> None:
     log.debug("test_arrow_clicked")
     selection: Gtk.TreeSelection = src_tree_view.get_selection()
     (t, rows) = (selection.get_selected_rows())
@@ -548,7 +548,7 @@ def test_arrow_init() -> Gtk.Button:
     return b
 
 
-def migrate_vm_complete_end(result_str: str, vmxpath: str, xmlpath: str) -> bool:
+def migrate_vm_complete_end(result_str: str, vmxpath: str, _xmlpath: str) -> bool:
     global migrate_executors
     if vmxpath in migrate_executors:
         migrate_executors[vmxpath]["executor"].shutdown(wait=False)
@@ -629,7 +629,7 @@ def migrate_vm(name: str, vmxpath: str, tgt_ds: str):
     future.add_done_callback(functools.partial(migrate_vm_complete, vmxpath, xmlpath))
 
 
-def tgt_arrow_clicked(_: Gtk.Button) -> None:
+def tgt_arrow_clicked(_b: Gtk.Button) -> None:
     log.debug("tgt_arrow_clicked")
     selection: Gtk.TreeSelection = test_tree_view.get_selection()
     (t, rows) = (selection.get_selected_rows())
@@ -761,7 +761,7 @@ class MainWindow(Gtk.Window):
         #self.set_resizable(False)
 
 
-def external_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+def external_tree_view_src_activated(_view: Gtk.TreeView, p: Gtk.TreePath, _c: Gtk.TreeViewColumn):
     t: Gtk.TreeStore = external_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select Source Datastore")
     ds_chooser.set_create_folders(False)
@@ -778,11 +778,11 @@ def external_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
     ds_chooser.destroy()
 
 
-def networks_tree_view_src_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+def networks_tree_view_src_activated(_view: Gtk.TreeView, _p: Gtk.TreePath, _c: Gtk.TreeViewColumn):
     pass
 
 
-def external_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+def external_tree_view_tgt_activated(_view: Gtk.TreeView, p: Gtk.TreePath, _c: Gtk.TreeViewColumn):
     t: Gtk.TreeStore = external_tree_store
     ds_chooser = Gtk.FileChooserDialog(title="Select or Create target datastore folder")
     ds_chooser.set_create_folders(True)
@@ -801,7 +801,7 @@ def external_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
     ds_chooser.destroy()
 
 
-def networks_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
+def networks_tree_view_tgt_activated(_view: Gtk.TreeView, _p: Gtk.TreePath, _c: Gtk.TreeViewColumn):
     pass
 
 
@@ -869,8 +869,7 @@ def networks_get_mappings() -> list:
     return args
 
 
-def external_button_clicked(_: Gtk.Widget):
-    global w
+def external_button_clicked(_w: Gtk.Widget):
     global external_window
     log.debug("external_button_clicked")
 
@@ -886,7 +885,7 @@ def external_button_init() -> Gtk.MenuButton:
     return b
 
 
-def external_window_hide(w: Gtk.Widget, data) -> bool:
+def external_window_hide(_w: Gtk.Widget, _data) -> bool:
     global external_window
     external_window.hide()
     return True
@@ -908,8 +907,7 @@ def external_window_init() -> Gtk.Popover:
     return pop
 
 
-def networks_button_clicked(_: Gtk.Widget):
-    global w
+def networks_button_clicked(_w: Gtk.Widget):
     global networks_window
     log.debug("networks_button_clicked")
     networks_window.popup()
@@ -924,7 +922,7 @@ def networks_button_init() -> Gtk.MenuButton:
     return b
 
 
-def networks_window_hide(w: Gtk.Widget, data) -> bool:
+def networks_window_hide(_w: Gtk.Widget, _data) -> bool:
     global networks_window
     networks_window.hide()
     return True
