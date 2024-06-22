@@ -38,6 +38,8 @@ def log_enable_nl() -> None:
 
 def log_init(verbose: int, quiet: int) -> None:
     global log
+    verbose = min(verbose, 2)
+    quiet = min(quiet, 2)
     loglevel: int = logging.WARNING - (verbose * 10) + (quiet * 10)
     log.setLevel(loglevel)
     handler = logging.StreamHandler()
