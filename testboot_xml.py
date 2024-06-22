@@ -86,9 +86,9 @@ def network_available(network: str) -> bool:
         return False
 
 
-def get_options(argc: int, argv: list) -> tuple:
+def get_options(_argc: int, _argv: list) -> tuple:
     global log
-    adj_modes: list = ["none", "v2v", "x"]
+    _adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='testboot-xml.py',
@@ -238,10 +238,7 @@ def testboot_net_layer3(network: str, macs: list) -> bool:
 
 
 def testboot_net(domainname: str, network: str, macs: list, layer2: bool) -> bool:
-    if (layer2):
-        return testboot_net_layer2(domainname, macs)
-    else:
-        return testboot_net_layer3(network, macs)
+    return testboot_net_layer2(domainname, macs) if (layer2) else testboot_net_layer3(network, macs)
 
 
 def find_macs(domainname: str) -> list:
@@ -355,10 +352,10 @@ def main(argc: int, argv: list) -> int:
             time.sleep(60)
         domain_obliterate(domainname)
         return 0
-    else:
-        log.warning("domain %s testboot report: FAILURE", domainname)
-        domain_obliterate(domainname)
-        return 2                # use 2 to distinguish from a runtime script error
+
+    log.warning("domain %s testboot report: FAILURE", domainname)
+    domain_obliterate(domainname)
+    return 2                # use 2 to distinguish from a runtime script error
 
 
 sys.exit(main(len(sys.argv), sys.argv))
