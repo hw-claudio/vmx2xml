@@ -718,24 +718,31 @@ def help_networks() -> None:
 
 
 def help_conversion() -> None:
-    print("HELP CONVERSION\n\n"
-          "By default virt-v2v is used to convert the VMDK to .qcow2 or .raw,\n"
-          "which also includes many adjustments to the guestfs for running on KVM.\n"
-          "In this mode of operation, no advanced options will be available,\n"
-          "as virt-v2v does not offer any control over the parameters it uses internally.\n\n"
-          "VMDK EXPERIMENTAL AND ADVANCED OPTIONS\n\n"
-          "For more control over the conversion operation, you can choose:\n"
-          "-x which uses qemu-img convert,\n"
-          "-y which uses qemu-nbd and nbdcopy.\n\n"
-          "When either -x or -y are selected, all the VMDK ADVANCED OPTIONS can be used\n"
-          "to fine tune the conversion procedure.\n\n"
-          "GUESTFS ADJUSTMENT\n\n"
-          "The changes to the VM guest filesystem to run on KVM are done by default using\n"
-          "virt-v2v and the virt-v2v-in-place commands.\n"
-          "For experimental modes, one can choose the following alternative methods:\n"
-          "-a which instructs the program to not perform any adjustments at all. This is used for tests.\n"
-          "-A which uses adjust_guestfs.py to do a minimal adjustment,\n"
-          "   just rebuilding the initrd with virtio drivers and trimming the filesystems.\n\n")
+    print('''HELP CONVERSION
+
+    By default virt-v2v is used to convert the VMDK to .qcow2 or .raw,
+    which also includes many adjustments to the guestfs for running on KVM.
+    In this mode of operation, no advanced options will be available,
+    as virt-v2v does not offer any control over the parameters it uses internally.
+
+    VMDK EXPERIMENTAL AND ADVANCED OPTIONS
+
+    For more control over the conversion operation, you can choose:
+    -x which uses qemu-img convert,
+    -y which uses qemu-nbd and nbdcopy.
+
+    When either -x or -y are selected, all the VMDK ADVANCED OPTIONS can be used
+    to fine tune the conversion procedure.
+
+    GUESTFS ADJUSTMENT
+
+    The changes to the VM guest filesystem to run on KVM are done by default using
+    virt-v2v and the virt-v2v-in-place commands.
+    For experimental modes, one can choose the following alternative methods:
+    -a which instructs the program to not perform any adjustments at all. This is used for tests.
+    -A which uses adjust_guestfs.py to do a minimal adjustment,
+       just rebuilding the initrd with virtio drivers and trimming the filesystems.
+    ''')
     sys.exit(0)
 
 
