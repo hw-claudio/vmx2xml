@@ -148,7 +148,7 @@ def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list
     for disk in os_disks:
         (i, source) = disk
         (_, ext) = os.path.splitext(source)
-        if (ext != ".raw" and ext != ".qcow2"):
+        if (ext not in (".raw", ".qcow2")):
             log.critical("%s: referenced disks need to be .qcow2 or .raw", domainname)
             sys.exit(1)
         ext = ext[1:]
