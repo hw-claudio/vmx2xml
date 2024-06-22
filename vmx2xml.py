@@ -464,6 +464,10 @@ def virt_install(vinst_version: float,
     assert(iothreads > 0)
     args.extend(["--iothreads", f"{iothreads}"])
 
+    # we add a watchdog, but we do not want to reset directly, instead we expect to capture the relative libvirt events
+    # and take appropriate action in the HA function
+    args.extend(["--watchdog", "i6300esb,action=none"])
+
     ### FIRMWARE and BOOT SECTION - BIOS, UEFI, etc ###
     if (uefi):
         args.extend(["--boot", f"{uefi}"])
