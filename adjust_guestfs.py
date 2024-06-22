@@ -64,8 +64,8 @@ def guestfs_launch(path: str, nbd: bool) -> tuple:
 
 def get_initrd_prg(g: guestfs.GuestFS, prg: str) -> str:
     dirs: list = ["/sbin", "/usr/sbin", "/bin", "/usr/bin"]
-    for dir in dirs:
-        name: str = f"{dir}/{prg}"
+    for d in dirs:
+        name: str = f"{d}/{prg}"
         if (g.is_file(name, followsymlinks=True)):
             return name
     return ""
@@ -243,7 +243,7 @@ def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool) -> boo
     return True
 
 
-def guestfs_win(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool) -> bool:
+def guestfs_win(g: guestfs.GuestFS, root: str, _drivers: bool, trim: bool) -> bool:
     if not (guestfs_mount_all(g, root)):
         return False
     if (trim):
@@ -270,7 +270,7 @@ def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool) -> bool:
     return rv
 
 
-def get_options(argc: int, argv: list) -> tuple:
+def get_options(_argc: int, _argv: list) -> tuple:
     global log
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='adjust_guestfs.py',
@@ -325,9 +325,8 @@ def main(argc: int, argv: list) -> int:
     if (rv):
         log.info("adjust_guestfs.py: guest adjustment successful.")
         return 0
-    else:
-        log.warning("adjust_guestfs.py: guest adjustment FAILURE!")
-        return 1
+    log.warning("adjust_guestfs.py: guest adjustment FAILURE!")
+    return 1
 
 
 sys.exit(main(len(sys.argv), sys.argv))
