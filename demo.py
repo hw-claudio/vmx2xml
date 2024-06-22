@@ -131,7 +131,7 @@ def convert_progress_idle(vmxpath: str, xmlpath: str, t: Gtk.TreeStore, executor
     return False
 
 
-def arrow_pressed(b: Gtk.Button, e: Gdk.EventButton) -> bool:
+def arrow_pressed(b: Gtk.Button, _: Gdk.EventButton) -> bool:
     log.debug("arrow_pressed! b=%s", b)
     arrow_light = Gtk.Image.new_from_file("art/arrow_light.png")
     b.set_image(arrow_light)
@@ -223,7 +223,7 @@ def tgt_tree_store_add(t: Gtk.TreeStore, root: str) -> None:
 
 
 def src_tree_store_walk(t: Gtk.TreeStore, folder: str) -> None:
-    for (root, dirs, files) in os.walk(folder, topdown=True):
+    for (root, dirs, _) in os.walk(folder, topdown=True):
         if (tree_store_search(t, root, 3)):
             continue
         vms: list = []; i: int = 0
@@ -260,7 +260,7 @@ def src_tree_view_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
     ds_chooser.destroy()
 
 
-def tree_view_edited(cell: Gtk.CellRendererText, pathstr: str, newtxt: str, data: tuple):
+def tree_view_edited(_: Gtk.CellRendererText, pathstr: str, newtxt: str, data: tuple):
     tree_store: Gtk.TreeStore = data[0]
     i: int = data[1]
     iter: Gtk.TreeIter = tree_store.get_iter_from_string(pathstr)
@@ -314,7 +314,7 @@ def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout, columns: list,
     return view
 
 
-def vm_find_button_clicked(widget: Gtk.Widget):
+def vm_find_button_clicked(_: Gtk.Widget):
     vm_chooser = Gtk.FileChooserDialog(title="Select Folder to scan for VMX files")
     vm_chooser.set_create_folders(False)
     vm_chooser.set_action(Gtk.FileChooserAction.SELECT_FOLDER)
@@ -362,7 +362,7 @@ def kill_child_processes(parent_pid):
         os.kill(process.pid, 15)
 
 
-def test_cancel_button_clicked(unused: Gtk.Widget):
+def test_cancel_button_clicked(_: Gtk.Widget):
     global test_executors
     for vmxpath in test_executors:
         test_executors[vmxpath]["executor"].shutdown(wait=False)
@@ -526,7 +526,7 @@ def test_vm(name: str, vmxpath: str, ds_tgt: str):
     future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
 
 
-def test_arrow_clicked(b: Gtk.Button) -> None:
+def test_arrow_clicked(_: Gtk.Button) -> None:
     log.debug("test_arrow_clicked")
     selection: Gtk.TreeSelection = src_tree_view.get_selection()
     (t, rows) = (selection.get_selected_rows())
@@ -629,7 +629,7 @@ def migrate_vm(name: str, vmxpath: str, tgt_ds: str):
     future.add_done_callback(functools.partial(migrate_vm_complete, vmxpath, xmlpath))
 
 
-def tgt_arrow_clicked(b: Gtk.Button) -> None:
+def tgt_arrow_clicked(_: Gtk.Button) -> None:
     log.debug("tgt_arrow_clicked")
     selection: Gtk.TreeSelection = test_tree_view.get_selection()
     (t, rows) = (selection.get_selected_rows())
@@ -805,7 +805,7 @@ def networks_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
     pass
 
 
-def external_rescan(unusedp) -> None:
+def external_rescan(_) -> None:
     t: Gtk.TreeStore = external_tree_store
     for row in src_tree_store:
         args: list = ["datastore_find_external_disks.sh", row[3]]
@@ -824,10 +824,10 @@ def external_rescan(unusedp) -> None:
                 log.info("external_rescan: %s already in external_tree_store", ds)
             else:
                 log.info("external_rescan: appending datastore %s", ds)
-                iter: Gtk.TreeIter = t.append(None, [ds, "", "", "", "", 0, -1])
+                _: Gtk.TreeIter = t.append(None, [ds, "", "", "", "", 0, -1])
 
 
-def networks_rescan(unusedp) -> None:
+def networks_rescan(_) -> None:
     t: Gtk.TreeStore = networks_tree_store
     for row in src_tree_store:
         args: list = ["datastore_find_networks.sh", row[3]]
@@ -841,7 +841,7 @@ def networks_rescan(unusedp) -> None:
                 log.info("networks_rescan: %s already in networks_tree_store", line)
             else:
                 log.info("networks_rescan: appending network %s", line)
-                iter: Gtk.TreeIter = t.append(None, [line, "", "", "", "", 0, -1])
+                _: Gtk.TreeIter = t.append(None, [line, "", "", "", "", 0, -1])
 
 
 def external_get_mappings() -> list:
@@ -869,7 +869,7 @@ def networks_get_mappings() -> list:
     return args
 
 
-def external_button_clicked(widget: Gtk.Widget):
+def external_button_clicked(_: Gtk.Widget):
     global w
     global external_window
     log.debug("external_button_clicked")
@@ -908,7 +908,7 @@ def external_window_init() -> Gtk.Popover:
     return pop
 
 
-def networks_button_clicked(widget: Gtk.Widget):
+def networks_button_clicked(_: Gtk.Widget):
     global w
     global networks_window
     log.debug("networks_button_clicked")

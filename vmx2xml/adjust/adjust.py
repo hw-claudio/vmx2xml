@@ -48,11 +48,11 @@ def adjust_guestfs_py(path: str, nbd: bool, adj_actions: dict) -> bool:
     if (adj_actions["trim"]):
         args.append("-t")
 
-    v: int; q: int; i: int
+    v: int; q: int
     (v, q) = log_get_vq()
-    for i in range(v):
+    for _ in range(v):
         args.append("-v")
-    for i in range(q):
+    for _ in range(q):
         args.append("-q")
 
     log.debug("%s", args)

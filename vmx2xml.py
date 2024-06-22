@@ -139,7 +139,7 @@ def parse_vm_affinity(s: str) -> str:
 
 
 def walk_find(sourcepath: str, name: str) -> str:
-    for (root, dirs, files) in os.walk(sourcepath, followlinks=True):
+    for (root, _, files) in os.walk(sourcepath, followlinks=True):
         for this in files:
             if (this == name):
                 return os.path.join(root, name)
@@ -356,7 +356,7 @@ def find_eths(d: defaultdict, interface: str, networks: dict, sandbox: str) -> l
 #     return translate(translator, s);
 
 
-def convert_path(sourcepath: str, targetpath: str, disk_mode: str, raw: bool, datastores: dict, conv_mode: str,
+def convert_path(sourcepath: str, targetpath: str, disk_mode: str, raw: bool, conv_mode: str,
                  adj_mode: str, adj_actions: dict, osd: dict,
                  trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int) -> str:
     os.makedirs(os.path.dirname(targetpath), exist_ok=True)
@@ -369,13 +369,11 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: str, raw: bool, da
     # CONVERSION / MOVE asked
     assert(disk_mode == "convert")
     if (sourcepath.endswith(".vmdk")):
-        has_os: bool
         if (osd["name"]):
-            has_os = True
+            pass
         else:
             # we cannot adjust a disk that has no OS, and we cannot directly call v2v on it.
             # We use "y" as the closest replacement for "v2v" disk mode in this case.
-            has_os = False
             adj_mode = "none"
             if (conv_mode == "v2v"):
                 conv_mode = "y"
@@ -405,8 +403,8 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: str, raw: bool, da
 
 
 def virt_install(vinst_version: float,
-                 vmx_name: str, xml_name: str, fidelity: bool,
-                 disk_mode: str, raw: bool, skip_extra: bool, datastores: dict, conv_mode: str,
+                 xml_name: str, fidelity: bool,
+                 disk_mode: str, raw: bool, skip_extra: bool, conv_mode: str,
                  adj_mode: str, adj_actions: dict,
                  trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int,
                  displayname: str, annotation: str,
@@ -532,7 +530,7 @@ def virt_install(vinst_version: float,
             log.info("skipping extra non-OS disk %s", paths[0])
             continue
         stopwatch_start()
-        path = convert_path(paths[0], paths[1], disk_mode, raw, datastores, conv_mode,
+        path = convert_path(paths[0], paths[1], disk_mode, raw, conv_mode,
                             adj_mode, adj_actions, disk["os"],
                             trace_cmd, cache_mode, numa_node, parallel)
         if (disk_mode == "convert"):
@@ -894,9 +892,9 @@ def main(argc: int, argv: list) -> int:
      adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, parallel) = get_options(argc, argv)
 
     vinst_version: float = detect_vinst_version()
-    vinsp_version: float = inspector_detect_version()
-    adjust_version: float = adjust_guestfs_detect_version()
-    qemu_img_version: float = detect_qemu_img_version()
+    _ = inspector_detect_version()
+    _ = adjust_guestfs_detect_version()
+    _ = detect_qemu_img_version()
     trace_cmd_version: float = trace_cmd_detect_version()
     if (trace_cmd and trace_cmd_version < 2.7):
         log.critical("trace-cmd functionality requested, but trace-cmd >= 2.7 NOT FOUND")
@@ -999,7 +997,7 @@ def main(argc: int, argv: list) -> int:
 
     # run virt-install to generate the xml
     virt_install(vinst_version,
-                 vmx_name, xml_name, fidelity, disk_mode, raw, skip_extra, datastores, conv_mode,
+                 xml_name, fidelity, disk_mode, raw, skip_extra, conv_mode,
                  adj_mode, adj_actions,
                  trace_cmd, cache_mode, numa_node, parallel,
                  displayname, annotation,

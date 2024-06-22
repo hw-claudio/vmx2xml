@@ -144,12 +144,11 @@ def remove_disks(domainname: str, extra_disks: list) -> None:
     virt_xml(domainname, args)
 
 
-def modify_networks(domainname: str, network: str, macs: list) -> None:
+def modify_networks(domainname: str, network: str) -> None:
     virt_xml(domainname, ["--edit", "all", "--network", f"network={network}"])
 
 
 def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list:
-    args: list = []
     overlays: list = []
     for disk in os_disks:
         (i, source) = disk
@@ -207,7 +206,7 @@ def testboot_net_layer2(domainname: str, macs: list) -> bool:
     return False
 
 
-def testboot_net_get_ip(domainname: str, network: str, mac: str) -> str:
+def testboot_net_get_ip(network: str, mac: str) -> str:
     s: str = virsh(["net-dhcp-leases", network, mac], True)
     # 2024-05-20 14:59:08  52:54:00:8c:25:ef ipv4 192.168.2.94/24 xxx
     m = re.search(fr"^.*{mac}.*\s(\d+\.\d+\.\d+\.\d+).*$", s, flags=re.MULTILINE | re.IGNORECASE)
@@ -216,7 +215,7 @@ def testboot_net_get_ip(domainname: str, network: str, mac: str) -> str:
     return m.group(1)
 
 
-def testboot_net_arping(domainname: str, ip: str, mac: str) -> bool:
+def testboot_net_arping(ip: str, mac: str) -> bool:
     # send two ARP pings, wait at most two seconds total,
     # exit as soon as a reply is received on success.
     # Unicast reply from 192.168.2.94 [52:54:00:8C:25:EF]  1.244ms
@@ -230,10 +229,10 @@ def testboot_net_arping(domainname: str, ip: str, mac: str) -> bool:
     return False
 
 
-def testboot_net_layer3(domainname: str, network: str, macs: list) -> bool:
+def testboot_net_layer3(network: str, macs: list) -> bool:
     for mac in macs:
-        ip: str = testboot_net_get_ip(domainname, network, mac)
-        if (ip and testboot_net_arping(domainname, ip, mac)):
+        ip: str = testboot_net_get_ip(network, mac)
+        if (ip and testboot_net_arping(ip, mac)):
             return True
     return False
 
@@ -242,7 +241,7 @@ def testboot_net(domainname: str, network: str, macs: list, layer2: bool) -> boo
     if (layer2):
         return testboot_net_layer2(domainname, macs)
     else:
-        return testboot_net_layer3(domainname, network, macs)
+        return testboot_net_layer3(network, macs)
 
 
 def find_macs(domainname: str) -> list:
@@ -293,15 +292,15 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, 
         log.critical("%s: no OS disks found, nothing to boot-test", domainname)
         sys.exit(1)
 
-    # XXX the overlays variable appears unused but there is a catch!
+    # XXX the overlays return value appears unused but there is a catch!
     # It needs to be here in this scope, so that the temporary files are not deleted before we run the test!
-    overlays: list = overlay_adjust_disks(domainname, os_disks, adj_mode)
+    _ = overlay_adjust_disks(domainname, os_disks, adj_mode)
 
     if (len(extra_disks) >= 1):
         remove_disks(domainname, extra_disks)
 
     macs = find_macs(domainname)
-    modify_networks(domainname, sandbox, macs)
+    modify_networks(domainname, sandbox)
 
     # start the domain.
     virsh(["start", domainname, "--paused"], True) # start paused to avoid race with is_zero
@@ -323,10 +322,10 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, 
 
 def main(argc: int, argv: list) -> int:
     (xml_name, overwrite, adj_mode, timeout, layer2, keep_running, sandbox) = get_options(argc, argv)
-    adjust_version: float = adjust_guestfs_detect_version()
-    virsh_version: float = detect_virsh_version()
-    virt_xml_version: float = detect_virt_xml_version()
-    arping_version: float = detect_arping_version()
+    _ = adjust_guestfs_detect_version()
+    _ = detect_virsh_version()
+    _ = detect_virt_xml_version()
+    _ = detect_arping_version()
 
     if not (network_available(sandbox)):
         sys.exit(1)

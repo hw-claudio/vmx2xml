@@ -90,7 +90,7 @@ def img_qemu_create_overlay(from_file: str, bformat: str):
         args.append("-q")
     args.append(tmp.name)
     log.debug("%s", args)
-    p = subprocess.run(args, stdout=sys.stderr, check=True)
+    _ = subprocess.run(args, stdout=sys.stderr, check=True)
     return tmp
 
 
@@ -101,7 +101,7 @@ def img_qemu_create(to_file: str, vsize: int, raw: bool) -> None:
         args.append("-q")
     args.extend([to_file, str(vsize)])
     log.debug("%s", args)
-    p = subprocess.run(args, stdout=sys.stderr, check=True)
+    _ = subprocess.run(args, stdout=sys.stderr, check=True)
 
 
 def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
@@ -119,7 +119,7 @@ def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
     args.extend([from_file, to_file])
 
     log.debug("%s", args)
-    p = subprocess.run(args, check=True)
+    _ = subprocess.run(args, check=True)
     if (trace_cmd):
         os.kill(tpid, 2)
         img_wait_child(tpid)
@@ -184,7 +184,7 @@ def img_qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, para
         args.extend(['-C', str(parallel), '-T', str(parallel)])
     log.debug("%s", args)
 
-    p = subprocess.run(args, check=True)
+    _ = subprocess.run(args, check=True)
     if (trace_cmd):
         os.kill(tpid, 2)
         img_wait_child(tpid)
