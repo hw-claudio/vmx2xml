@@ -104,7 +104,8 @@ def img_qemu_create(to_file: str, vsize: int, raw: bool) -> None:
     _ = subprocess.run(args, stdout=sys.stderr, check=True)
 
 
-def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
+def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str,
+                  numa_node: int, parallel: int, raw: bool) -> None:
     to_file_ext: str = img_file_ext(raw)
     args: list = []
     if (trace_cmd):
@@ -179,7 +180,8 @@ def img_qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, para
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
 
-    args.extend(["nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress'])
+    args.extend(["nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}",
+                 '--requests=64', '--flush', '--progress'])
     if (parallel > 0):
         args.extend(['-C', str(parallel), '-T', str(parallel)])
     log.debug("%s", args)
