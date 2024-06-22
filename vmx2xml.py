@@ -208,7 +208,7 @@ def find_disk_controllers(d: defaultdict, interface: str) -> dict:
         model: str = ""
         if (interface == "scsi"):    # Only SCSI seems to have virtualdev
             model = translate_scsi_controller_model(d[f"{interface}{x}.virtualdev"])
-        controllers[x] = { "x": x, "model": model }
+        controllers[x] = {"x": x, "model": model}
     return controllers
 
 
@@ -221,12 +221,12 @@ def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: di
             if not (parse_boolean(d[f"{interface}{x}:{y}.present"])):
                 continue
             if (interface == "ide"):  # insert IDE Controller
-                controllers[x] = { "x": x, "model": "" }
+                controllers[x] = {"x": x, "model": ""}
             disk: dict = {
                 "bus": interface, "x": x, "y": y,
                 "device": '', "driver": '',
                 "cache": '', "path": [None, None] ,
-                "os": { "name": '', "osinfo": '' }
+                "os": {"name": '', "osinfo": ''}
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
             disk["device"] = "cdrom" if ("cdrom" in t) else "disk"
@@ -725,7 +725,7 @@ def get_options(argc: int, argv: list) -> tuple:
     conv_mode: str = "v2v"
     adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
-    adj_actions: dict = { "drivers": True, "trim": True }
+    adj_actions: dict = {"drivers": True, "trim": True}
 
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
@@ -852,7 +852,7 @@ def get_options(argc: int, argv: list) -> tuple:
                 targetpath = sourcepath
             datastores[ref] = (sourcepath, targetpath)
 
-    networks: defaultdict = defaultdict(str, { "name" : {}, "type" : {} })
+    networks: defaultdict = defaultdict(str, {"name": {}, "type": {}})
     if (args.network):
         for i in range(0, len(args.network)):
             (inet, match_eq, onet) = args.network[i].partition("=")
@@ -949,7 +949,7 @@ def main(argc: int, argv: list) -> int:
     cpu_model: str = "host-passthrough"
     cpu_check: str = "none"
     cpu_migratable: str = "on"
-    cpu: dict = { "model": cpu_model, "check": cpu_check, "migratable": cpu_migratable }
+    cpu: dict = {"model": cpu_model, "check": cpu_check, "migratable": cpu_migratable}
     iothreads: int = vcpus # XXX forgot the rule of thumb to set this
     vm_affinity: str = parse_vm_affinity(d["sched.cpu.affinity"])
 
@@ -982,7 +982,7 @@ def main(argc: int, argv: list) -> int:
         log.debug("[SOUND] %s", sound)
 
     # these interface names are used in vmware for disks
-    disk_ctrls: dict = { "scsi": {}, "sata": {}, "nvme": {}, "ide": {} }
+    disk_ctrls: dict = {"scsi": {}, "sata": {}, "nvme": {}, "ide": {}}
     disks: list = []
     for interface in disk_ctrls:
         disk_ctrls[interface] = find_disk_controllers(d, interface)

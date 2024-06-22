@@ -473,7 +473,7 @@ def test_vm_convert_complete_next(result_str: str, vmxpath: str, xmlpath: str) -
     #assert(row[4] == xmlpath)
     future: concurrent.futures.Future = executor.submit(test_vm_boot, row[0], row[4])
     timer = GLib.timeout_add(pulse_timer, test_vm_boot_progress, vmxpath, xmlpath)
-    test_executors[vmxpath] = { "executor": executor, "timer": timer }
+    test_executors[vmxpath] = {"executor": executor, "timer": timer}
     future.add_done_callback(functools.partial(test_vm_boot_complete, vmxpath, xmlpath))
     return False
 
@@ -521,7 +521,7 @@ def test_vm(name: str, vmxpath: str, ds_tgt: str):
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
     future: concurrent.futures.Future = executor.submit(test_vm_convert, name, vmxpath, xmlpath)
     timer = GLib.timeout_add(pulse_timer, test_vm_convert_progress, vmxpath, xmlpath)
-    test_executors[vmxpath] = { "executor": executor, "timer": timer }
+    test_executors[vmxpath] = {"executor": executor, "timer": timer}
     future.add_done_callback(functools.partial(test_vm_convert_complete, vmxpath, xmlpath))
 
 
@@ -624,7 +624,7 @@ def migrate_vm(name: str, vmxpath: str, tgt_ds: str):
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=1)
     future: concurrent.futures.Future = executor.submit(migrate_vm_convert, name, vmxpath, xmlpath)
     timer = GLib.timeout_add(pulse_timer, migrate_vm_convert_progress, vmxpath, xmlpath)
-    migrate_executors[vmxpath] = { "executor": executor, "timer": timer }
+    migrate_executors[vmxpath] = {"executor": executor, "timer": timer}
     future.add_done_callback(functools.partial(migrate_vm_complete, vmxpath, xmlpath))
 
 

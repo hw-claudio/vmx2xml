@@ -28,7 +28,7 @@ from vmx2xml.runcmd import *
 
 def inspector_inspect(path: str) -> dict:
     s: str = runcmd(["virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path], False)
-    osd: dict = { "name": '', "osinfo": '' }
+    osd: dict = {"name": '', "osinfo": ''}
 
     if (not s):
         log.error("%s could not be inspected.", path)
