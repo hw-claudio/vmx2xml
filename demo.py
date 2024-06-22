@@ -189,12 +189,12 @@ def tree_store_init() -> Gtk.TreeStore:
 
 
 def tree_store_search_children(t: Gtk.TreeStore, row: Gtk.TreeModelRow, s: str, i: int) -> Gtk.TreeModelRow:
-    iter: Gtk.TreeIter = row.iter
-    child_iter: Gtk.TreeIter = t.iter_children(iter)
-    while (child_iter):
-        if (s == t[child_iter][i]):
-            return t[child_iter]
-        child_iter = t.iter_next(child_iter)
+    it: Gtk.TreeIter = row.iter
+    child_it: Gtk.TreeIter = t.iter_children(it)
+    while (child_it):
+        if (s == t[child_it][i]):
+            return t[child_it]
+        child_it = t.iter_next(child_it)
     return None
 
 
@@ -210,10 +210,10 @@ def tree_store_search(t: Gtk.TreeStore, s: str, i: int) -> Gtk.TreeModelRow:
 
 def src_tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
     size_str: str = get_folder_size_str(root)
-    iter: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "", root, "", 0, -1])
+    it: Gtk.TreeIter = t.append(None, [os.path.basename(root), size_str, "", root, "", 0, -1])
     for vm in vms:
         size_str = get_folder_size_str(os.path.dirname(vm["path"]))
-        t.append(iter, [vm["name"], size_str, "", vm["path"], "", 0, -1])
+        t.append(it, [vm["name"], size_str, "", vm["path"], "", 0, -1])
     external_rescan(None)
     networks_rescan(None)
 
@@ -249,23 +249,23 @@ def src_tree_view_activated(_view: Gtk.TreeView, p: Gtk.TreePath, _c: Gtk.TreeVi
         f: str = ds_chooser.get_filename()
         if not (tree_store_search(tgt_tree_store, f, 3)):
             tgt_tree_store_add(tgt_tree_store, f)
-        iter: Gtk.TreeIter = t.get_iter(p)
+        it: Gtk.TreeIter = t.get_iter(p)
         ds: str = os.path.basename(f)
-        t[iter][2] = ds
-        t[iter][4] = f
-        child_iter: Gtk.TreeIter = t.iter_children(iter)
-        while (child_iter):
-            t[child_iter][2] = ds
-            t[child_iter][4] = f
-            child_iter = t.iter_next(child_iter)
+        t[it][2] = ds
+        t[it][4] = f
+        child_it: Gtk.TreeIter = t.iter_children(it)
+        while (child_it):
+            t[child_it][2] = ds
+            t[child_it][4] = f
+            child_it = t.iter_next(child_it)
     ds_chooser.destroy()
 
 
 def tree_view_edited(_cell: Gtk.CellRendererText, pathstr: str, newtxt: str, data: tuple):
     tree_store: Gtk.TreeStore = data[0]
     i: int = data[1]
-    iter: Gtk.TreeIter = tree_store.get_iter_from_string(pathstr)
-    tree_store[iter][i] = newtxt
+    it: Gtk.TreeIter = tree_store.get_iter_from_string(pathstr)
+    tree_store[it][i] = newtxt
 
 
 def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeViewColumn):
@@ -533,15 +533,15 @@ def test_arrow_clicked(_b: Gtk.Button) -> None:
     selection: Gtk.TreeSelection = src_tree_view.get_selection()
     (t, rows) = (selection.get_selected_rows())
     for p in rows:
-        iter: Gtk.TreeIter = t.get_iter(p)
-        child_iter: Gtk.TreeIter = t.iter_children(iter)
-        if not (child_iter):
-            test_vm(t[iter][0], t[iter][3], test_datastore)
-        while (child_iter):
-            cp: Gtk.TreePath = t.get_path(child_iter)
+        it: Gtk.TreeIter = t.get_iter(p)
+        child_it: Gtk.TreeIter = t.iter_children(it)
+        if not (child_it):
+            test_vm(t[it][0], t[it][3], test_datastore)
+        while (child_it):
+            cp: Gtk.TreePath = t.get_path(child_it)
             if not (cp in rows):
                 test_vm(t[cp][0], t[cp][3], test_datastore)
-            child_iter = t.iter_next(child_iter)
+            child_it = t.iter_next(child_it)
 
 
 def test_arrow_init() -> Gtk.Button:
@@ -774,10 +774,10 @@ def external_tree_view_src_activated(_view: Gtk.TreeView, p: Gtk.TreePath, _c: G
 
     if (response == Gtk.ResponseType.OK):
         f: str = ds_chooser.get_filename()
-        iter: Gtk.TreeIter = t.get_iter(p)
+        it: Gtk.TreeIter = t.get_iter(p)
         ds: str = os.path.basename(f)
-        t[iter][1] = ds
-        t[iter][3] = f
+        t[it][1] = ds
+        t[it][3] = f
     ds_chooser.destroy()
 
 
@@ -797,10 +797,10 @@ def external_tree_view_tgt_activated(_view: Gtk.TreeView, p: Gtk.TreePath, _c: G
         f: str = ds_chooser.get_filename()
         if not (tree_store_search(tgt_tree_store, f, 3)):
             tgt_tree_store_add(tgt_tree_store, f)
-        iter: Gtk.TreeIter = t.get_iter(p)
+        it: Gtk.TreeIter = t.get_iter(p)
         ds: str = os.path.basename(f)
-        t[iter][2] = ds
-        t[iter][4] = f
+        t[it][2] = ds
+        t[it][4] = f
     ds_chooser.destroy()
 
 
