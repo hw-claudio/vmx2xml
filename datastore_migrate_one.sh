@@ -17,7 +17,7 @@ DS_MAP12=/vmfs/volumes/datastore1,${DS1}=${DS2}
 
 DS3=/153-RAID0/datastore-independent1
 DS4=/154-RAID0/datastore-libvirt-independent
-DS_MAP34=/vmfs/volumes/7e06e1f8-f272f9cd/datastore-volumes,${DS3}=${DS4}
+DS_MAP34=/vmfs/volumes/02b1be22-0447d341,${DS3}=${DS4}
 
 # Here we have a shared directory mapping that does not need any conversion, since it's just
 # floppies, ISOs etc that can stay there.
