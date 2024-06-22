@@ -54,7 +54,7 @@ def img_v2v_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
         tpid: int = trace_cmd_start("trace-v2v.dat-", numa_node)
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
-    args.extend([ "virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", to_file_ext, "-os", dirname ])
+    args.extend(["virt-v2v", "--root=first", "-i", "disk", "-o", "disk", "-of", to_file_ext, "-os", dirname])
 
     if (log.level > logging.WARNING):
         args.append("--quiet")
@@ -111,9 +111,9 @@ def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
         tpid: int = trace_cmd_start("trace-qemu-img.dat-", numa_node)
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
-    args.extend([ "qemu-img", "convert", "-O", to_file_ext, "-t", cache_mode, "-T", cache_mode ])
+    args.extend(["qemu-img", "convert", "-O", to_file_ext, "-t", cache_mode, "-T", cache_mode])
     if (parallel > 0):
-        args.extend([ "-m", str(parallel) ])
+        args.extend(["-m", str(parallel)])
     if (log.getEffectiveLevel() <= logging.WARNING):
         args.append("-p")
     args.extend([from_file, to_file])
@@ -126,7 +126,7 @@ def img_qemu_copy(from_file: str, to_file: str, trace_cmd: bool, cache_mode: str
 
 
 def img_qemu_info(from_file: str) -> int:
-    s: str = runcmd([ "qemu-img", "info", "-U", from_file ], True)
+    s: str = runcmd(["qemu-img", "info", "-U", from_file], True)
     # sorry, human output is way easier to parse than the json file.
     vsize_m = re.search(r"^virtual size:.*\((\d+) bytes\)", s, flags=re.MULTILINE)
     if (not vsize_m):
@@ -150,7 +150,7 @@ def img_qemu_convert(sourcepath: str, targetpath: str, adj_mode: str, adj_action
 
 def img_qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool, readonly: bool) -> tuple:
     tmp = tempfile.NamedTemporaryFile(delete=False)
-    args: list = [ "qemu-nbd", f"--cache={cache_mode}", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name ]
+    args: list = ["qemu-nbd", f"--cache={cache_mode}", "-t", "--shared=0", "--discard=unmap", "--socket", tmp.name]
     if (raw):
         args.extend(['-f', 'raw'])
     if (overlay):
@@ -162,7 +162,7 @@ def img_qemu_nbd_create(s: str, overlay: bool, cache_mode: str, raw: bool, reado
     pid: int = os.fork()
     if (pid == 0):
         os.execvp(args[0], args)
-    args = [ "nbdinfo", f"nbd+unix:///?socket={tmp.name}" ]
+    args = ["nbdinfo", f"nbd+unix:///?socket={tmp.name}"]
     while True:
         log.debug("%s", args)
         p = subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
@@ -179,9 +179,9 @@ def img_qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, para
     if (numa_node >= 0):
         args.extend(numa_restrict_cmd(numa_node))
 
-    args.extend([ "nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress' ])
+    args.extend(["nbdcopy", f"nbd+unix:///?socket={sin}", f"nbd+unix:///?socket={sout}", '--requests=64', '--flush', '--progress'])
     if (parallel > 0):
-        args.extend([ '-C', str(parallel), '-T', str(parallel) ])
+        args.extend(['-C', str(parallel), '-T', str(parallel)])
     log.debug("%s", args)
 
     p = subprocess.run(args, check=True)

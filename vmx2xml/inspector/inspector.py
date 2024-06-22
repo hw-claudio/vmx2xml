@@ -27,7 +27,7 @@ from vmx2xml.log import *
 from vmx2xml.runcmd import *
 
 def inspector_inspect(path: str) -> dict:
-    s: str = runcmd([ "virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path ], False)
+    s: str = runcmd(["virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path], False)
     osd: dict = { "name": '', "osinfo": '' }
 
     if (not s):
@@ -46,4 +46,4 @@ def inspector_inspect(path: str) -> dict:
 
 
 def inspector_detect_version() -> float:
-    return runcmd_detectv([ "virt-inspector", "--version" ], r" (\d+\.\d+)", True)
+    return runcmd_detectv(["virt-inspector", "--version"], r" (\d+\.\d+)", True)

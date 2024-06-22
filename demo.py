@@ -807,7 +807,7 @@ def networks_tree_view_tgt_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk
 def external_rescan(unusedp) -> None:
     t: Gtk.TreeStore = external_tree_store
     for row in src_tree_store:
-        args: list = [ "datastore_find_external_disks.sh", row[3] ]
+        args: list = ["datastore_find_external_disks.sh", row[3]]
         lines: list = runcmd(args, True).strip().splitlines()
         log.debug("external_rescan: %s: lines: %s", row[3], lines)
         for line in lines:
@@ -829,7 +829,7 @@ def external_rescan(unusedp) -> None:
 def networks_rescan(unusedp) -> None:
     t: Gtk.TreeStore = networks_tree_store
     for row in src_tree_store:
-        args: list = [ "datastore_find_networks.sh", row[3] ]
+        args: list = ["datastore_find_networks.sh", row[3]]
         lines: list = runcmd(args, True).strip().splitlines()
         log.debug("networks_rescan: %s: lines: %s", row[3], lines)
         for line in lines:
@@ -901,7 +901,7 @@ def external_window_init() -> Gtk.Popover:
     layout.pack_start(layout_table, True, True, 0)
     external_tree_store = tree_store_init()
     external_tree_view = tree_view_init(external_tree_store, layout_table,
-                                        ["Volume", "Source DS", "Target DS"], [ 336, 192, 192 ], [0, 0, 0])
+                                        ["Volume", "Source DS", "Target DS"], [336, 192, 192], [0, 0, 0])
     pop.add(layout)
     pop.set_position(Gtk.PositionType.BOTTOM)
     return pop
@@ -939,7 +939,7 @@ def networks_window_init() -> Gtk.Popover:
     layout.pack_start(layout_table, True, True, 0)
     networks_tree_store = tree_store_init()
     networks_tree_view = tree_view_init(networks_tree_store, layout_table,
-                                        ["Source Network", "Target Network"], [ 256, 256 ], [0, 1])
+                                        ["Source Network", "Target Network"], [256, 256], [0, 1])
     pop.add(layout)
     pop.set_position(Gtk.PositionType.BOTTOM)
     return pop

@@ -158,11 +158,11 @@ def find_file_ref(name: str, match: str, datastore: tuple, recurse: bool) -> lis
     elif (recurse):
         sourcefile = walk_find(sourcepath, name)
     if (not sourcefile):
-        return [ None, None ]
+        return [None, None]
     log.debug("       find_file_ref sourcefile %s sourcepath %s pathname %s", sourcefile, sourcepath, pathname)
     targetfile: str = os.path.join(datastore[1], os.path.relpath(sourcefile, datastore[0]))
     log.debug("       find_file_ref targetfile %s", targetfile)
-    return [ sourcefile, targetfile ]
+    return [sourcefile, targetfile]
 
 
 def parse_vmx(f, d: defaultdict) -> None:
@@ -225,7 +225,7 @@ def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: di
             disk: dict = {
                 "bus": interface, "x": x, "y": y,
                 "device": '', "driver": '',
-                "cache": '', "path": [ None, None ] ,
+                "cache": '', "path": [None, None] ,
                 "os": { "name": '', "osinfo": '' }
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
@@ -422,7 +422,7 @@ def virt_install(vinst_version: float,
                  disk_ctrls: dict, disks: list, floppys: list,
                  eths: list) -> None:
     ### GENERAL SECTION - General Options for selecting the main functionality ###
-    args: list = [ "virt-install", "--print-xml", "--dry-run", "--noautoconsole", "--check", "all=off" ]
+    args: list = ["virt-install", "--print-xml", "--dry-run", "--noautoconsole", "--check", "all=off"]
     args.extend(["--virt-type", "kvm"])
 
     # for Windows 2012, "PC" is necessary to boot, with legacy BIOS.
@@ -613,7 +613,7 @@ def virt_install(vinst_version: float,
 
 # detect virt-install version only considering major.minor
 def detect_vinst_version() -> float:
-    v: float = runcmd_detectv([ "virt-install", "--version" ], r"^(\d+\.\d+)", True)
+    v: float = runcmd_detectv(["virt-install", "--version"], r"^(\d+\.\d+)", True)
     if (v < 2.2):
         log.critical("virt-install version >= 2.2.0 is required for this command to work")
         sys.exit(1)
@@ -623,7 +623,7 @@ def detect_vinst_version() -> float:
 
 
 def detect_qemu_img_version() -> float:
-    return runcmd_detectv([ "qemu-img", "--version" ], r"^.*version (\d+\.\d+)", True)
+    return runcmd_detectv(["qemu-img", "--version"], r"^.*version (\d+\.\d+)", True)
 
 
 def is_dir(string: str) -> bool:
@@ -719,11 +719,11 @@ def help_conversion() -> None:
 
 
 def get_options(argc: int, argv: list) -> tuple:
-    cache_modes: list = [ "none", "writeback", "unsafe", "directsync", "writethrough" ]
-    disk_modes: list = [ "none", "translate", "convert" ]
-    conv_modes: list = [ "v2v", "x", "y" ]
+    cache_modes: list = ["none", "writeback", "unsafe", "directsync", "writethrough"]
+    disk_modes: list = ["none", "translate", "convert"]
+    conv_modes: list = ["v2v", "x", "y"]
     conv_mode: str = "v2v"
-    adj_modes: list = [ "none", "v2v", "x" ]
+    adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
     adj_actions: dict = { "drivers": True, "trim": True }
 
@@ -988,7 +988,7 @@ def main(argc: int, argv: list) -> int:
         disk_ctrls[interface] = find_disk_controllers(d, interface)
         disks.extend(find_disks(d, datastores, interface, disk_ctrls[interface], disk_mode, raw))
 
-    floppys: list = [ [None, None], [None, None] ]
+    floppys: list = [[None, None], [None, None]]
     for i in range(2):
         floppys[i] = parse_filename_ref(d[f"floppy{i}.filename"], datastores, disk_mode != "none", raw)
 

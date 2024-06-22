@@ -30,7 +30,7 @@ from vmx2xml.runcmd import *
 
 # in-place adjustment using virt-v2v-in-place, returns True on success.
 def adjust_guestfs_v2v(from_file: str) -> bool:
-    args: list = [ "virt-v2v-in-place", "--root=first", "-i", "disk" ]
+    args: list = ["virt-v2v-in-place", "--root=first", "-i", "disk"]
 
     if (log.level > logging.WARNING):
         args.append("--quiet")
@@ -45,7 +45,7 @@ def adjust_guestfs_v2v(from_file: str) -> bool:
 
 # adjust using the experimental adjust_guestfs.py. Returns True on success.
 def adjust_guestfs_py(path: str, nbd: bool, adj_actions: dict) -> bool:
-    args: list = [ "adjust_guestfs.py", "-n" if (nbd) else "-f", path ]
+    args: list = ["adjust_guestfs.py", "-n" if (nbd) else "-f", path]
     if (adj_actions["drivers"]):
         args.append("-d")
     if (adj_actions["trim"]):
@@ -86,4 +86,4 @@ def adjust_guestfs(path: str, nbd: bool, adj_mode: str, adj_actions: dict) -> bo
 
 
 def adjust_guestfs_detect_version() -> float:
-    return runcmd_detectv([ "adjust_guestfs.py", "--version" ], r"^(\d+\.\d+)", True)
+    return runcmd_detectv(["adjust_guestfs.py", "--version"], r"^(\d+\.\d+)", True)

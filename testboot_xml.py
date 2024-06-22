@@ -36,25 +36,25 @@ from vmx2xml.runcmd import *
 program_version: str = "0.1"
 
 def detect_virsh_version() -> float:
-    return runcmd_detectv([ "virsh", "--version" ], r"^(\d+\.\d+)", True)
+    return runcmd_detectv(["virsh", "--version"], r"^(\d+\.\d+)", True)
 
 
 def detect_virt_xml_version() -> float:
-    return runcmd_detectv([ "virt-xml", "--version" ], r"^(\d+\.\d+)", True)
+    return runcmd_detectv(["virt-xml", "--version"], r"^(\d+\.\d+)", True)
 
 
 def detect_arping_version() -> float:
-    return runcmd_detectv([ "arping", "-V" ], r"^arping.*(\d+)$", True)
+    return runcmd_detectv(["arping", "-V"], r"^arping.*(\d+)$", True)
 
 
 def virsh(params: list, check: bool) -> str:
-    args: list = [ "virsh" ]
+    args: list = ["virsh"]
     args.extend(params)
     return runcmd(args, check)
 
 
 def virt_xml(domain: str, params: list) -> None:
-    args: list = [ "virt-xml", domain ]
+    args: list = ["virt-xml", domain]
     args.extend(params)
     runcmd(args, True)
 
@@ -88,7 +88,7 @@ def network_available(network: str) -> bool:
 
 def get_options(argc: int, argv: list) -> tuple:
     global log
-    adj_modes: list = [ "none", "v2v", "x" ]
+    adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='testboot-xml.py',
@@ -145,7 +145,7 @@ def remove_disks(domainname: str, extra_disks: list) -> None:
 
 
 def modify_networks(domainname: str, network: str, macs: list) -> None:
-    virt_xml(domainname, [ "--edit", "all", "--network", f"network={network}" ])
+    virt_xml(domainname, ["--edit", "all", "--network", f"network={network}"])
 
 
 def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list:
@@ -208,7 +208,7 @@ def testboot_net_layer2(domainname: str, macs: list) -> bool:
 
 
 def testboot_net_get_ip(domainname: str, network: str, mac: str) -> str:
-    s: str = virsh([ "net-dhcp-leases", network, mac ], True)
+    s: str = virsh(["net-dhcp-leases", network, mac], True)
     # 2024-05-20 14:59:08  52:54:00:8c:25:ef ipv4 192.168.2.94/24 xxx
     m = re.search(fr"^.*{mac}.*\s(\d+\.\d+\.\d+\.\d+).*$", s, flags=re.MULTILINE | re.IGNORECASE)
     if not (m):

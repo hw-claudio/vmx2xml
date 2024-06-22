@@ -120,7 +120,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     link: str = ""; initrd: str = ""; version: str = ""
     # try to use symlinks from /boot/vmlinuz, /boot/initrd and /boot/initrd.img
     # to determine the version part of the currently used initrd filename
-    links: list = [ "vmlinuz", "initrd", "initrd.img", "initramfs", "initramfs.img", "config", "System.map" ]
+    links: list = ["vmlinuz", "initrd", "initrd.img", "initramfs", "initramfs.img", "config", "System.map"]
     target: str = ""; matches: list
 
     for link in links:

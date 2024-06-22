@@ -20,4 +20,4 @@
 # NUMA functions submodule
 
 def numa_restrict_cmd(numa_node: int) -> list:
-    return [ "numactl", "-m", str(numa_node), "-N", str(numa_node), "--" ]
+    return ["numactl", "-m", str(numa_node), "-N", str(numa_node), "--"]

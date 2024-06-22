@@ -34,7 +34,7 @@ def trace_cmd_start(pre: str, numa_node: int) -> int:
         # run trace-cmd on the other non-selected node
         args.extend(numa_restrict_cmd(0 if (numa_node > 0) else 1))
     tmp = tempfile.NamedTemporaryFile(delete=False, prefix=pre)
-    args.extend([ "trace-cmd", "record", "-o", tmp.name, "-e", "sched", "-e", "syscalls", "-e", "irq" ])
+    args.extend(["trace-cmd", "record", "-o", tmp.name, "-e", "sched", "-e", "syscalls", "-e", "irq"])
     if (log.level > logging.DEBUG):
         args.append("-q")
     log.debug("%s", args)
@@ -46,7 +46,7 @@ def trace_cmd_start(pre: str, numa_node: int) -> int:
 
 
 def trace_cmd_detect_version() -> float:
-    v: float = runcmd_detectv([ "trace-cmd", "-h" ], r"^.*version (\d+\.\d+)", True)
+    v: float = runcmd_detectv(["trace-cmd", "-h"], r"^.*version (\d+\.\d+)", True)
     if (v < 2.7):
         log.critical("trace-cmd >= 2.7 required")
         sys.exit(1)
