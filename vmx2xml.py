@@ -54,10 +54,7 @@ def translate(dictionary: defaultdict, s: str) -> str:
 
 def parse_boolean(s: str) -> bool:
     s = s.lower()
-    if (s == "true"):
-        return True
-    else:
-        return False
+    return (s == "true")
 
 
 # parse a Reference to a filename in the VMX
