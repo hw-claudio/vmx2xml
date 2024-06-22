@@ -356,19 +356,19 @@ def find_eths(d: defaultdict, interface: str, networks: dict, sandbox: str) -> l
 #     return translate(translator, s);
 
 
-def convert_path(sourcepath: str, targetpath: str, disk_mode: str, raw: bool, conv_mode: str,
+def convert_path(srcpath: str, tgtpath: str, disk_mode: str, raw: bool, conv_mode: str,
                  adj_mode: str, adj_actions: dict, osd: dict,
-                 trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int) -> str:
-    os.makedirs(os.path.dirname(targetpath), exist_ok=True)
+                 trace_cmd: bool, cache_mode: str, numa_node: int, paral: int) -> str:
+    os.makedirs(os.path.dirname(tgtpath), exist_ok=True)
     if (disk_mode != "convert"):
         # we need to create a pseudo disk for the virt install command to succeed
-        if (not os.path.exists(targetpath)):
-            open(targetpath, 'a').close()
-        return targetpath
+        if (not os.path.exists(tgtpath)):
+            open(tgtpath, 'a').close()
+        return tgtpath
 
     # CONVERSION / MOVE asked
     assert(disk_mode == "convert")
-    if (sourcepath.endswith(".vmdk")):
+    if (srcpath.endswith(".vmdk")):
         if (osd["name"]):
             pass
         else:
@@ -379,27 +379,27 @@ def convert_path(sourcepath: str, targetpath: str, disk_mode: str, raw: bool, co
                 conv_mode = "y"
 
         if (conv_mode == "v2v"):
-            img_v2v_convert(sourcepath, targetpath, trace_cmd, numa_node, raw)
+            img_v2v_convert(srcpath, tgtpath, trace_cmd, numa_node, raw)
         elif (conv_mode == "x"):
-            img_qemu_convert(sourcepath, targetpath, adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_convert(srcpath, tgtpath, adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, paral, raw)
         elif (conv_mode == "y"):
-            img_qemu_nbd_convert(sourcepath, targetpath, adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, parallel, raw)
+            img_qemu_nbd_convert(srcpath, tgtpath, adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, paral, raw)
         else:
             assert(0) # unhandled conv_mode value
 
-    elif (targetpath != sourcepath):
+    elif (tgtpath != srcpath):
         try:
-            if (filecmp.cmp(sourcepath, targetpath, shallow=True)):
-                log.info("disk already found at %s, no need to copy.", targetpath)
-                return targetpath
+            if (filecmp.cmp(srcpath, tgtpath, shallow=True)):
+                log.info("disk already found at %s, no need to copy.", tgtpath)
+                return tgtpath
         except:
-            log.info("could not compare to %s, assume we need to copy.", targetpath)
+            log.info("could not compare to %s, assume we need to copy.", tgtpath)
 
-        log.info("copying non-VMDK disk %s", targetpath)
+        log.info("copying non-VMDK disk %s", tgtpath)
         # use copy2 so we try to preserve modification time.
-        shutil.copy2(sourcepath, targetpath)
+        shutil.copy2(srcpath, tgtpath)
 
-    return targetpath
+    return tgtpath
 
 
 def virt_install(vinst_version: float,
