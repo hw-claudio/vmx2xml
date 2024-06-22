@@ -54,7 +54,7 @@ def guestfs_launch(path: str, nbd: bool) -> tuple:
         for i in range(len(roots)):
             root = roots[i]
             os_type = g.inspect_get_type(root)
-            if (os_type == "linux" or os_type == "windows"):
+            if (os_type in ("linux", "windows")):
                 return (g, root, os_type)
         return (None, None, None)
     except RuntimeError as err:
