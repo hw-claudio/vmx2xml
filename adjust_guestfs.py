@@ -139,7 +139,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
         matches = g.glob_expand("/lib/modules/*")
         if (len(matches) == 1):
             target = matches[0]
-            version = target[len(f"/lib/modules/"):-1] # strip the final / added by glob to dirs
+            version = target[len("/lib/modules/"):-1] # strip the final / added by glob to dirs
     if (not version):
         # try from unique entries of links
         for link in links:
