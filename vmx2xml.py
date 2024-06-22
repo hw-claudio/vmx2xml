@@ -633,33 +633,52 @@ def is_dir(string: str) -> bool:
 
 
 def help_datastores() -> None:
-    print("HELP DATASTORES (-d, --datastore RIDS,IDS=ODS)\n\n"
-          "By default the directory containing the input VMX and its parent are added to the input datastores,\n"
-          "and the directory containing the output XML and its parent are added to the output datastores.\n"
-          "This covers the simplest case, where a VM VMDK disks are all contained in the same directory as the .vmx file,\n"
-          "and referenced ISO installation images are present in the parent directory.\n\n"
-          "For VMs with more disks, potentially spread across datastores, we need to know how to map them to a target datastore.\n"
-          "Also, the input .vmx file will contain references to the disks that use a VMWare vmfs path that might be different\n"
-          "from the local path under which those input disks are reachable on this libvirt conversion host.\n\n"
-          "Option -d adds such a mapping, from .vmx Reference to an Input Datastore prefix (RIDS),\n"
-          "to a locally reachable Input Datastore prefix (IDS),\n"
-          "to a locally reachable and final Output Datastore prefix (ODS).\n"
-          "To add further datastore mapping provide multiple -d options.\n\n"
-          "EXAMPLE\n\n"
-          "-d /vmfs/volumes/datastore2/,/share/datastore2/=/share/libvirt-datastore2/\n\n"
-          "...\n\n"
-          "All references in the VMX file to disk paths starting with '/vmfs/volumes/datastore2/' will be replaced with\n"
-          "'/share/datastore2/' to be able to find the input disk files on this host.\n\n"
-          "In the output XML file, the disks matching this pattern will be translated, copied, converted to /share/libvirt-datastore2/\n\n"
-          "SHORT FORMS\n\n"
-          "The ',' input reference translation can be omitted if VMWare and this host see /vmfs/volumes/datastore2/ as the same path:\n"
-          "-d /vmfs/volumes/datastore2/=/vmfs/volumes/libvirt-isos/\n\n"
-          "The '=' output translation can also be omitted when input datastore is the same as the output:\n"
-          "-d /vmfs/volumes/isos,/share/isos/\n\n"
-          "There is no translation of the output path to output xml reference, so ensure the output datastore path is final.\n\n"
-          "The simplest scenario is where all input volumes can be reached via /vmfs/volumes/,\n"
-          "and need to be translated and converted to the same path prefix:\n"
-          "-d /vmfs/volumes/=/share/libvirt-volumes/\n\n")
+    print('''HELP DATASTORES (-d, --datastore RIDS,IDS=ODS)
+
+    By default the directory containing the input VMX and its parent are added to the input datastores,
+    and the directory containing the output XML and its parent are added to the output datastores.
+    This covers the simplest case, where a VM VMDK disks are all contained in the same directory as the .vmx file,
+    and referenced ISO installation images are present in the parent directory.
+
+    For VMs with more disks, potentially spread across datastores, we need to know how to map them to target datastores.
+    Also, the input .vmx file will contain references to the disks that use a VMWare vmfs path that might be different
+    from the local path under which those input disks are reachable on this libvirt conversion host.
+
+    Option -d adds such a mapping, from .vmx Reference to an Input Datastore prefix (RIDS),
+    to a locally reachable Input Datastore prefix (IDS),
+    to a locally reachable and final Output Datastore prefix (ODS).
+    To add further datastore mapping provide multiple -d options.
+
+    EXAMPLES
+
+    -d /vmfs/volumes/datastore2/,/share/datastore2/=/share/libvirt-datastore2/
+
+    ...
+
+    All references in the VMX file to disk paths starting with '/vmfs/volumes/datastore2/' will be replaced with
+    '/share/datastore2/' to be able to find the input disk files on this host.
+
+    In the output XML file, the disks matching this pattern will be converted to /share/libvirt-datastore2/
+
+    SHORT FORMS
+
+    The ',' input reference translation can be omitted if VMWare and this host see /vmfs/volumes/datastore2/
+    as the same path:
+
+    -d /vmfs/volumes/datastore2/=/vmfs/volumes/libvirt-isos/
+
+    The '=' output translation can also be omitted when input datastore is the same as the output:
+
+    -d /vmfs/volumes/isos,/share/isos/
+
+    There is no translation of the output path to output xml reference, so ensure the output datastore path is final.
+
+    A simple scenario is where all input volumes can be reached via /vmfs/volumes/,
+    and need to be translated and converted to the same path prefix:
+
+    -d /vmfs/volumes/=/share/libvirt-volumes/
+
+    ''')
     sys.exit(0)
 
 
