@@ -81,7 +81,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
         dirname: str = os.path.dirname(s)
         for ref in datastores:
             # skip special datastores that are considered before and after this loop.
-            if (ref == "." or ref == ".."):
+            if (ref in (".", "..")):
                 continue
             log.debug("       looking in datastore %s", datastores[ref])
             sourcedir = datastores[ref][0]
@@ -899,7 +899,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
             if (not match_cl):
                 prefix = "name"
                 netinet = inet
-            if (prefix != "name" and prefix != "type"):
+            if (prefix not in ("name", "type")):
                 log.critical(f'invalid network map prefix "{prefix}"')
                 sys.exit(1)
             networks[prefix][netinet] = onet
