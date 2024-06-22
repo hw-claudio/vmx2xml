@@ -98,10 +98,10 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
                 log.debug('       [NO MATCH]')
 
     # last fallback is to check this datastore
-    if (not all (paths)):
+    if (not all(paths)):
         log.debug("       looking in datastore '..' %s", datastores[".."])
         paths = find_file_ref(basename, datastores[".."][0], datastores[".."], False)
-    if (not all (paths)):
+    if (not all(paths)):
         log.critical("       NOT FOUND, datastores %s", datastores)
         sys.exit(1)
 
@@ -178,10 +178,10 @@ def parse_vmx(f, d: defaultdict) -> None:
             offset = -1
         if (offset < 0):
             continue            # no =, malformed line
-        name : str = line[0:offset]
+        name: str = line[0:offset]
         name = name.strip().lower()
 
-        value : str = line[offset + 1:]
+        value: str = line[offset + 1:]
         value = value.strip()
         value = value.strip('"') # remove enclosing double quotes if any
         d[name] = value
@@ -223,7 +223,7 @@ def find_disks(d: defaultdict, datastores: dict, interface: str, controllers: di
             disk: dict = {
                 "bus": interface, "x": x, "y": y,
                 "device": '', "driver": '',
-                "cache": '', "path": [None, None] ,
+                "cache": '', "path": [None, None],
                 "os": {"name": '', "osinfo": ''}
             }
             t: str = d[f"{interface}{x}:{y}.devicetype"].lower()
@@ -555,7 +555,7 @@ def virt_install(vinst_version: float,
         args.extend(["--disk", s])
 
     for paths in floppys:
-        if not all (paths):
+        if not all(paths):
             continue
         device = "floppy"
         path = paths[1]
@@ -901,7 +901,7 @@ def main(argc: int, argv: list) -> int:
         sys.exit(1)
 
     vmx_file = open(vmx_name, 'r', encoding="utf-8")
-    d : defaultdict = defaultdict(str)
+    d: defaultdict = defaultdict(str)
     parse_vmx(vmx_file, d)
     vmx_file.close()
 
