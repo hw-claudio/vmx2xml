@@ -91,8 +91,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
                 log.debug('       [MATCH] %s', match)
                 paths = find_file_ref(basename, match, datastores[ref], True)
                 break
-            else:
-                log.debug('       [NO MATCH]')
+            log.debug('       [NO MATCH]')
 
     # last fallback is to check this datastore
     if (not all(paths)):
