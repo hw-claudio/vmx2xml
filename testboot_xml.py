@@ -78,12 +78,11 @@ def network_available(network: str) -> bool:
     if not (out):
         log.critical("Network not found: no network with matching name '%s'", network)
         return False
-    else:
-        network_m = re.search(r"Active:\s+yes", out, flags=re.MULTILINE)
-        if (network_m):
-            return True
-        log.critical("Network '%s' is not active", network)
-        return False
+    network_m = re.search(r"Active:\s+yes", out, flags=re.MULTILINE)
+    if (network_m):
+        return True
+    log.critical("Network '%s' is not active", network)
+    return False
 
 
 def get_options(_argc: int, _argv: list) -> tuple:
