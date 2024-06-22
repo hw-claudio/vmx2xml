@@ -281,7 +281,8 @@ def tree_view_row_activated(view: Gtk.TreeView, p: Gtk.TreePath, c: Gtk.TreeView
         return networks_tree_view_tgt_activated(view, p, c)
 
 
-def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout, columns: list, csizes: list, rend: list) -> Gtk.TreeView:
+def tree_view_init(tree_store: Gtk.TreeStore, layout: Gtk.Layout,
+                   columns: list, csizes: list, rend: list) -> Gtk.TreeView:
     view: Gtk.TreeView = Gtk.TreeView(model=tree_store)
 
     for i in range(len(columns)):
@@ -607,7 +608,8 @@ def migrate_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
 def migrate_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
     global migrate_executors
     log.debug("migrate_vm_convert_progress timer triggered")
-    GLib.idle_add(convert_progress_idle, vmxpath, xmlpath, tgt_tree_store, migrate_executors, migrate_vm_convert_progress)
+    GLib.idle_add(convert_progress_idle, vmxpath, xmlpath, tgt_tree_store,
+                  migrate_executors, migrate_vm_convert_progress)
     return True
 
 
