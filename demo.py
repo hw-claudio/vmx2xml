@@ -505,7 +505,7 @@ def test_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
     return result_str
 
 
-def test_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
+def test_vm_convert_progress(vmxpath: str, xmlpath: str) -> bool:
     global test_executors
     log.debug("test_vm_convert_progress timer triggered")
     GLib.idle_add(convert_progress_idle, vmxpath, xmlpath, test_tree_store, test_executors, test_vm_convert_progress)
@@ -605,7 +605,7 @@ def migrate_vm_convert(name: str, vmxpath: str, xmlpath: str) -> str:
     return result_str
 
 
-def migrate_vm_convert_progress(vmxpath:str, xmlpath: str) -> bool:
+def migrate_vm_convert_progress(vmxpath: str, xmlpath: str) -> bool:
     global migrate_executors
     log.debug("migrate_vm_convert_progress timer triggered")
     GLib.idle_add(convert_progress_idle, vmxpath, xmlpath, tgt_tree_store,
