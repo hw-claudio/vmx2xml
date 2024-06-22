@@ -99,7 +99,7 @@ def get_xmlpath_from_vmx(vmxpath: str, ds_tgt: str) -> str:
 
 
 def convert_progress_idle(vmxpath: str, xmlpath: str, t: Gtk.TreeStore, executors: dict, progress_f) -> bool:
-    row: Gtk.TreeRow = tree_store_search(t, vmxpath, 3)
+    row: Gtk.TreeModelRow = tree_store_search(t, vmxpath, 3)
     if not (row):
         return False
     # increase spinner
