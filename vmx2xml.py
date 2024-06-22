@@ -761,9 +761,12 @@ def get_options(argc: int, argv: list) -> tuple:
         "and optionally translates and converts datastores.\n",
         usage="%(prog)s [options]\n"
     )
-    parser.add_argument('--help-datastores', action='store_true', help='display additional help text about datastore mappings')
-    parser.add_argument('--help-networks', action='store_true', help='display additional help text about network mappings')
-    parser.add_argument('--help-conversion', action='store_true', help='display additional help text about disk conversions')
+    parser.add_argument('--help-datastores', action='store_true',
+                        help='display additional help text about datastore mappings')
+    parser.add_argument('--help-networks', action='store_true',
+                        help='display additional help text about network mappings')
+    parser.add_argument('--help-conversion', action='store_true',
+                        help='display additional help text about disk conversions')
 
     inout = parser.add_argument_group('INPUT OUTPUT OPTIONS', 'main input and output for the program (REQUIRED)')
     inout.add_argument('-o', '--output-xml', action='store',
@@ -775,38 +778,55 @@ def get_options(argc: int, argv: list) -> tuple:
     general.add_argument('-v', '--verbose', action='count', default=0, help='can be specified up to 2 times')
     general.add_argument('-q', '--quiet', action='count', default=0, help='can be specified up to 2 times')
     general.add_argument('-V', '--version', action='version', version=program_version)
-    general.add_argument('-O', '--overwrite', action='store_true', help='run even when the output xml already exists (overwrite)')
+    general.add_argument('-O', '--overwrite', action='store_true',
+                         help='run even when the output xml already exists (overwrite)')
 
     vmxt = parser.add_argument_group('VMX TRANSLATION OPTIONS', 'adjust how we translate VMWare .vmx to libvirt .xml')
     vmxt.add_argument('-F', '--fidelity', action='store_true',
-                      help='generate an XML closer to the original VMX. Applies sched.cpu.affinity and translates closely VMX disk/network devices to libvirt devices')
+                      help='generate an XML closer to the original VMX for disk/network devices. Applies cpu affinity.')
     vmxt.add_argument('-d', '--datastore', metavar="RIDS,IDS=ODS", action='append',
                       help='replace references starting with RIDS to IDS for finding the input disks,\n'
                       'and translate those input disk prefixes to output datastore prefix ODS.\n'
                       'Can be specified multiple times. Also see --help-datastores')
     vmxt.add_argument('-n', '--network', metavar="[type:|name:]INET=ONET", action='append',
-                      help='replace references INET into network ONET. Can be specified multiple times. Also see --help-networks')
+                      help='replace references INET into network ONET.\n'
+                      'Can be specified multiple times. Also see --help-networks')
     vmxt.add_argument('-m', '--sandbox', metavar="NETNAME", action='store', default='isolated',
                       help='use this libvirt network name as the sandbox for the hostonly vmnet1 network mapping')
-    diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx file')
-    diskmode.add_argument('-t', '--translate-disks', action='store_true', help='just translate references from .vmdk to .qcow2 or .raw')
-    diskmode.add_argument('-c', '--convert-disks', action='store_true', help='translate but also convert disk contents across datastores')
-    diskmode.add_argument('-r', '--raw', action='store_true', help='generate .raw references and disks instead of the default .qcow2')
-    diskmode.add_argument('-X', '--skip-extra', action='store_true', help='skip extra non-OS VMDK/qcow2 disks. Useful to test boot only.')
+    diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx')
+    diskmode.add_argument('-t', '--translate-disks', action='store_true',
+                          help='just translate references from .vmdk to .qcow2 or .raw')
+    diskmode.add_argument('-c', '--convert-disks', action='store_true',
+                          help='translate but also convert disk contents across datastores')
+    diskmode.add_argument('-r', '--raw', action='store_true',
+                          help='generate .raw references and disks instead of the default .qcow2')
+    diskmode.add_argument('-X', '--skip-extra', action='store_true',
+                          help='skip extra non-OS VMDK/qcow2 disks. Useful for the boot test only.')
 
-    convmode = parser.add_argument_group('VMDK DISK CONVERSION OPTIONS', 'how to convert the VMDK disks, see also --help-conversion')
-    convmode.add_argument('-x', '--experimental', action='store_true', help='use qemu-img to convert the disks')
-    convmode.add_argument('-y', '--experimental2', action='store_true', help='use qemu-nbd and nbdcopy to convert the disks')
+    convmode = parser.add_argument_group('VMDK DISK CONVERSION OPTIONS', 'how to convert the VMDK disks, '
+                                         'see also --help-conversion')
+    convmode.add_argument('-x', '--experimental', action='store_true',
+                          help='use qemu-img to convert the disks')
+    convmode.add_argument('-y', '--experimental2', action='store_true',
+                          help='use qemu-nbd and nbdcopy to convert the disks')
 
     advanced = parser.add_argument_group('VMDK ADVANCED OPTIONS', 'for -x, -y modes only')
-    advanced.add_argument('-p', '--parallel', action='store', type=int, default=-1, help='specify nr of threads/connections/coroutines')
-    advanced.add_argument('-C', '--cache-mode', action='store', default="none", choices=cache_modes, help='img cache mode during conversions')
-    advanced.add_argument('-N', '--numa-node', action='store', type=int, default=-1, help='restrict execution (mem, cpu) to NUMA node')
-    advanced.add_argument('-T', '--trace-cmd', action='store_true', help='generate /tmp/trace-xxx.dat-... profile for image conversions')
-    advanced.add_argument('-A', '--x-adjust', action='store_true', help='experimental minimal guest adjustments.')
-    advanced.add_argument('-a', '--skip-adjust', action='store_true', help='skip adjustments to the guestfs. For testing purposes.')
-    advanced.add_argument('-D', '--skip-adjust-drivers', action='store_true', help='skip adj of drivers in the guestfs specifically.')
-    advanced.add_argument('-M', '--skip-adjust-trim', action='store_true', help='skip trimming of the filesystems specifically.')
+    advanced.add_argument('-p', '--parallel', action='store', type=int, default=-1,
+                          help='specify nr of threads/connections/coroutines')
+    advanced.add_argument('-C', '--cache-mode', action='store', default="none", choices=cache_modes,
+                          help='img cache mode during conversions')
+    advanced.add_argument('-N', '--numa-node', action='store', type=int, default=-1,
+                          help='restrict execution (mem, cpu) to NUMA node')
+    advanced.add_argument('-T', '--trace-cmd', action='store_true',
+                          help='generate /tmp/trace-xxx.dat-... profile for image conversions')
+    advanced.add_argument('-A', '--x-adjust', action='store_true',
+                          help='experimental minimal guest adjustments.')
+    advanced.add_argument('-a', '--skip-adjust', action='store_true',
+                          help='skip adjustments to the guestfs. For testing purposes.')
+    advanced.add_argument('-D', '--skip-adjust-drivers', action='store_true',
+                          help='skip adj of drivers in the guestfs specifically.')
+    advanced.add_argument('-M', '--skip-adjust-trim', action='store_true',
+                          help='skip trimming of the filesystems specifically.')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
