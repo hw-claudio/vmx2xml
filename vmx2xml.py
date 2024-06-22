@@ -412,8 +412,8 @@ def virt_install(vinst_version: float,
                  vcpus: int, sockets: int, cores: int, threads: int, vm_affinity: str,
                  iothreads: int,
                  genid: str, sysinfo: str,
-                 uefi: str, nvram: list,
-                 svga: bool, svga_memory: int, vga: bool,
+                 uefi: str, _nvram: list,
+                 svga: bool, _svga_memory: int, vga: bool,
                  sound: str,
                  disk_ctrls: dict, disks: list, floppys: list,
                  eths: list) -> None:
@@ -522,8 +522,8 @@ def virt_install(vinst_version: float,
                 args.extend(["--controller", s])
 
     for disk in disks:
-        x: int = disk["x"]
-        y: int = disk["y"]
+        _x: int = disk["x"]
+        _y: int = disk["y"]
         device = disk["device"]
         paths: tuple = disk["path"]
         if (skip_extra and not (disk["os"]["name"])):
@@ -746,12 +746,12 @@ def help_conversion() -> None:
     sys.exit(0)
 
 
-def get_options(argc: int, argv: list) -> tuple:
+def get_options(_argc: int, _argv: list) -> tuple:
     cache_modes: list = ["none", "writeback", "unsafe", "directsync", "writethrough"]
-    disk_modes: list = ["none", "translate", "convert"]
-    conv_modes: list = ["v2v", "x", "y"]
+    _disk_modes: list = ["none", "translate", "convert"]
+    _conv_modes: list = ["v2v", "x", "y"]
     conv_mode: str = "v2v"
-    adj_modes: list = ["none", "v2v", "x"]
+    _adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
     adj_actions: dict = {"drivers": True, "trim": True}
 
