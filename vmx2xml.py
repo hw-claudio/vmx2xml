@@ -359,7 +359,7 @@ def convert_path(srcpath: str, tgtpath: str, disk_mode: str, raw: bool, conv_mod
     if (disk_mode != "convert"):
         # we need to create a pseudo disk for the virt install command to succeed
         if (not os.path.exists(tgtpath)):
-            open(tgtpath, 'a').close()
+            open(tgtpath, 'ab').close()
         return tgtpath
 
     # CONVERSION / MOVE asked
