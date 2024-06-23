@@ -23,9 +23,9 @@ import sys
 import os
 import tempfile
 
-from vmx2xml.log import log, logging
-from vmx2xml.numa import *
-from vmx2xml.runcmd import runcmd_detectv
+from vmx2xml_mod.log import log, logging
+from vmx2xml_mod.numa import *
+from vmx2xml_mod.runcmd import runcmd_detectv
 
 def trace_cmd_start(pre: str, numa_node: int) -> int:
     args: list = []

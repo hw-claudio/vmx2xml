@@ -27,11 +27,11 @@ import tempfile
 import glob
 import time
 
-from vmx2xml.log import log, logging
-from vmx2xml.numa import numa_restrict_cmd
-from vmx2xml.trace import trace_cmd_start
-from vmx2xml.adjust import adjust_guestfs
-from vmx2xml.runcmd import runcmd
+from vmx2xml_mod.log import log, logging
+from vmx2xml_mod.numa import numa_restrict_cmd
+from vmx2xml_mod.trace import trace_cmd_start
+from vmx2xml_mod.adjust import adjust_guestfs
+from vmx2xml_mod.runcmd import runcmd
 
 
 def img_wait_child(pid: int) -> None:

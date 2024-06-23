@@ -25,7 +25,7 @@ import os.path
 import argparse
 import guestfs
 
-from vmx2xml.log import log, logging, log_init
+from vmx2xml_mod.log import log, logging, log_init
 
 program_version: str = "0.2"
 

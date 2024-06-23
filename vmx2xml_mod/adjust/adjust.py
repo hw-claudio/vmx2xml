@@ -21,8 +21,8 @@
 
 import subprocess
 
-from vmx2xml.log import log, logging, log_get_vq
-from vmx2xml.runcmd import runcmd_detectv
+from vmx2xml_mod.log import log, logging, log_get_vq
+from vmx2xml_mod.runcmd import runcmd_detectv
 
 
 # in-place adjustment using virt-v2v-in-place, returns True on success.

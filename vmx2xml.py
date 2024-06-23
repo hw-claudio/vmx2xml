@@ -34,13 +34,13 @@ import shutil
 import filecmp
 import struct
 
-from vmx2xml.log import log, log_init
-from vmx2xml.trace import trace_cmd_detect_version
-from vmx2xml.adjust import adjust_guestfs_detect_version
-from vmx2xml.inspector import inspector_detect_version, inspector_inspect
-from vmx2xml.img import img_qemu_nbd_convert, img_qemu_convert, img_v2v_convert, img_file_ext
-from vmx2xml.stopwatch import stopwatch_start, stopwatch_elapsed
-from vmx2xml.runcmd import runcmd_detectv
+from vmx2xml_mod.log import log, log_init
+from vmx2xml_mod.trace import trace_cmd_detect_version
+from vmx2xml_mod.adjust import adjust_guestfs_detect_version
+from vmx2xml_mod.inspector import inspector_detect_version, inspector_inspect
+from vmx2xml_mod.img import img_qemu_nbd_convert, img_qemu_convert, img_v2v_convert, img_file_ext
+from vmx2xml_mod.stopwatch import stopwatch_start, stopwatch_elapsed
+from vmx2xml_mod.runcmd import runcmd_detectv
 
 program_version: str = "0.1"
 

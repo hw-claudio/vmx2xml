@@ -21,8 +21,8 @@
 
 import re
 
-from vmx2xml.log import log
-from vmx2xml.runcmd import runcmd, runcmd_detectv
+from vmx2xml_mod.log import log
+from vmx2xml_mod.runcmd import runcmd, runcmd_detectv
 
 def inspector_inspect(path: str) -> dict:
     s: str = runcmd(["virt-inspector", "--no-icon", "--no-applications", "--echo-keys", path], False)

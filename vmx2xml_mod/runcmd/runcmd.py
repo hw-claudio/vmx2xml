@@ -23,7 +23,7 @@ import sys
 import re
 import subprocess
 
-from vmx2xml.log import log
+from vmx2xml_mod.log import log
 
 
 def detectv_failed(arg: str, check: bool, e: str) -> float:
