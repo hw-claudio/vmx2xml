@@ -310,12 +310,12 @@ def find_eths(d: defaultdict, interface: str, networks: dict, sandbox: str) -> l
         eth_name: str = d[s + ".networkname"]
         onet: str = ""
 
-        if (eth_name and len(networks["name"]) > 0):
+        if (eth_name and networks["name"]):
             if (eth_name in networks["name"]):
                 onet = networks["name"][eth_name]
             elif (networks["name"]["*"]):
                 onet = networks["name"]["*"]
-        if (onet == "" and len(networks["type"]) > 0):
+        if (onet == "" and networks["type"]):
             if (eth_type in networks["type"]):
                 onet = networks["type"][eth_type]
             elif (networks["type"]["*"]):
