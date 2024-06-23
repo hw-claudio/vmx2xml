@@ -18,7 +18,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         sudo apt-cache search guestfs
-        sudo apt-get install -y libgirepository1.0-dev libgtk-3-0 python3-guestfs
+        sudo apt-get install -y --fix-missing libgirepository1.0-dev libgtk-3-0 python3-guestfs
         pip install pylint psutil PyGObject
     - name: Analysing the code with pylint
       run: |
