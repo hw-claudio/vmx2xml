@@ -85,7 +85,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
                 continue
             log.debug("       looking in datastore %s", datastores[ref])
             sourcedir = datastores[ref][0]
-            log.debug(f'       re.subn("^{ref}", "{sourcedir}", {dirname}, count=1')
+            log.debug('       re.subn("^%s", "%s", "%s", count=1)', ref, sourcedir, dirname)
             (match, n) = re.subn(f"^{ref}", sourcedir, dirname, count=1)
             if (n == 1):
                 log.debug('       [MATCH] %s', match)
@@ -122,7 +122,7 @@ def parse_genid(genid: int, genidx: int) -> str:
     s: str = f"{ugenidx:016x}{ugenid:016x}"
     # insert the - chars in the proper position
     if (len(s) != 32):
-        log.warning(f'malformed GENID: "{s}"')
+        log.warning('malformed GENID: "%s"', s)
     result: str = s[0:8] + "-" + s[8:12] + "-" + s[12:16] + "-" + s[16:20] + "-" + s[20:32]
     return result
 
@@ -900,7 +900,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
                 prefix = "name"
                 netinet = inet
             if (prefix not in ("name", "type")):
-                log.critical(f'invalid network map prefix "{prefix}"')
+                log.critical('invalid network map prefix "%s"', prefix)
                 sys.exit(1)
             networks[prefix][netinet] = onet
 
