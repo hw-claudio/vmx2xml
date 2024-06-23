@@ -970,17 +970,14 @@ def main(argc: int, argv: list) -> int:
         log.debug("[SYSINFO] %s", sysinfo)
 
     vcpus: int = int(d["numvcpus"] or 0)
-    if (vcpus < 1):
-        vcpus = 1
+    vcpus = max(vcpus, 1)
     corespersocket: int = int(d["cpuid.corespersocket"] or 0)
-    if (corespersocket < 1):
-        corespersocket = 1
+    corespersocket = max(corespersocket, 1)
 
     sockets: int = vcpus // corespersocket
     cores: int = corespersocket
     threads: int = 1
-    if (sockets < 1):
-        sockets = 1
+    sockets = max(sockets, 1)
     assert(vcpus == sockets * cores)
     log.debug("[VCPUS] %d,sockets=%d,cores=%d,threads=%d", vcpus, sockets, cores, threads)
 
