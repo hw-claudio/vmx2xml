@@ -63,7 +63,7 @@ def img_v2v_convert(from_file: str, to_file: str, trace_cmd: bool, numa_node: in
     args.append(from_file)
 
     log.debug("%s", args)
-    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8')
+    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8', check=False)
 
     if (p.returncode == 0):
         log.info("virt-v2v: reports success converting disk %s", from_file)
