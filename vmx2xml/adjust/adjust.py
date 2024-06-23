@@ -36,7 +36,7 @@ def adjust_guestfs_v2v(from_file: str) -> bool:
     args.append(from_file)
 
     log.debug("%s", args)
-    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8')
+    p = subprocess.run(args, stdout=subprocess.DEVNULL, encoding='utf-8', check=False)
     return (p.returncode == 0)
 
 
