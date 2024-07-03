@@ -749,7 +749,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     conv_mode: str = "v2v"
     _adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
-    adj_actions: dict = {"drivers": True, "trim": True}
+    adj_actions: dict = {"drivers": True, "trim": True, "fstab": False}
 
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
@@ -823,6 +823,8 @@ def get_options(_argc: int, _argv: list) -> tuple:
                           help='skip adj of drivers in the guestfs specifically.')
     advanced.add_argument('-M', '--skip-adjust-trim', action='store_true',
                           help='skip trimming of the filesystems specifically.')
+    advanced.add_argument('-s', '--fstab', action='store_true',
+                          help='during the experimental adjustments, make /etc/fstab mounts "nofail".')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -846,8 +848,11 @@ def get_options(_argc: int, _argv: list) -> tuple:
     if (args.skip_adjust and args.x_adjust):
         log.critical("cannot specify both -a and -A at the same time.")
         sys.exit(1)
-    if (args.skip_adjust_drivers and args.skip_adjust_trim):
-        log.warning("-D and -M specified together, disabling adjustments completely.")
+    if (args.fstab and not args.x_adjust):
+        log.critical("-s, --fstab REQUIRES -A, --x-adjust to be selected")
+        sys.exit(1)
+    if (args.skip_adjust_drivers and args.skip_adjust_trim and not args.fstab):
+        log.warning("disabling adjustments completely.")
         args.skip_adjust = True
 
     if (args.experimental):
@@ -858,12 +863,15 @@ def get_options(_argc: int, _argv: list) -> tuple:
         adj_mode = "none"
         adj_actions["drivers"] = False
         adj_actions["trim"] = False
+        adj_actions["fstab"] = False
     elif (args.x_adjust):
         adj_mode = "x"
     if (args.skip_adjust_drivers):
         adj_actions["drivers"] = False
     if (args.skip_adjust_trim):
         adj_actions["trim"] = False
+    if (args.fstab):
+        adj_actions["fstab"] = True
 
     vmx_name: str = args.input_vmx
     xml_name: str = args.output_xml
