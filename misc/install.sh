@@ -3,7 +3,7 @@
 
 DESTHOST=${1}
 DESTDIR=/usr/local/bin
-FILES="vmx2xml.py vmx2xml/ adjust_guestfs.py testboot_xml.py \
+FILES="vmx2xml.py vmx2xml_mod/ adjust_guestfs.py testboot_xml.py \
 datastore_migrate_one.sh datastore_migrate.sh \
 datastore_migrate_test_one.sh datastore_migrate_win.sh \
 demo.py demo_test_convert.sh demo_test_boot.sh demo_migrate.sh art/ \
