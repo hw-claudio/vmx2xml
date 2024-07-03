@@ -23,6 +23,7 @@
 import sys
 import os.path
 import argparse
+import re
 import guestfs
 
 from vmx2xml_mod.log import log, logging, log_init
@@ -112,6 +113,31 @@ def guestfs_trim_all(g: guestfs.GuestFS) -> bool:
         except RuntimeError as err:
             log.info("%s, ignoring.", err)
 
+    return True
+
+
+def guestfs_lin_update_fstab(g: guestfs.GuestFS) -> bool:
+    # if /etc/fstab exists, add 'nofail' option to all mounts, to try to avoid boot errors.
+    # This is specifically for the boot test, for the case where external disks need to be excluded.
+    try:
+        lines: list = g.read_lines("/etc/fstab")
+    except:
+        lines = []
+    if (not lines):
+        return True
+
+    log.info("[FSTAB]")
+    output: str = ""
+    for line in lines:
+        log.debug(line)
+        result: str = re.sub(r'^\s*(\S+)\s+(\S+)\s+(\S+)\s+(\S+)', r'\1 \2 \3 \4,nofail', line, count=1)
+        output += result + "\n"
+    log.info(output)
+
+    try:
+        g.write("/etc/fstab", output)
+    except:
+        return False
     return True
 
 
@@ -231,15 +257,15 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     return False
 
 
-def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool) -> bool:
+def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool, fstab: bool) -> bool:
     if not (guestfs_mount_all(g, root)):
         return False
-    if (drivers):
-        if not (guestfs_lin_update_initrd(g)):
-            return False
-    if (trim):
-        if not (guestfs_trim_all(g)):
-            return False
+    if (drivers and not guestfs_lin_update_initrd(g)):
+        return False
+    if (fstab and not guestfs_lin_update_fstab(g)):
+        return False
+    if (trim and not guestfs_trim_all(g)):
+        return False
     return True
 
 
@@ -252,7 +278,7 @@ def guestfs_win(g: guestfs.GuestFS, root: str, _drivers: bool, trim: bool) -> bo
     return True
 
 
-def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool) -> bool:
+def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool, fstab: bool) -> bool:
     g: guestfs.GuestFS; root: str; os_type: str
     (g, root, os_type) = guestfs_launch(path, nbd)
     if (not g):
@@ -261,7 +287,7 @@ def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool) -> bool:
         return False
     rv: bool
     if (os_type == "linux"):
-        rv = guestfs_lin(g, root, drivers, trim)
+        rv = guestfs_lin(g, root, drivers, trim, fstab)
     elif (os_type == "windows"):
         rv = guestfs_win(g, root, drivers, trim)
     else:
@@ -286,6 +312,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
                         help='an NBD socket to use instead of filename')
     parser.add_argument('-d', '--drivers', action='store_true', help='install virtio drivers')
     parser.add_argument('-t', '--trim', action='store_true', help='trim guest filesystems')
+    parser.add_argument('-s', '--fstab', action='store_true', help='add nofail to fstab')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -300,24 +327,25 @@ def get_options(_argc: int, _argv: list) -> tuple:
     if (args.filename and args.nbd):
         log.critical("cannot specify both -f, --filename and -n, --nbd at the same time.")
         sys.exit(1)
-    if (not args.drivers and not args.trim):
+    if (not args.drivers and not args.trim and not args.fstab):
         log.warning("no action specified, nothing to do.")
         sys.exit(0)
 
     filename: str = args.filename
     nbd: str = args.nbd
-    log.debug("[OPTIONS] filename=%s nbd=%s drivers=%s trim=%s", filename, nbd, args.drivers, args.trim)
-    return (filename, nbd, args.drivers, args.trim)
+    log.debug("[OPTIONS] filename=%s nbd=%s drivers=%s trim=%s fstab=%s", filename, nbd,
+              args.drivers, args.trim, args.fstab)
+    return (filename, nbd, args.drivers, args.trim, args.fstab)
 
 
 def main(argc: int, argv: list) -> int:
-    (filename, nbd, drivers, trim) = get_options(argc, argv)
+    (filename, nbd, drivers, trim, fstab) = get_options(argc, argv)
     rv: bool
 
     if (filename):
-        rv = adjust_guestfs(filename, False, drivers, trim)
+        rv = adjust_guestfs(filename, False, drivers, trim, fstab)
     else:
-        rv = adjust_guestfs(nbd, True, drivers, trim)
+        rv = adjust_guestfs(nbd, True, drivers, trim, fstab)
 
     if (rv):
         log.info("adjust_guestfs.py: guest adjustment successful.")
