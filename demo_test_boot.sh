@@ -12,7 +12,7 @@ shift 2
 mkdir -p `dirname ${XML}`
 echo "testboot_xml.py" >> ${XML}.log
 echo "===============" >> ${XML}.log
-testboot_xml.py -v -v -f ${XML} -t 130 -O 2>>${XML}.log
+testboot_xml.py -v -v -A -f ${XML} -t 90 -O 2>>${XML}.log
 
 RESULT=$?
 if test ${RESULT} = "0" ; then
