@@ -47,6 +47,8 @@ def adjust_guestfs_py(path: str, nbd: bool, adj_actions: dict) -> bool:
         args.append("-d")
     if (adj_actions["trim"]):
         args.append("-t")
+    if (adj_actions["fstab"]):
+        args.append("-s")
 
     v: int; q: int
     (v, q) = log_get_vq()

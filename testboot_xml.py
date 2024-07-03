@@ -94,6 +94,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
         usage="%(prog)s [options]\n\n"
         "testboot a libvirt XML definition and the OS-disk image it references.\n\n"
         "By default, adjusts the guestfs by injecting virtio drivers using virt-v2v,\n"
+        "or with adjust_guestfs.py which also sets /etc/fstab to ignore mount failures;\n"
         "virsh defines the VM on the local system and test boots it.\n"
         "Returns 0 exit code on successful boot to network.\n"
     )
@@ -157,7 +158,7 @@ def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list
         if (adj_mode != "none"):
             log.info("[ADJUST] %s", tmp.name)
             # we only need to inject the drivers here, no need to trim the image as we run it directly
-            adj_actions = {"drivers": True, "trim": False}
+            adj_actions = {"drivers": True, "trim": False, "fstab": True}
             adjust_guestfs(tmp.name, False, adj_mode, adj_actions)
         log.info("[DISK] REF %s", tmp.name)
         virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
