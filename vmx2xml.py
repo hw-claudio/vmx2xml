@@ -64,7 +64,7 @@ def parse_filename_ref(s: str, datastores: dict, translate_disk: bool, raw: bool
         return [None, None]
 
     basename: str = os.path.basename(s)
-    log.info("[DISK] %s => ", basename)
+    log.info("[DISK] %s => ", s)
 
     if (s.startswith("/vmfs/devices")):
         log.error("       VM references a local device, this cannot work! Ignoring.")
