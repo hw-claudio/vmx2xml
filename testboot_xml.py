@@ -110,7 +110,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     parser.add_argument('-2', '--layer2', action='store_true', help='perform only a layer 2 net transmission test.')
     parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
                         help='timeout to detect a boot success. Use 0 to never timeout (for debugging)')
-    parser.add_argument('-k', '--keep', action='store_true', help='keep running after testboot success (debug only)')
+    parser.add_argument('-k', '--keep', action='store_true', help='keep running after testboot result for debugging')
     parser.add_argument('-m', '--sandbox', metavar="NETNAME", action='store', default='isolated',
                         help='libvirt network to replace all networks during the test (default "isolated")')
 
@@ -342,16 +342,16 @@ def main(argc: int, argv: list) -> int:
 
     virsh(["define", xml_name], True)
 
+    rv: int = 2                 # use 2 to distinguish from a runtime script error
     if (testboot_domain(domainname, adj_mode, timeout, layer2, sandbox)):
         log.info("domain %s testboot report: SUCCESS", domainname)
-        while (keep_running):
-            time.sleep(60)
-        domain_obliterate(domainname)
-        return 0
+        rv = 0
+    else:
+        log.warning("domain %s testboot report: FAILURE", domainname)
 
-    log.warning("domain %s testboot report: FAILURE", domainname)
-    domain_obliterate(domainname)
-    return 2                # use 2 to distinguish from a runtime script error
+    if not (keep_running):
+        domain_obliterate(domainname)
+    return rv
 
 
 sys.exit(main(len(sys.argv), sys.argv))
