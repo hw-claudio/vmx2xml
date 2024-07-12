@@ -749,7 +749,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     conv_mode: str = "v2v"
     _adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
-    adj_actions: dict = {"drivers": False, "trim": False, "fstab": False}
+    adj_actions: dict = {"drivers": False, "trim": False, "fstab": False, "net": False}
 
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
@@ -825,6 +825,8 @@ def get_options(_argc: int, _argv: list) -> tuple:
                           help='enable trimming after adjustments (RECOMMENDED)')
     advanced.add_argument('-S', '--adjust-fstab', action='store_true',
                           help='enable x-adjustment of /etc/fstab to mount with option "nofail".')
+    advanced.add_argument('-M', '--adjust-networks', action='store_true',
+                          help='enable x-adjustment of guest network configuration.')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -865,6 +867,8 @@ def get_options(_argc: int, _argv: list) -> tuple:
         adj_actions["trim"] = True
     if (args.adjust_fstab):
         adj_actions["fstab"] = True
+    if (args.adjust_networks):
+        adj_actions["net"] = True
 
     if (args.x_adjust and not any(adj_actions.values())):
         log.warning("no adjustments selected for option (-A, --x-adjust), disabling adjustments completely.")
