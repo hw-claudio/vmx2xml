@@ -63,7 +63,7 @@ def guestfs_launch(path: str, nbd: bool) -> tuple:
         return (None, None, None)
 
 
-def get_initrd_prg(g: guestfs.GuestFS, prg: str) -> str:
+def get_program(g: guestfs.GuestFS, prg: str) -> str:
     dirs: list = ["/sbin", "/usr/sbin", "/bin", "/usr/bin"]
     for d in dirs:
         name: str = f"{d}/{prg}"
@@ -141,6 +141,61 @@ def guestfs_lin_update_fstab(g: guestfs.GuestFS) -> bool:
     return True
 
 
+def guestfs_lin_update_net_netplan(g: guestfs.GuestFS, macs: list) -> bool:
+    if not (g.is_dir(g, "/etc/netplan", followsymlinks=True)):
+        return False
+    netplan: str = get_program(g, "netplan")
+    if not (netplan):
+        return False
+    # create netplan yaml containing the vmx2xml interfaces
+    #g.command([sbin, "-k", version])
+    plan: str = '''
+network:
+  ethernets:
+'''
+    for i in range(0, len(macs)):
+        plan += f'''
+    vmx2xml{i}:
+      match:
+        macaddress: {mac[i]}
+      dhcp4: true
+'''
+        try:
+            g.write("/etc/netplan/vmx2xml.yaml", plan)
+        except:
+            return False
+    try:
+        g.command([netplan, "apply"])
+    except RuntimeError as err:
+        log.error("netplan failed: %s", err)
+        return False
+    return True
+
+
+def guestfs_lin_update_net_nm(g: guestfs.GuestFS, macs: list) -> bool:
+    return False
+
+
+def guestfs_lin_update_net_systemd(g: guestfs.GuestFS, macs: list) -> bool:
+    return False
+
+
+def guestfs_lin_update_net_wicked(g: guestfs.GuestFS, macs: list) -> bool:
+    return False
+
+
+def guestfs_lin_update_net(g: guestfs.GuestFS, macs: list) -> bool:
+    if (guestfs_lin_update_net_netplan(g, macs)):
+        return True
+    if (guestfs_lin_update_net_nm(g, macs)):
+        return True
+    if (guestfs_lin_update_net_systemd(g, macs)):
+        return True
+    if (guestfs_lin_update_net_wicked(g, macs)):
+        return True
+    return False
+
+
 def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     # look for the currently used initrd and the kernel version
     link: str = ""; initrd: str = ""; version: str = ""
@@ -214,7 +269,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     # now detect which tool to use to update this initrd
 
     # try make-initrd, which should automatically install virtio stuff when virtualized
-    sbin: str = get_initrd_prg(g, "make-initrd")
+    sbin: str = get_program(g, "make-initrd")
     if (sbin):
         try:
             g.command([sbin, "-k", version])
@@ -224,7 +279,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
             return False
 
     # try dracut
-    sbin = get_initrd_prg(g, "dracut")
+    sbin = get_program(g, "dracut")
     if (sbin):
         try:
             g.command([sbin, "--force", "--add-drivers", "virtio_pci virtio_scsi virtio_blk", initrd, version])
@@ -233,7 +288,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
             log.error("dracut failed: %s", err)
             return False
 
-    sbin = get_initrd_prg(g, "update-initramfs")
+    sbin = get_program(g, "update-initramfs")
     if (sbin):
         try:
             g.write_append("/etc/initramfs-tools/modules", "\nvirtio_pci\nvirtio_scsi\nvirtio_blk\n")
@@ -244,7 +299,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
             return False
 
     # try mkinitrd
-    sbin = get_initrd_prg(g, "mkinitrd")
+    sbin = get_program(g, "mkinitrd")
     if (sbin):
         try:
             g.command([sbin, "--with=virtio_pci", "--with=virtio_scsi", "--with=virtio_blk", initrd, version])
@@ -257,12 +312,14 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     return False
 
 
-def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool, fstab: bool) -> bool:
+def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool, fstab: bool, macs: list) -> bool:
     if not (guestfs_mount_all(g, root)):
         return False
     if (drivers and not guestfs_lin_update_initrd(g)):
         return False
     if (fstab and not guestfs_lin_update_fstab(g)):
+        return False
+    if (macs and not guestfs_lin_update_net(g, macs)):
         return False
     if (trim and not guestfs_trim_all(g)):
         return False
@@ -278,7 +335,7 @@ def guestfs_win(g: guestfs.GuestFS, root: str, _drivers: bool, trim: bool) -> bo
     return True
 
 
-def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool, fstab: bool) -> bool:
+def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool, fstab: bool, macs: list) -> bool:
     g: guestfs.GuestFS; root: str; os_type: str
     (g, root, os_type) = guestfs_launch(path, nbd)
     if (not g):
@@ -287,7 +344,7 @@ def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool, fstab: bool)
         return False
     rv: bool
     if (os_type == "linux"):
-        rv = guestfs_lin(g, root, drivers, trim, fstab)
+        rv = guestfs_lin(g, root, drivers, trim, fstab, macs)
     elif (os_type == "windows"):
         rv = guestfs_win(g, root, drivers, trim)
     else:
@@ -313,6 +370,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     parser.add_argument('-d', '--drivers', action='store_true', help='install virtio drivers')
     parser.add_argument('-t', '--trim', action='store_true', help='trim guest filesystems')
     parser.add_argument('-s', '--fstab', action='store_true', help='add nofail to fstab')
+    parser.add_argument('-m', '--mac', action='append', help='add a mac address to adjust networking for')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -327,25 +385,25 @@ def get_options(_argc: int, _argv: list) -> tuple:
     if (args.filename and args.nbd):
         log.critical("cannot specify both -f, --filename and -n, --nbd at the same time.")
         sys.exit(1)
-    if (not args.drivers and not args.trim and not args.fstab):
+    if (not args.drivers and not args.trim and not args.fstab and not args.mac):
         log.warning("no action specified, nothing to do.")
         sys.exit(0)
 
     filename: str = args.filename
     nbd: str = args.nbd
-    log.debug("[OPTIONS] filename=%s nbd=%s drivers=%s trim=%s fstab=%s", filename, nbd,
-              args.drivers, args.trim, args.fstab)
-    return (filename, nbd, args.drivers, args.trim, args.fstab)
+    log.debug("[OPTIONS] filename=%s nbd=%s drivers=%s trim=%s fstab=%s mac=%s", filename, nbd,
+              args.drivers, args.trim, args.fstab, args.mac)
+    return (filename, nbd, args.drivers, args.trim, args.fstab, args.mac)
 
 
 def main(argc: int, argv: list) -> int:
-    (filename, nbd, drivers, trim, fstab) = get_options(argc, argv)
+    (filename, nbd, drivers, trim, fstab, macs) = get_options(argc, argv)
     rv: bool
 
     if (filename):
-        rv = adjust_guestfs(filename, False, drivers, trim, fstab)
+        rv = adjust_guestfs(filename, False, drivers, trim, fstab, macs)
     else:
-        rv = adjust_guestfs(nbd, True, drivers, trim, fstab)
+        rv = adjust_guestfs(nbd, True, drivers, trim, fstab, macs)
 
     if (rv):
         log.info("adjust_guestfs.py: guest adjustment successful.")
