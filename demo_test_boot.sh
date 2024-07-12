@@ -12,6 +12,7 @@ shift 2
 mkdir -p `dirname ${XML}`
 echo "testboot_xml.py" >> ${XML}.log
 echo "===============" >> ${XML}.log
+# add -k to keep the vm around for debugging purposes
 testboot_xml.py -v -v -A -f ${XML} -t 90 -O 2>>${XML}.log
 
 RESULT=$?
