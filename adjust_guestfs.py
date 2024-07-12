@@ -171,8 +171,22 @@ network:
     return True
 
 
-def guestfs_lin_update_net_nm(_g: guestfs.GuestFS, _macs: list) -> bool:
-    return False
+def guestfs_lin_update_net_nm(g: guestfs.GuestFS, _macs: list) -> bool:
+    if not (g.is_dir("/etc/NetworkManager/conf.d", followsymlinks=True)):
+        return False
+    nm: str = get_program(g, "NetworkManager")
+    if not (nm):
+        return False
+    # create NetworkManager conf file to automatically activate interfaces
+    conf: str = '''
+[main]
+no-auto-default=
+'''
+    try:
+        g.write("/etc/NetworkManager/conf.d/vmx2xml.conf", conf)
+    except:
+        return False
+    return True
 
 
 def guestfs_lin_update_net_systemd(_g: guestfs.GuestFS, _macs: list) -> bool:
