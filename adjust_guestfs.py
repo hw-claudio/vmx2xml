@@ -142,7 +142,7 @@ def guestfs_lin_update_fstab(g: guestfs.GuestFS) -> bool:
 
 
 def guestfs_lin_update_net_netplan(g: guestfs.GuestFS, macs: list) -> bool:
-    if not (g.is_dir(g, "/etc/netplan", followsymlinks=True)):
+    if not (g.is_dir("/etc/netplan", followsymlinks=True)):
         return False
     netplan: str = get_program(g, "netplan")
     if not (netplan):
@@ -193,7 +193,7 @@ def guestfs_lin_update_net(g: guestfs.GuestFS, macs: list) -> bool:
         return True
     if (guestfs_lin_update_net_wicked(g, macs)):
         return True
-    return False
+    return True
 
 
 def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
