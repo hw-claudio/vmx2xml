@@ -787,7 +787,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     vmxt.add_argument('-n', '--network', metavar="[type:|name:]INET=ONET", action='append',
                       help='replace references INET into network ONET.\n'
                       'Can be specified multiple times. Also see --help-networks')
-    vmxt.add_argument('-m', '--sandbox', metavar="NETNAME", action='store', default='isolated',
+    vmxt.add_argument('-b', '--sandbox', metavar="NETNAME", action='store', default='isolated',
                       help='use this libvirt network name as the sandbox for the hostonly vmnet1 network mapping')
     diskmode = parser.add_argument_group('VMDK DISK MODE OPTIONS', 'how to treat references to VMDK disks in the vmx')
     diskmode.add_argument('-t', '--translate-disks', action='store_true',

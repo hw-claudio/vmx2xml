@@ -111,7 +111,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     parser.add_argument('-t', '--timeout', metavar="SECONDS", action='store', default=60,
                         help='timeout to detect a boot success. Use 0 to never timeout (for debugging)')
     parser.add_argument('-k', '--keep', action='store_true', help='keep running after testboot result for debugging')
-    parser.add_argument('-m', '--sandbox', metavar="NETNAME", action='store', default='isolated',
+    parser.add_argument('-b', '--sandbox', metavar="NETNAME", action='store', default='isolated',
                         help='libvirt network to replace all networks during the test (default "isolated")')
 
     args: argparse.Namespace = parser.parse_args()
