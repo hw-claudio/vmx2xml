@@ -27,7 +27,6 @@
 import sys
 import os
 import re
-import subprocess
 import argparse
 from collections import defaultdict
 import shutil
@@ -353,7 +352,7 @@ def find_eths(d: defaultdict, interface: str, networks: dict, sandbox: str) -> l
 
 
 # we need to create a pseudo disk for the virt install command to succeed (virt-install XXX)
-def translate_check_path(srcpath: str, tgtpath: str) -> str:
+def translate_check_path(tgtpath: str) -> str:
     os.makedirs(os.path.dirname(tgtpath), exist_ok=True)
     if (not os.path.exists(tgtpath)):
         open(tgtpath, 'ab').close()
@@ -386,9 +385,11 @@ def convert_path(srcpath: str, tgtpath: str, disk_mode: str, raw: bool, conv_mod
         if (conv_mode == "v2v"):
             img_v2v_convert(srcpath, tgtpath, trace_cmd, numa_node, raw)
         elif (conv_mode == "x"):
-            img_qemu_convert(srcpath, tgtpath, adj_mode, adj_actions, macs, trace_cmd, cache_mode, numa_node, paral, raw)
+            img_qemu_convert(srcpath, tgtpath, adj_mode, adj_actions, macs,
+                             trace_cmd, cache_mode, numa_node, paral, raw)
         elif (conv_mode == "y"):
-            img_qemu_nbd_convert(srcpath, tgtpath, adj_mode, adj_actions, macs, trace_cmd, cache_mode, numa_node, paral, raw)
+            img_qemu_nbd_convert(srcpath, tgtpath, adj_mode, adj_actions, macs,
+                                 trace_cmd, cache_mode, numa_node, paral, raw)
         else:
             assert(0) # unhandled conv_mode value
         print_throughput(stopwatch_elapsed(), tgtpath)
@@ -533,7 +534,7 @@ def virt_install(vinst_version: float,
         if (skip_extra and not (disk["os"]["name"])):
             log.info("skipping extra non-OS disk %s", paths[0])
             continue
-        path = translate_check_path(paths[0], paths[1])
+        path = translate_check_path(paths[1])
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver = disk["driver"]
