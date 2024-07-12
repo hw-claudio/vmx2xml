@@ -41,7 +41,7 @@ def adjust_guestfs_v2v(from_file: str) -> bool:
 
 
 # adjust using the experimental adjust_guestfs.py. Returns True on success.
-def adjust_guestfs_py(path: str, nbd: bool, adj_actions: dict) -> bool:
+def adjust_guestfs_py(path: str, nbd: bool, adj_actions: dict, macs: list) -> bool:
     args: list = ["adjust_guestfs.py", "-n" if (nbd) else "-f", path]
     if (adj_actions["drivers"]):
         args.append("-d")
@@ -49,6 +49,9 @@ def adjust_guestfs_py(path: str, nbd: bool, adj_actions: dict) -> bool:
         args.append("-t")
     if (adj_actions["fstab"]):
         args.append("-s")
+    if (adj_actions["net"]):
+        for mac in macs:
+            args.extend(["-m", mac])
 
     v: int; q: int
     (v, q) = log_get_vq()
@@ -64,7 +67,7 @@ def adjust_guestfs_py(path: str, nbd: bool, adj_actions: dict) -> bool:
     return True
 
 
-def adjust_guestfs(path: str, nbd: bool, adj_mode: str, adj_actions: dict) -> bool:
+def adjust_guestfs(path: str, nbd: bool, adj_mode: str, adj_actions: dict, macs: list) -> bool:
     if (adj_mode == "none"):
         log.warning('adjust_guestfs: unexpected call with adjustment mode "none"')
         return False
@@ -73,7 +76,7 @@ def adjust_guestfs(path: str, nbd: bool, adj_mode: str, adj_actions: dict) -> bo
     if (adj_mode == "v2v"):
         rv = adjust_guestfs_v2v(path)
     elif (adj_mode == "x"):
-        rv = adjust_guestfs_py(path, nbd, adj_actions)
+        rv = adjust_guestfs_py(path, nbd, adj_actions, macs)
     else:
         assert(0)               # unsupported adj_mode
 

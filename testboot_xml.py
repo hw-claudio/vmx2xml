@@ -144,7 +144,7 @@ def modify_networks(domainname: str, network: str) -> None:
     virt_xml(domainname, ["--edit", "all", "--network", f"network={network}"])
 
 
-def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list:
+def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str, macs: list) -> list:
     overlays: list = []
     for disk in os_disks:
         (i, source) = disk
@@ -158,8 +158,8 @@ def overlay_adjust_disks(domainname: str, os_disks: list, adj_mode: str) -> list
         if (adj_mode != "none"):
             log.info("[ADJUST] %s", tmp.name)
             # we only need to inject the drivers here, no need to trim the image as we run it directly
-            adj_actions = {"drivers": True, "trim": False, "fstab": True}
-            adjust_guestfs(tmp.name, False, adj_mode, adj_actions)
+            adj_actions = {"drivers": True, "trim": False, "fstab": True, "net": True}
+            adjust_guestfs(tmp.name, False, adj_mode, adj_actions, macs)
         log.info("[DISK] REF %s", tmp.name)
         virt_xml(domainname, ["--edit", str(i + 1), "--disk", f"path={tmp.name}"])
         overlays.append(tmp)
@@ -285,15 +285,15 @@ def testboot_domain(domainname: str, adj_mode: str, timeout: int, layer2: bool, 
         log.critical("%s: no OS disks found, nothing to boot-test", domainname)
         sys.exit(1)
 
+    macs: list = find_macs(domainname)
+    modify_networks(domainname, sandbox)
+
     # XXX the overlays return value appears unused but there is a catch!
     # It needs to be here in this scope, so that the temporary files are not deleted before we run the test!
-    _ = overlay_adjust_disks(domainname, os_disks, adj_mode)
+    _ = overlay_adjust_disks(domainname, os_disks, adj_mode, macs)
 
     if (len(extra_disks) >= 1):
         remove_disks(domainname, extra_disks)
-
-    macs = find_macs(domainname)
-    modify_networks(domainname, sandbox)
 
     # start the domain.
     virsh(["start", domainname, "--paused"], True) # start paused to avoid race with is_zero

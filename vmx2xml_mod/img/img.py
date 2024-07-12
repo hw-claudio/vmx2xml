@@ -136,12 +136,12 @@ def img_qemu_info(from_file: str) -> int:
     return int(vsize_m.group(1))
 
 
-def img_qemu_convert(sourcepath: str, targetpath: str, adj_mode: str, adj_actions: dict,
+def img_qemu_convert(sourcepath: str, targetpath: str, adj_mode: str, adj_actions: dict, macs: list,
                      trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
     src: str = sourcepath
     if (adj_mode != "none"):
         tmp = img_qemu_create_overlay(sourcepath, "vmdk")
-        adjust_guestfs(tmp.name, False, adj_mode, adj_actions)
+        adjust_guestfs(tmp.name, False, adj_mode, adj_actions, macs)
         src = tmp.name
 
     img_qemu_copy(src, targetpath, trace_cmd, cache_mode, numa_node, parallel, raw)
@@ -192,11 +192,11 @@ def img_qemu_nbd_copy(sin: str, sout: str, trace_cmd: bool, numa_node: int, para
         img_wait_child(tpid)
 
 
-def img_qemu_nbd_convert(sourcepath: str, targetpath: str, adj_mode: str, adj_actions: dict,
+def img_qemu_nbd_convert(sourcepath: str, targetpath: str, adj_mode: str, adj_actions: dict, macs: list,
                          trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int, raw: bool) -> None:
     (sin, pidin) = img_qemu_nbd_create(sourcepath, adj_mode != "none", cache_mode, False, adj_mode == "none")
     if (adj_mode != "none"):
-        adjust_guestfs(sin.name, True, adj_mode, adj_actions)
+        adjust_guestfs(sin.name, True, adj_mode, adj_actions, macs)
     vsize: int = img_qemu_info(sourcepath)
     img_qemu_create(targetpath, vsize, raw)
     (sout, pidout) = img_qemu_nbd_create(targetpath, False, cache_mode, raw, False)

@@ -40,7 +40,7 @@ from vmx2xml_mod.adjust import adjust_guestfs_detect_version
 from vmx2xml_mod.inspector import inspector_detect_version, inspector_inspect
 from vmx2xml_mod.img import img_qemu_nbd_convert, img_qemu_convert, img_v2v_convert, img_file_ext
 from vmx2xml_mod.stopwatch import stopwatch_start, stopwatch_elapsed
-from vmx2xml_mod.runcmd import runcmd_detectv
+from vmx2xml_mod.runcmd import runcmd, runcmd_detectv
 
 program_version: str = "0.1"
 
@@ -352,16 +352,24 @@ def find_eths(d: defaultdict, interface: str, networks: dict, sandbox: str) -> l
 #     return translate(translator, s);
 
 
-def convert_path(srcpath: str, tgtpath: str, disk_mode: str, raw: bool, conv_mode: str,
-                 adj_mode: str, adj_actions: dict, osd: dict,
-                 trace_cmd: bool, cache_mode: str, numa_node: int, paral: int) -> str:
+# we need to create a pseudo disk for the virt install command to succeed (virt-install XXX)
+def translate_check_path(srcpath: str, tgtpath: str) -> str:
     os.makedirs(os.path.dirname(tgtpath), exist_ok=True)
-    if (disk_mode != "convert"):
-        # we need to create a pseudo disk for the virt install command to succeed
-        if (not os.path.exists(tgtpath)):
-            open(tgtpath, 'ab').close()
-        return tgtpath
+    if (not os.path.exists(tgtpath)):
+        open(tgtpath, 'ab').close()
+    return tgtpath
 
+
+def print_throughput(elapsed: float, path: str) -> None:
+    if (elapsed > 0.0):
+        targetstat = os.stat(path)
+        targetsize = targetstat.st_blocks * 512 // (1024 * 1024)
+        log.info("%s MiB in %s sec = %s MiB/s", targetsize, elapsed, targetsize // elapsed)
+
+
+def convert_path(srcpath: str, tgtpath: str, disk_mode: str, raw: bool, conv_mode: str,
+                 adj_mode: str, adj_actions: dict, macs: list, osd: dict,
+                 trace_cmd: bool, cache_mode: str, numa_node: int, paral: int) -> None:
     # CONVERSION / MOVE asked
     assert(disk_mode == "convert")
     if (srcpath.endswith(".vmdk")):
@@ -374,35 +382,35 @@ def convert_path(srcpath: str, tgtpath: str, disk_mode: str, raw: bool, conv_mod
             if (conv_mode == "v2v"):
                 conv_mode = "y"
 
+        stopwatch_start()
         if (conv_mode == "v2v"):
             img_v2v_convert(srcpath, tgtpath, trace_cmd, numa_node, raw)
         elif (conv_mode == "x"):
-            img_qemu_convert(srcpath, tgtpath, adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, paral, raw)
+            img_qemu_convert(srcpath, tgtpath, adj_mode, adj_actions, macs, trace_cmd, cache_mode, numa_node, paral, raw)
         elif (conv_mode == "y"):
-            img_qemu_nbd_convert(srcpath, tgtpath, adj_mode, adj_actions, trace_cmd, cache_mode, numa_node, paral, raw)
+            img_qemu_nbd_convert(srcpath, tgtpath, adj_mode, adj_actions, macs, trace_cmd, cache_mode, numa_node, paral, raw)
         else:
             assert(0) # unhandled conv_mode value
+        print_throughput(stopwatch_elapsed(), tgtpath)
 
     elif (tgtpath != srcpath):
         try:
             if (filecmp.cmp(srcpath, tgtpath, shallow=True)):
                 log.info("disk already found at %s, no need to copy.", tgtpath)
-                return tgtpath
+                return
         except:
             log.info("could not compare to %s, assume we need to copy.", tgtpath)
 
         log.info("copying non-VMDK disk %s", tgtpath)
+        stopwatch_start()
         # use copy2 so we try to preserve modification time.
         shutil.copy2(srcpath, tgtpath)
+        print_throughput(stopwatch_elapsed(), tgtpath)
 
-    return tgtpath
 
-
+# run virt-install and return the generated XML as a string
 def virt_install(vinst_version: float,
-                 xml_name: str, fidelity: bool,
-                 disk_mode: str, raw: bool, skip_extra: bool, conv_mode: str,
-                 adj_mode: str, adj_actions: dict,
-                 trace_cmd: bool, cache_mode: str, numa_node: int, parallel: int,
+                 xml_name: str, fidelity: bool, skip_extra: bool,
                  displayname: str, annotation: str,
                  cpu: dict, memory: int,
                  vcpus: int, sockets: int, cores: int, threads: int, vm_affinity: str,
@@ -412,7 +420,7 @@ def virt_install(vinst_version: float,
                  svga: bool, _svga_memory: int, vga: bool,
                  sound: str,
                  disk_ctrls: dict, disks: list, floppys: list,
-                 eths: list) -> None:
+                 eths: list) -> str:
     ### GENERAL SECTION - General Options for selecting the main functionality ###
     args: list = ["virt-install", "--print-xml", "--dry-run", "--noautoconsole", "--check", "all=off"]
     args.extend(["--virt-type", "kvm"])
@@ -525,18 +533,7 @@ def virt_install(vinst_version: float,
         if (skip_extra and not (disk["os"]["name"])):
             log.info("skipping extra non-OS disk %s", paths[0])
             continue
-        stopwatch_start()
-        path = convert_path(paths[0], paths[1], disk_mode, raw, conv_mode,
-                            adj_mode, adj_actions, disk["os"],
-                            trace_cmd, cache_mode, numa_node, parallel)
-        if (disk_mode == "convert"):
-            elapsed: float = stopwatch_elapsed()
-            if (elapsed > 0.0):
-                targetstat = os.stat(path)
-                targetsize = targetstat.st_blocks * 512 // (1024 * 1024)
-                log.info("%s MiB in %s sec = %s MiB/s",
-                         targetsize, elapsed, targetsize // elapsed)
-
+        path = translate_check_path(paths[0], paths[1])
         bus: str = disk["bus"]
         cache: str = disk["cache"]
         driver = disk["driver"]
@@ -591,16 +588,13 @@ def virt_install(vinst_version: float,
 
     log.debug("%s", args)
 
-    ### WRITE THE RESULTING DOMAIN XML ###
-    xml_file = open(xml_name, 'w', encoding="utf-8") if (xml_name) else sys.stdout
-    try:
-        subprocess.run(args, stdout=xml_file, check=True, encoding='utf-8')
-    except:
+    ### CREATE THE DOMAIN XML STRING ###
+    xml: str = runcmd(args, True)
+    if not (xml):
+        log.critical("virt-install did not return any output")
         log.critical(" ".join(args))
         sys.exit(1)
-
-    if (xml_name):
-        xml_file.close()
+    return xml
 
 
 # detect virt-install version only considering major.minor
@@ -1048,10 +1042,8 @@ def main(argc: int, argv: list) -> int:
     log.debug("%s", eths)
 
     # run virt-install to generate the xml
-    virt_install(vinst_version,
-                 xml_name, fidelity, disk_mode, raw, skip_extra, conv_mode,
-                 adj_mode, adj_actions,
-                 trace_cmd, cache_mode, numa_node, parallel,
+    xml: str = virt_install(vinst_version,
+                 xml_name, fidelity, skip_extra,
                  displayname, annotation,
                  cpu, memory,
                  vcpus, sockets, cores, threads, vm_affinity,
@@ -1062,6 +1054,27 @@ def main(argc: int, argv: list) -> int:
                  sound,
                  disk_ctrls, disks, floppys,
                  eths)
+
+    # extract macs from the xml
+    macs: list = re.findall(r"^.*mac address.*(\w\w:\w\w:\w\w:\w\w:\w\w:\w\w).*$", xml, flags=re.MULTILINE)
+
+    if (disk_mode == "convert"):
+        for disk in disks:
+            paths: tuple = disk["path"]
+            convert_path(paths[0], paths[1], disk_mode, raw, conv_mode,
+                         adj_mode, adj_actions, macs, disk["os"],
+                         trace_cmd, cache_mode, numa_node, parallel)
+
+    ### WRITE THE RESULTING DOMAIN XML ###
+    # we need to do it here for v2v, since it writes a skeleton xml we need to overwrite
+    try:
+        xml_file = open(xml_name, 'w', encoding="utf-8") if (xml_name) else sys.stdout
+        xml_file.write(xml)
+        if (xml_name):
+            xml_file.close()
+    except:
+        log.critical("failed to write XML file %s", xml_name)
+        return 1
     return 0
 
 
