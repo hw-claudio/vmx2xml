@@ -214,8 +214,8 @@ def src_tree_store_add(t: Gtk.TreeStore, root: str, vms: list) -> None:
     for vm in vms:
         size_str = get_folder_size_str(os.path.dirname(vm["path"]))
         t.append(it, [vm["name"], size_str, "", vm["path"], "", 0, -1])
-    external_rescan(None)
-    networks_rescan(None)
+    external_rescan()
+    networks_rescan()
 
 
 def tgt_tree_store_add(t: Gtk.TreeStore, root: str) -> None:
@@ -809,7 +809,7 @@ def networks_tree_view_tgt_activated(_view: Gtk.TreeView, _p: Gtk.TreePath, _c: 
     pass
 
 
-def external_rescan(_) -> None:
+def external_rescan() -> None:
     t: Gtk.TreeStore = external_tree_store
     for row in src_tree_store:
         args: list = ["datastore_find_external_disks.sh", row[3]]
@@ -831,7 +831,7 @@ def external_rescan(_) -> None:
                 _: Gtk.TreeIter = t.append(None, [ds, "", "", "", "", 0, -1])
 
 
-def networks_rescan(_) -> None:
+def networks_rescan() -> None:
     t: Gtk.TreeStore = networks_tree_store
     for row in src_tree_store:
         args: list = ["datastore_find_networks.sh", row[3]]
