@@ -861,9 +861,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
         conv_mode = "y"
     if (args.skip_adjust):
         adj_mode = "none"
-        adj_actions["drivers"] = False
-        adj_actions["trim"] = False
-        adj_actions["fstab"] = False
+        adj_actions = dict.fromkeys(adj_actions.keys(), False)
     elif (args.x_adjust):
         adj_mode = "x"
     if (args.adjust_drivers):
