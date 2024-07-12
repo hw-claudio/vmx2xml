@@ -157,7 +157,7 @@ network:
         plan += f'''
     vmx2xml{i}:
       match:
-        macaddress: {mac[i]}
+        macaddress: {macs[i]}
       dhcp4: true
 '''
         try:
