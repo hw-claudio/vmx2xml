@@ -813,7 +813,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
                           help='img cache mode during conversions')
     advanced.add_argument('-N', '--numa-node', action='store', type=int, default=-1,
                           help='restrict execution (mem, cpu) to NUMA node')
-    advanced.add_argument('-T', '--trace-cmd', action='store_true',
+    advanced.add_argument('-W', '--trace-cmd', action='store_true',
                           help='generate /tmp/trace-xxx.dat-... profile for image conversions')
     advanced.add_argument('-A', '--x-adjust', action='store_true',
                           help='experimental minimal guest adjustments.')
