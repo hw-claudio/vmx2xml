@@ -851,18 +851,13 @@ def get_options(_argc: int, _argv: list) -> tuple:
     if (args.adjust_fstab and not args.x_adjust):
         log.critical("(-S, --adjust-fstab) REQUIRES (-A, --x-adjust) to be selected")
         sys.exit(1)
-    if (args.x_adjust and not (args.adjust_drivers or args.adjust_trim or args.adjust_fstab)):
-        log.warning("no adjustments selected for option (-A, --x-adjust), disabling adjustments completely.")
-        args.skip_adjust = True
 
     if (args.experimental):
         conv_mode = "x"
     elif (args.experimental2):
         conv_mode = "y"
-    if (args.skip_adjust):
-        adj_mode = "none"
-        adj_actions = dict.fromkeys(adj_actions.keys(), False)
-    elif (args.x_adjust):
+
+    if (args.x_adjust):
         adj_mode = "x"
     if (args.adjust_drivers):
         adj_actions["drivers"] = True
@@ -870,6 +865,13 @@ def get_options(_argc: int, _argv: list) -> tuple:
         adj_actions["trim"] = True
     if (args.adjust_fstab):
         adj_actions["fstab"] = True
+
+    if (args.x_adjust and not any(adj_actions.values())):
+        log.warning("no adjustments selected for option (-A, --x-adjust), disabling adjustments completely.")
+        args.skip_adjust = True
+    if (args.skip_adjust):
+        adj_mode = "none"
+        adj_actions = dict.fromkeys(adj_actions.keys(), False)
 
     vmx_name: str = args.input_vmx
     xml_name: str = args.output_xml
