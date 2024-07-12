@@ -148,7 +148,6 @@ def guestfs_lin_update_net_netplan(g: guestfs.GuestFS, macs: list) -> bool:
     if not (netplan):
         return False
     # create netplan yaml containing the vmx2xml interfaces
-    #g.command([sbin, "-k", version])
     plan: str = '''
 network:
   ethernets:
