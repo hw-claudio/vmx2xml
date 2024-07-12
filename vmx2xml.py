@@ -749,7 +749,7 @@ def get_options(_argc: int, _argv: list) -> tuple:
     conv_mode: str = "v2v"
     _adj_modes: list = ["none", "v2v", "x"]
     adj_mode: str = "v2v"
-    adj_actions: dict = {"drivers": True, "trim": True, "fstab": False}
+    adj_actions: dict = {"drivers": False, "trim": False, "fstab": False}
 
     parser: argparse.ArgumentParser = argparse.ArgumentParser(
         prog='vmx2xml.py',
@@ -818,13 +818,13 @@ def get_options(_argc: int, _argv: list) -> tuple:
     advanced.add_argument('-A', '--x-adjust', action='store_true',
                           help='experimental minimal guest adjustments.')
     advanced.add_argument('-a', '--skip-adjust', action='store_true',
-                          help='skip adjustments to the guestfs. For testing purposes.')
-    advanced.add_argument('-D', '--skip-adjust-drivers', action='store_true',
-                          help='skip adj of drivers in the guestfs specifically.')
-    advanced.add_argument('-M', '--skip-adjust-trim', action='store_true',
-                          help='skip trimming of the filesystems specifically.')
-    advanced.add_argument('-s', '--fstab', action='store_true',
-                          help='during the experimental adjustments, make /etc/fstab mounts "nofail".')
+                          help='skip all adjustments to the guestfs. For testing purposes.')
+    advanced.add_argument('-D', '--adjust-drivers', action='store_true',
+                          help='enable x-adjustment of guest drivers (RECOMMENDED)')
+    advanced.add_argument('-T', '--adjust-trim', action='store_true',
+                          help='enable trimming after adjustments (RECOMMENDED)')
+    advanced.add_argument('-S', '--adjust-fstab', action='store_true',
+                          help='enable x-adjustment of /etc/fstab to mount with option "nofail".')
 
     args: argparse.Namespace = parser.parse_args()
     if (args.verbose and args.quiet):
@@ -848,11 +848,11 @@ def get_options(_argc: int, _argv: list) -> tuple:
     if (args.skip_adjust and args.x_adjust):
         log.critical("cannot specify both -a and -A at the same time.")
         sys.exit(1)
-    if (args.fstab and not args.x_adjust):
-        log.critical("-s, --fstab REQUIRES -A, --x-adjust to be selected")
+    if (args.adjust_fstab and not args.x_adjust):
+        log.critical("(-S, --adjust-fstab) REQUIRES (-A, --x-adjust) to be selected")
         sys.exit(1)
-    if (args.skip_adjust_drivers and args.skip_adjust_trim and not args.fstab):
-        log.warning("disabling adjustments completely.")
+    if (args.x_adjust and not (args.adjust_drivers or args.adjust_trim or args.adjust_fstab)):
+        log.warning("no adjustments selected for option (-A, --x-adjust), disabling adjustments completely.")
         args.skip_adjust = True
 
     if (args.experimental):
@@ -866,11 +866,11 @@ def get_options(_argc: int, _argv: list) -> tuple:
         adj_actions["fstab"] = False
     elif (args.x_adjust):
         adj_mode = "x"
-    if (args.skip_adjust_drivers):
-        adj_actions["drivers"] = False
-    if (args.skip_adjust_trim):
-        adj_actions["trim"] = False
-    if (args.fstab):
+    if (args.adjust_drivers):
+        adj_actions["drivers"] = True
+    if (args.adjust_trim):
+        adj_actions["trim"] = True
+    if (args.adjust_fstab):
         adj_actions["fstab"] = True
 
     vmx_name: str = args.input_vmx

@@ -14,7 +14,7 @@ mkdir -p `dirname ${XML}`
 
 echo "vmx2xml.py" > ${XML}.log
 echo "==========" >> ${XML}.log
-vmx2xml.py -n 'name:*=network=default' -n 'type:*=network=default' -v -v -o ${XML} -f ${VMX} -c -O -x -C none -A -D -X $* >${XML}.prg 2>>${XML}.log
+vmx2xml.py -n 'name:*=network=default' -n 'type:*=network=default' -v -v -o ${XML} -f ${VMX} -c -O -x -A -T -C none -X $* >${XML}.prg 2>>${XML}.log
 
 RESULT=$?
 if test ${RESULT} != "0" ; then

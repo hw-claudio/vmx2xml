@@ -14,7 +14,7 @@ mkdir -p `dirname ${XML}`
 
 echo "vmx2xml.py" > ${XML}.log
 echo "==========" >> ${XML}.log
-vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -x -C none $* >${XML}.prg 2>>${XML}.log
+vmx2xml.py -v -o ${XML} -f ${VMX} -c -O -x -A -D -T -C none $* >${XML}.prg 2>>${XML}.log
 
 RESULT=$?
 if test ${RESULT} != "0" ; then
