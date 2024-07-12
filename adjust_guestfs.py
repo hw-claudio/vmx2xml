@@ -172,15 +172,15 @@ network:
     return True
 
 
-def guestfs_lin_update_net_nm(g: guestfs.GuestFS, macs: list) -> bool:
+def guestfs_lin_update_net_nm(_g: guestfs.GuestFS, _macs: list) -> bool:
     return False
 
 
-def guestfs_lin_update_net_systemd(g: guestfs.GuestFS, macs: list) -> bool:
+def guestfs_lin_update_net_systemd(_g: guestfs.GuestFS, _macs: list) -> bool:
     return False
 
 
-def guestfs_lin_update_net_wicked(g: guestfs.GuestFS, macs: list) -> bool:
+def guestfs_lin_update_net_wicked(_g: guestfs.GuestFS, _macs: list) -> bool:
     return False
 
 
