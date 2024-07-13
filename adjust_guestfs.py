@@ -73,7 +73,7 @@ def get_program(g: guestfs.GuestFS, prg: str) -> str:
 
 
 def guestfs_mount_all(g: guestfs.GuestFS, root: str) -> bool:
-    # mount the root directory and get all mountpoints
+    log.info("mount the root directory...")
     try:
         g.mount(root, "/")
         mountpoints: dict = g.inspect_get_mountpoints(root)
@@ -81,7 +81,7 @@ def guestfs_mount_all(g: guestfs.GuestFS, root: str) -> bool:
         log.error("libguestfs failed to run a command: %s", err)
         return False
 
-    # now mount all mountpoints detected
+    log.info("mount all detected mountpoints...")
     for key in mountpoints:
         if (key == root or mountpoints[key] == "/"):
             continue        # we already mounted root
@@ -93,7 +93,7 @@ def guestfs_mount_all(g: guestfs.GuestFS, root: str) -> bool:
 
 
 def guestfs_trim_all(g: guestfs.GuestFS) -> bool:
-    # mount all the filesystems and trim them
+    log.info("mount all filesystems and trim them...")
     try:
         filesystems: dict = g.list_filesystems()
     except RuntimeError as err:
@@ -119,6 +119,7 @@ def guestfs_trim_all(g: guestfs.GuestFS) -> bool:
 def guestfs_lin_update_fstab(g: guestfs.GuestFS) -> bool:
     # if /etc/fstab exists, add 'nofail' option to all mounts, to try to avoid boot errors.
     # This is specifically for the boot test, for the case where external disks need to be excluded.
+    log.info("update /etc/fstab...")
     try:
         lines: list = g.read_lines("/etc/fstab")
     except:
@@ -147,6 +148,7 @@ def guestfs_lin_update_net_netplan(g: guestfs.GuestFS, macs: list) -> bool:
     netplan: str = get_program(g, "netplan")
     if not (netplan):
         return False
+    log.info("adjusting netplan configuration...")
     # create netplan yaml containing the vmx2xml interfaces
     plan: str = '''
 network:
@@ -180,6 +182,7 @@ def guestfs_lin_update_net_nm(g: guestfs.GuestFS, _macs: list) -> bool:
     nm: str = get_program(g, "NetworkManager")
     if not (nm):
         return False
+    log.info("adjusting NetworkManager configuration...")
     # create NetworkManager conf file to automatically activate interfaces
     conf: str = '''
 [main]
@@ -222,6 +225,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     links: list = ["vmlinuz", "initrd", "initrd.img", "initramfs", "initramfs.img", "config", "System.map"]
     target: str = ""; matches: list
 
+    log.info("detect kernel version from symlinks...")
     for link in links:
         try:
             target = g.readlink(f"/boot/{link}")
@@ -234,13 +238,14 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
         version = target[len(f"/boot/{link}") + 1:]
 
     if (not version):
+        log.info("no version from symlinks, try from /lib/modules/ ...")
         # we could not get version from a link, try from /lib/modules/version
         matches = g.glob_expand("/lib/modules/*")
         if (len(matches) == 1):
             target = matches[0]
             version = target[len("/lib/modules/"):-1] # strip the final / added by glob to dirs
     if (not version):
-        # try from unique entries of links
+        log.info("no version from /lib/modules/, try from unique symlink names...")
         for link in links:
             matches = g.glob_expand(f"/boot/{link}-*")
             if (len(matches) == 1):
@@ -249,7 +254,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
     if (version):
         # finally we got a version
         log.debug("version %s detected", version)
-        # try to find an initrd file that is named after the version
+        log.info("searching for an initrd that is named after the version...")
         try:
             glob: str = f"/boot/initrd*-{version}"
             matches = g.glob_expand(glob)
@@ -269,7 +274,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
             log.info("could not find initrd for version %s: %s", version, err)
 
     if (not initrd):
-        # everything has failed, try getting the first inird we see
+        log.info("initrd not detected, try to use the first initrd we see")
         try:
             matches = g.glob_expand("/boot/initrd*")
             if (len(matches) < 1):
@@ -284,8 +289,11 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
             return False
 
     assert(initrd)
-    # now detect which tool to use to update this initrd
+    if not (version):
+        log.error("no version detected, cannot proceed")
+        return False
 
+    log.info("searching for tool to update initrd...")
     # try make-initrd, which should automatically install virtio stuff when virtualized
     sbin: str = get_program(g, "make-initrd")
     if (sbin):
@@ -331,6 +339,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
 
 
 def guestfs_lin(g: guestfs.GuestFS, root: str, drivers: bool, trim: bool, fstab: bool, macs: list) -> bool:
+    log.info("starting to adjust linux guest")
     if not (guestfs_mount_all(g, root)):
         return False
     if (drivers and not guestfs_lin_update_initrd(g)):
@@ -355,6 +364,7 @@ def guestfs_win(g: guestfs.GuestFS, root: str, _drivers: bool, trim: bool) -> bo
 
 def adjust_guestfs(path: str, nbd: bool, drivers: bool, trim: bool, fstab: bool, macs: list) -> bool:
     g: guestfs.GuestFS; root: str; os_type: str
+    log.info("guestfs launch...")
     (g, root, os_type) = guestfs_launch(path, nbd)
     if (not g):
         log.warning("could not detect any supported guestOS in %s,\n"
