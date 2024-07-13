@@ -161,6 +161,8 @@ network:
       dhcp6: true
 '''
         try:
+            # file name starting with v, therefore should come after the others,
+            # and thus override conflicting settings
             g.write("/etc/netplan/vmx2xml.yaml", plan)
         except:
             return False
@@ -184,6 +186,8 @@ def guestfs_lin_update_net_nm(g: guestfs.GuestFS, _macs: list) -> bool:
 no-auto-default=
 '''
     try:
+        # file name starting with v, therefore should come after the others,
+        # and thus override conflicting settings
         g.write("/etc/NetworkManager/conf.d/vmx2xml.conf", conf)
     except:
         return False
