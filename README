@@ -1,5 +1,5 @@
-GOAL
-----
+GOAL: CONVERT VMWare VMs to KVM
+-------------------------------
 
 The goal of this project is to convert VMWare VMs to KVM, primarily Linux guests,
 translating the source .vmx to libvirt .xml, and keeping the VM definition as simple as possible,
