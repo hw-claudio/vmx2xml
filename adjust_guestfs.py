@@ -278,7 +278,7 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
                     raise RuntimeError("no initrd match")
             if (len(matches) > 1):
                 log.warning("matching the first initrd found and crossing fingers!")
-            initrd = matches[0]
+            initrd = matches[-1]
         except RuntimeError:
             log.error("could not find initrd as a last resort by globbing initrd*")
             return False
