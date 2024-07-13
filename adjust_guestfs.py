@@ -158,6 +158,7 @@ network:
       match:
         macaddress: {macs[i]}
       dhcp4: true
+      dhcp6: true
 '''
         try:
             g.write("/etc/netplan/vmx2xml.yaml", plan)
