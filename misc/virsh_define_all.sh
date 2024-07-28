@@ -1,6 +1,6 @@
 #! /bin/bash
 
-DATASTORE=$1
+DATASTORE=$*
 
 for XML in `find ${DATASTORE} -name "*.xml"` ; do
     virsh define $XML
