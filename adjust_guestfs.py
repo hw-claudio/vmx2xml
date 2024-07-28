@@ -245,12 +245,27 @@ def guestfs_lin_update_initrd(g: guestfs.GuestFS) -> bool:
             target = matches[0]
             version = target[len("/lib/modules/"):-1] # strip the final / added by glob to dirs
     if (not version):
-        log.info("no version from /lib/modules/, try from unique symlink names...")
+        log.info("no version from /lib/modules/, try from /boot/* unique names...")
         for link in links:
             matches = g.glob_expand(f"/boot/{link}-*")
             if (len(matches) == 1):
                 target = matches[0]
                 version = target[len(f"/boot/{link}-"):]
+    if (not version):
+        log.info("no version from unique names, scan /lib/modules/ for same len and lexicographically biggest")
+        matches = g.glob_expand("/lib/modules/*")
+        biggest: str = matches[0]
+        for m in matches:
+            if (len(m) != len(biggest)):
+                log.info("not all the same length unfortunately")
+                biggest = ""
+                break
+            if (m > biggest):
+                biggest = m
+        if (biggest):
+            target = biggest
+            version = target[len("/lib/modules/"):-1]
+
     if (version):
         # finally we got a version
         log.debug("version %s detected", version)
