@@ -587,8 +587,6 @@ def virt_install(vinst_version: float,
     args.extend(["--rng", "/dev/urandom"])
     args.extend(["--memballoon", "none"])
 
-    log.debug("%s", args)
-
     ### CREATE THE DOMAIN XML STRING ###
     xml: str = runcmd(args, True)
     if not (xml):
