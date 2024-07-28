@@ -532,7 +532,7 @@ def virt_install(vinst_version: float,
         device = disk["device"]
         paths: tuple = disk["path"]
         if (skip_extra and not (disk["os"]["name"])):
-            log.info("skipping extra non-OS disk %s", paths[0])
+            log.info("virt_install: skipping extra non-OS disk %s", paths[0])
             continue
         path = translate_check_path(paths[1])
         bus: str = disk["bus"]
@@ -1060,6 +1060,9 @@ def main(argc: int, argv: list) -> int:
     if (disk_mode == "convert"):
         for disk in disks:
             paths: tuple = disk["path"]
+            if (skip_extra and not (disk["os"]["name"])):
+                log.info("convert: skipping extra non-OS disk %s", paths[0])
+                continue
             convert_path(paths[0], paths[1], disk_mode, raw, conv_mode,
                          adj_mode, adj_actions, macs, disk["os"],
                          trace_cmd, cache_mode, numa_node, parallel)
