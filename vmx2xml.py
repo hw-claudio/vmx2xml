@@ -544,6 +544,11 @@ def virt_install(vinst_version: float,
         else:
             target = "virtio"
         s = f"device={device},path={path},target.bus={target},driver.cache={cache}"
+        # XXX workaround for virt-install bug https://github.com/virt-manager/virt-manager/issues/407
+        (_, ext) = os.path.splitext(path)
+        if (ext[0] == '.'):
+            ext = ext[1:]
+            s += f",driver.type={ext}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
         args.extend(["--disk", s])
