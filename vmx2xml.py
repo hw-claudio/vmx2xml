@@ -548,6 +548,8 @@ def virt_install(vinst_version: float,
         (_, ext) = os.path.splitext(path)
         if (ext[0] == '.'):
             ext = ext[1:]
+            if (ext == "iso"):
+                ext = "raw"
             s += f",driver.type={ext}"
         if (vinst_version >= 3.0):
             s += f",type={driver}"
